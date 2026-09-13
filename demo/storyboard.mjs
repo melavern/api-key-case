@@ -242,7 +242,7 @@ export function buildTimeline(transcriptPath = TRANSCRIPT_PATH, locale = "en") {
       items: ["deploy → Cloudflare", "deploy → Vercel", "deploy → GitHub"]
     },
     price: { title: "API Key Case Pro", amount: "¥2,980", terms: "One-time purchase · no subscription" },
-    url: "apikeycase.leoneapps.com",
+    url: "apikeycase.melavern.com",
     footer: "MIT-licensed source · Node 20+ · Windows, macOS, Linux"
   });
   const durationMs = t + 10600;

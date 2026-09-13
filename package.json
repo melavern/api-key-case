@@ -36,18 +36,18 @@
     "vercel",
     "github"
   ],
-  "author": "Leone Apps",
+  "author": "Melavern",
   "license": "MIT",
   "publishConfig": {
     "access": "public"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/leone-develop/api-key-case.git"
+    "url": "git+https://github.com/melavern/api-key-case.git"
   },
-  "homepage": "https://apikeycase.leoneapps.com/",
+  "homepage": "https://apikeycase.melavern.com/",
   "bugs": {
-    "url": "https://github.com/leone-develop/api-key-case/issues"
+    "url": "https://github.com/melavern/api-key-case/issues"
   },
   "engines": {
     "node": ">=20"

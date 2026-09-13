@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
   - name: Security vulnerability
-    url: https://github.com/leone-develop/api-key-case/security/advisories/new
+    url: https://github.com/melavern/api-key-case/security/advisories/new
     about: Report vulnerabilities privately. Never include a real credential.
   - name: Purchase or refund support
-    url: https://apikeycase.leoneapps.com/refund
-    about: Use the private contact route in your Lemon Squeezy order email or email dev@leoneapps.com.
+    url: https://apikeycase.melavern.com/refund
+    about: Use the private contact route in your Lemon Squeezy order email or email dev@melavern.com.

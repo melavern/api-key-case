@@ -6,6 +6,21 @@ only: reading it or running the verification commands below must not make the
 GitHub repository public, push a commit, create a tag, deploy a Worker, or
 publish to npm.
 
+## Brand migration checkpoint
+
+The repository is already Public at `melavern/api-key-case`, managed with the
+dedicated `melavern-dev` identity. npm `api-key-case@0.9.0` is already published.
+The brand-only migration does not create a release/tag, publish or unpublish a
+package, change license terms, or release new product functionality. Do not
+repeat the historical first-publication/bootstrap steps below for a rebrand.
+Keep published npm metadata and the existing tag unchanged; source metadata
+and current links use Melavern. Existing 0.9.0 installs retain the old license
+endpoint, which must continue direct handling during compatibility support.
+
+Sender/reply setup and product acceptance remain follow-up release preparation,
+not authorization to advance the release during brand migration. Review the
+exact brand-only diff and public operation identity before any Public push.
+
 ## 1. Local gate before changing visibility
 
 Run these checks from a clean checkout and review their output:
@@ -37,13 +52,13 @@ Before the final review, also confirm:
   sales, a human must separately confirm the live checkout, provider settings,
   and final operating decision. An already issued offline `AKC1` cannot be
   remotely revoked.
-- `dev@leoneapps.com` receives support, privacy, security, and commercial
+- `dev@melavern.com` receives support, privacy, security, and commercial
   disclosure requests. Do not use a public Issue for an order, purchase key,
   personal information, or a vulnerability.
-- Test both receipt at `dev@leoneapps.com` and sending/replying with that
+- Test both receipt at `dev@melavern.com` and sending/replying with that
   address as the sender. Configure DKIM for the selected mail provider. MX and
-  SPF are present, but `_dmarc.leoneapps.com` is currently not configured:
-  introduce DMARC in a monitoring/gradual phase first, verify SPF/DKIM
+  SPF must match the selected provider. Read back the current DMARC settings;
+  introduce policy changes in a monitoring/gradual phase first, verify SPF/DKIM
   alignment and reports, then tighten the policy. Do not change DNS as part of
   this code-preparation task.
 - The maintainer has reviewed the four security boundaries in `AGENTS.md`,
@@ -57,13 +72,14 @@ Before the final review, also confirm:
 
 ## 2. Public repository settings
 
-Keep `leone-develop/api-key-case` Private until the reviewed export is the only
+Historical initial-publication procedure (already completed; do not change
+visibility during the brand migration): keep the publication repository Private until the reviewed export is the only
 history that the repository can expose. A deletion commit is not sufficient if
 an earlier commit or another branch contains withheld development files. After
 the clean public history is pushed, change visibility to Public and configure
 the repository settings before the first tag:
 
-1. Set the homepage to `https://apikeycase.leoneapps.com/` and add useful
+1. Set the homepage to `https://apikeycase.melavern.com/` and add useful
    topics such as `cli`, `secrets`, `dotenv`, `mcp`, and `typescript`.
 2. Require pull requests, required CI checks, conversation resolution, and
    no force-push/deletion on `main`. Protect `v*` release tags from accidental
@@ -79,7 +95,8 @@ the repository settings before the first tag:
 
 ## 3. First npm publication and Trusted Publishing
 
-The package is unscoped and currently unpublished. npm cannot register the
+Historical bootstrap procedure (already completed for 0.9.0): the unscoped
+package was initially unpublished. npm cannot register the
 GitHub trusted publisher against a package that does not exist yet. Use this
 one-time bootstrap sequence:
 
@@ -104,7 +121,7 @@ one-time bootstrap sequence:
    temporary token only when `NPM_TOKEN` is present. Provenance is requested.
 5. Immediately delete `NPM_TOKEN` from the GitHub Environment and revoke the
    npm token. In npm package settings, register the Trusted Publisher as:
-   GitHub Actions, owner `leone-develop`, repository `api-key-case`, workflow
+   GitHub Actions, owner `melavern`, repository `api-key-case`, workflow
    filename `publish.yml` (npm expects the filename, not the `.github/workflows/`
    path), and Environment `npm`. Set Allowed actions to `npm publish`.
    After the switch, set Publishing access to `Require 2FA and disallow

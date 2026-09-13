@@ -1,18 +1,24 @@
 # API Key Case
 
-[![CI](https://github.com/leone-develop/api-key-case/actions/workflows/ci.yml/badge.svg)](https://github.com/leone-develop/api-key-case/actions/workflows/ci.yml)
+[![CI](https://github.com/melavern/api-key-case/actions/workflows/ci.yml/badge.svg)](https://github.com/melavern/api-key-case/actions/workflows/ci.yml)
 [![Node.js 20+](https://img.shields.io/badge/Node.js-20%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-0d1714.svg)](LICENSE)
 
 **Hand an AI coding agent the work, not the key.** API Key Case scans a project locally, reports likely secret-handling risks, and generates redacted context for Claude Code, Codex, Cursor, and similar tools. Values live in your OS secret store, and Pro `deploy` places them into Cloudflare, Vercel, or GitHub through those platforms' official CLIs — a secret value is never returned, printed, or logged.
 
-日本語版のREADMEは **[README.ja.md](https://github.com/leone-develop/api-key-case/blob/main/README.ja.md)** にあります。
+日本語版のREADMEは **[README.ja.md](https://github.com/melavern/api-key-case/blob/main/README.ja.md)** にあります。
+
+Brand update: Leone Apps is now Melavern. This repository update does not
+publish a new npm version or change the MIT license terms. The published
+`api-key-case@0.9.0` package is unchanged and still uses its embedded legacy
+license endpoint; builds from this source use the Melavern endpoint. Existing
+0.9.0 demo recordings are historical and may show the former branding.
 
 > **Alpha software:** This tool reduces accidental exposure risk. It does not guarantee complete secret protection. Always review generated files before sharing them.
 >
 > 完全な安全は保証しない。事故確率を下げるツールです。生成物はAIや外部サービスへ渡す前に必ずご自身で確認してください。
 
-**[Website](https://apikeycase.leoneapps.com/)** · **[Security](SECURITY.md)** · **[Support](SUPPORT.md)** · **[Terms](https://apikeycase.leoneapps.com/terms)** · **[Privacy](https://apikeycase.leoneapps.com/privacy)** · **[Brand and third-party notices](NOTICE)**
+**[Website](https://apikeycase.melavern.com/)** · **[Security](SECURITY.md)** · **[Support](SUPPORT.md)** · **[Terms](https://apikeycase.melavern.com/terms)** · **[Privacy](https://apikeycase.melavern.com/privacy)** · **[Brand and third-party notices](NOTICE)**
 
 ## Quick start
 
@@ -36,9 +42,9 @@ Never put a real secret in a command argument, Issue, chat message, or generated
 
 ## Demo
 
-[![API Key Case demo](https://apikeycase.leoneapps.com/demo-ja-poster.jpg)](https://apikeycase.leoneapps.com/demo-ja.mp4)
+[![API Key Case demo](https://apikeycase.melavern.com/demo-ja-poster.jpg)](https://apikeycase.melavern.com/demo-ja.mp4)
 
-**[日本語版を見る](https://apikeycase.leoneapps.com/demo-ja.mp4)** / **[Watch the English original](https://apikeycase.leoneapps.com/demo.mp4)** (no narration) — `scan` finding a committed `.env` and a hardcoded key, `save` storing a value through a hidden prompt, `check` reporting status only, and the Pro `deploy` handing a stored value to `wrangler`.
+**[日本語版を見る](https://apikeycase.melavern.com/demo-ja.mp4)** / **[Watch the English original](https://apikeycase.melavern.com/demo.mp4)** (no narration) — `scan` finding a committed `.env` and a hardcoded key, `save` storing a value through a hidden prompt, `check` reporting status only, and the Pro `deploy` handing a stored value to `wrangler`.
 
 Every terminal line in it is captured from a real run of this repository's CLI; no secret value appears at any point. The generator lives in [`demo/`](demo/) and is not part of the published npm package.
 
@@ -134,7 +140,7 @@ The current `scan`, `save`, `check`, `list`, `remove`, `targets`, and MCP featur
 | Target diagnostics and optional MCP server | ✓ | ✓ |
 | Cloudflare / Vercel / GitHub `deploy` | — | ✓ |
 
-One purchase is for one person and can be used on that person's own devices and projects. Organizations need one purchase per user. Refund requests are accepted for 14 days under the [refund policy](https://apikeycase.leoneapps.com/refund). The [Terms of Use](https://apikeycase.leoneapps.com/terms) govern the official Pro entitlement and services; they do not narrow the rights granted to the source code under MIT.
+One purchase is for one person and can be used on that person's own devices and projects. Organizations need one purchase per user. Refund requests are accepted for 14 days under the [refund policy](https://apikeycase.melavern.com/refund). The [Terms of Use](https://apikeycase.melavern.com/terms) govern the official Pro entitlement and services; they do not narrow the rights granted to the source code under MIT.
 
 ```sh
 api-key-case license activate     # interactive hidden input; argv and non-TTY input are rejected
@@ -302,4 +308,4 @@ Current release: **v0.9.0 (pre-stable)**. Security fixes are provided for the la
 
 MIT — the full source, including `deploy`, is public. `deploy` additionally requires a one-time-purchase license key to run (see [Licensing](#licensing-deploy)); this is a good-faith gate, not a technical restriction on the code itself. See [docs/design/phase-5-license.md](docs/design/phase-5-license.md) for the design and threat model.
 
-Product support and contribution guidance: [SUPPORT.md](SUPPORT.md) · [CONTRIBUTING.md](https://github.com/leone-develop/api-key-case/blob/main/CONTRIBUTING.md). Commercial disclosures: [Terms](https://apikeycase.leoneapps.com/terms) · [Privacy](https://apikeycase.leoneapps.com/privacy) · [Refunds](https://apikeycase.leoneapps.com/refund) · [特定商取引法に基づく表記](https://apikeycase.leoneapps.com/tokushoho).
+Product support and contribution guidance: [SUPPORT.md](SUPPORT.md) · [CONTRIBUTING.md](https://github.com/melavern/api-key-case/blob/main/CONTRIBUTING.md). Commercial disclosures: [Terms](https://apikeycase.melavern.com/terms) · [Privacy](https://apikeycase.melavern.com/privacy) · [Refunds](https://apikeycase.melavern.com/refund) · [特定商取引法に基づく表記](https://apikeycase.melavern.com/tokushoho).

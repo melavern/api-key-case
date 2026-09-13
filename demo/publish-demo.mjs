@@ -125,7 +125,7 @@ if (isMain(import.meta.url)) {
       deploy();
     } else {
       stageSite();
-      console.log("\nNot deployed. To publish this to https://apikeycase.leoneapps.com run:");
+      console.log("\nNot deployed. To publish this to https://apikeycase.melavern.com run:");
       console.log("  node publish-demo.mjs --deploy");
     }
   } catch (err) {

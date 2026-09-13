@@ -18,7 +18,9 @@ GitHub へ配置します。**シークレットの値そのものが返され�
 > 現在は v1.0 前のプレリリースです。最新の状況は英語READMEの
 > [Status and roadmap](README.md#status-and-roadmap) を参照してください。
 
-**[製品サイト](https://apikeycase.leoneapps.com/)** · **[セキュリティ](SECURITY.md)** · **[サポート](SUPPORT.md)** · **[利用規約](https://apikeycase.leoneapps.com/terms)** · **[プライバシー](https://apikeycase.leoneapps.com/privacy)** · **[特商法表記](https://apikeycase.leoneapps.com/tokushoho)** · **[ブランド・第三者素材のNOTICE](NOTICE)**
+**[製品サイト](https://apikeycase.melavern.com/)** · **[セキュリティ](SECURITY.md)** · **[サポート](SUPPORT.md)** · **[利用規約](https://apikeycase.melavern.com/terms)** · **[プライバシー](https://apikeycase.melavern.com/privacy)** · **[特商法表記](https://apikeycase.melavern.com/tokushoho)** · **[ブランド・第三者素材のNOTICE](NOTICE)**
+
+Leone Apps は Melavern に名称変更しました。今回の更新はブランド移行のみで、npmの新バージョン公開やMITライセンス条件の変更はありません。公開済み `api-key-case@0.9.0` は変更されず、埋め込み済みの旧ライセンス交換先を利用します。このソースからのbuildはMelavernの交換先を利用します。既存の0.9.0デモ録画には、当時のブランド表記が残る場合があります。
 
 ## クイックスタート
 
@@ -43,10 +45,10 @@ npx -y api-key-case@latest check OPENAI_API_KEY
 
 ## デモ
 
-[![API Key Case デモ](https://apikeycase.leoneapps.com/demo-ja-poster.jpg)](https://apikeycase.leoneapps.com/demo-ja.mp4)
+[![API Key Case デモ](https://apikeycase.melavern.com/demo-ja-poster.jpg)](https://apikeycase.melavern.com/demo-ja.mp4)
 
-**[日本語版を見る](https://apikeycase.leoneapps.com/demo-ja.mp4)**（テロップ・BGMあり、CLI出力は英語）/
-**[英語版を見る](https://apikeycase.leoneapps.com/demo.mp4)**（ナレーションなし）
+**[日本語版を見る](https://apikeycase.melavern.com/demo-ja.mp4)**（テロップ・BGMあり、CLI出力は英語）/
+**[英語版を見る](https://apikeycase.melavern.com/demo.mp4)**（ナレーションなし）
 
 `scan` がコミット済みの `.env` とハードコードされたキーを検出し、`save` が隠しプロンプトで値を保管し、
 `check` が状態だけを報告し、Pro の `deploy` が保管済みの値を `wrangler` に渡すまでを収録しています。
@@ -150,8 +152,8 @@ Cloudflare を含む3社の詳細な挙動は、英語READMEの
 | Cloudflare / Vercel / GitHub への `deploy` | — | ✓ |
 
 1購入は1名分で、その方ご自身の端末とプロジェクトで使えます。組織で使う場合は利用者ごとに1購入が必要です。
-返金は[返金ポリシー](https://apikeycase.leoneapps.com/refund)に基づき14日以内で受け付けます。
-[利用規約](https://apikeycase.leoneapps.com/terms)は公式のPro権利とサービスに適用されるもので、
+返金は[返金ポリシー](https://apikeycase.melavern.com/refund)に基づき14日以内で受け付けます。
+[利用規約](https://apikeycase.melavern.com/terms)は公式のPro権利とサービスに適用されるもので、
 MITライセンスがソースコードに与える権利を狭めるものではありません。
 
 ```sh
@@ -213,4 +215,4 @@ MIT。`deploy` を含む全ソースが公開されています。`deploy` の�
 善意のゲートです。
 
 サポートと貢献について: [SUPPORT.md](SUPPORT.md) ·
-[CONTRIBUTING.md](https://github.com/leone-develop/api-key-case/blob/main/CONTRIBUTING.md)
+[CONTRIBUTING.md](https://github.com/melavern/api-key-case/blob/main/CONTRIBUTING.md)

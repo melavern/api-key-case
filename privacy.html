@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0d1714">
   <meta name="description" content="API Key Case のプライバシーポリシー。テレメトリはなく、スキャンはローカルで完結します。">
-  <link rel="canonical" href="https://apikeycase.leoneapps.com/privacy">
+  <link rel="canonical" href="https://apikeycase.melavern.com/privacy">
   <title>プライバシーポリシー — API Key Case</title>
 
   <style>
@@ -156,7 +156,7 @@
       </div>
 
       <h2>1. 適用範囲</h2>
-      <p>本ポリシーは、Leone Apps（以下「開発者」）が公式に提供する API Key Case、ライセンス交換サービス、本ウェブサイトおよび開発者が行うサポートに適用されます。Cloudflare、Vercel、GitHub、Lemon Squeezy、npm、OS提供者およびAIサービスなど第三者のサービスには、各事業者のプライバシーポリシーが適用されます。</p>
+      <p>本ポリシーは、Melavern（以下「開発者」）が公式に提供する API Key Case、ライセンス交換サービス、本ウェブサイトおよび開発者が行うサポートに適用されます。Cloudflare、Vercel、GitHub、Lemon Squeezy、npm、OS提供者およびAIサービスなど第三者のサービスには、各事業者のプライバシーポリシーが適用されます。</p>
 
       <h2>2. CLI が外部送信しない情報</h2>
       <p>本ソフトウェアは、次の情報を開発者へ送信しません。</p>
@@ -168,7 +168,7 @@
       <p>秘密値は、利用者の操作により OS のシークレットストア（macOS Keychain / Windows 資格情報マネージャー / Linux Secret Service）へ保存されます。開発者はこれを取得できません。OS提供者による取扱いは各OSの条件に従います。</p>
 
       <h2>3. ライセンス有効化時に処理する情報</h2>
-      <p><code>api-key-case license activate</code> を利用した場合に限り、本ソフトウェアは次の情報を HTTPS で固定送信先 <code>apikeycase-license.leoneapps.com</code>（Cloudflare Workers）へ送ります。</p>
+      <p><code>api-key-case license activate</code> を利用した場合に限り、本ソフトウェアは次の情報を HTTPS で固定送信先へ送ります。公開済み npm <code>api-key-case@0.9.0</code> は <code>apikeycase-license.leoneapps.com</code>、ブランド移行後のソースからのbuildは <code>apikeycase-license.melavern.com</code>（いずれも同じ開発者が運用する Cloudflare Workers）を利用します。今回のブランド変更で公開済みパッケージは再公開・変更していません。旧交換先は既存版の互換用であり、購入キーを新ドメインへリダイレクトしません。</p>
       <ul>
         <li><strong>Lemon Squeezy の購入キー：</strong>購入の有効性を確認するため Lemon Squeezy の License API へ送信します。開発者のデータベース、アプリケーションログまたは応答には保存・出力しません。</li>
         <li><strong>接続元 IP アドレス：</strong>不正な大量アクセスを抑止するレート制限に使用します。アプリケーションログへ出力せず、Cloudflare のレート制限基盤および標準的なセキュリティ処理の範囲で取り扱われます。</li>
@@ -186,11 +186,11 @@
       <p>開発者は、商品の提供、ライセンス確認、購入者サポート、不正防止および返金対応に必要な範囲で、Lemon Squeezy の管理画面または API を通じて、購入者のメールアドレス、ライセンス状態、注文状態、購入商品、支払・返金状態および関連識別子を参照する場合があります。</p>
 
       <h2>6. ウェブサイトのアクセス情報</h2>
-      <p>本ウェブサイト（<code>apikeycase.leoneapps.com</code>）は Cloudflare 上で配信されます。開発者独自のアクセス解析、広告、行動追跡またはマーケティング Cookie は設置していません。</p>
+      <p>本ウェブサイト（<code>apikeycase.melavern.com</code>）は Cloudflare 上で配信されます。開発者独自のアクセス解析、広告、行動追跡またはマーケティング Cookie は設置していません。</p>
       <p>Cloudflare は、配信、安全確保、不正対策および障害調査のため、IP アドレス、日時、リクエスト先、User-Agent その他の標準的なアクセス情報を処理する場合があります。保持期間と取扱いは Cloudflare の契約およびポリシーに従います。</p>
 
       <h2>7. サポート・脆弱性報告</h2>
-      <p>一般サポートは公開の GitHub Issues を利用します。投稿内容、GitHub アカウント名、投稿日時その他 GitHub が表示する情報は公開され、GitHub のポリシーに従って保持されます。購入、返金、個人情報または非公開の技術情報を含む問い合わせは <a href="mailto:dev@leoneapps.com">dev@leoneapps.com</a> へ送ってください。脆弱性報告には GitHub Private Vulnerability Reporting を利用し、利用できない場合は同メールアドレスへ送ってください。</p>
+      <p>一般サポートは公開の GitHub Issues を利用します。投稿内容、GitHub アカウント名、投稿日時その他 GitHub が表示する情報は公開され、GitHub のポリシーに従って保持されます。購入、返金、個人情報または非公開の技術情報を含む問い合わせは <a href="mailto:dev@melavern.com">dev@melavern.com</a> へ送ってください。脆弱性報告には GitHub Private Vulnerability Reporting を利用し、利用できない場合は同メールアドレスへ送ってください。</p>
       <p><strong>Issue や報告には、本物のAPIキー、<code>.env</code>、購入キー、署名済みライセンス、秘密鍵、個人情報または未加工のスキャン結果を記載しないでください。</strong> 開発者は、受領した問い合わせ情報を、回答、調査、不正防止および紛争対応に必要な範囲で利用します。</p>
 
       <h2>8. 利用目的</h2>
@@ -220,13 +220,13 @@
       <p>開発者は、送信先の固定、HTTPS、購入キーの非ログ化、レート制限、応答サイズ制限、秘密鍵のサーバー側保管、権限の限定その他、取扱う情報の性質に応じた合理的な安全管理措置を講じます。ただし、インターネット通信または情報保存の完全な安全性を保証するものではありません。</p>
 
       <h2>12. 開示・訂正・削除等の請求</h2>
-      <p>開発者が保有する利用者の個人情報について、適用法令に基づく開示、訂正、利用停止または削除を希望する場合は、<a href="mailto:dev@leoneapps.com">dev@leoneapps.com</a> へ請求してください。本人確認に必要な情報をお願いする場合があります。Lemon Squeezy または GitHub が独立して保有する情報は、各事業者へ直接請求してください。</p>
+      <p>開発者が保有する利用者の個人情報について、適用法令に基づく開示、訂正、利用停止または削除を希望する場合は、<a href="mailto:dev@melavern.com">dev@melavern.com</a> へ請求してください。本人確認に必要な情報をお願いする場合があります。Lemon Squeezy または GitHub が独立して保有する情報は、各事業者へ直接請求してください。</p>
 
       <h2>13. 本ポリシーの改定</h2>
       <p>開発者は、サービス内容または法令の変更に応じて本ポリシーを改定します。重要な変更は、効力発生日と変更内容を本ページその他の適切な方法で事前に周知するよう努めます。</p>
 
       <h2>14. お問い合わせ</h2>
-      <p>本ポリシーに関するお問い合わせは、<a href="mailto:dev@leoneapps.com">dev@leoneapps.com</a> へお願いします。</p>
+      <p>本ポリシーに関するお問い合わせは、<a href="mailto:dev@melavern.com">dev@melavern.com</a> へお願いします。</p>
     </div>
   </main>
 
@@ -238,7 +238,7 @@
         <a href="terms.html">利用規約</a>
         <a href="refund.html">返金ポリシー</a>
       </div>
-      <p>© 2026 Leone Apps. API Key Case.</p>
+      <p>© 2026 Melavern. API Key Case.</p>
     </div>
   </footer>
 </body>

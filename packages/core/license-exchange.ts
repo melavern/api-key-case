@@ -7,7 +7,7 @@ import {
 
 // Fixed at build time and deliberately not configurable through argv or the
 // environment: a purchase key must never be redirected to an arbitrary host.
-export const LICENSE_EXCHANGE_URL = "https://apikeycase-license.leoneapps.com/license/exchange";
+export const LICENSE_EXCHANGE_URL = "https://apikeycase-license.melavern.com/license/exchange";
 
 const MAX_RESPONSE_BYTES = 8 * 1024;
 const DEFAULT_TIMEOUT_MS = 10_000;

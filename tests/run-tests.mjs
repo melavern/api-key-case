@@ -41,6 +41,7 @@ import {
 } from "../dist/core/license.js";
 import {
   activatePurchaseLicense,
+  LICENSE_EXCHANGE_URL,
   LicenseActivationError
 } from "../dist/core/license-exchange.js";
 import { generateKeypairPem, isInsideRepo, issueLicenseKey } from "../tools/issue-license.mjs";
@@ -639,11 +640,11 @@ function testDeployPlansNeverCarryAValue() {
 
 function testGitHubRemoteDetection() {
   for (const remote of [
-    "https://github.com/leone-develop/api-key-case.git",
-    "ssh://git@github.com/leone-develop/api-key-case.git",
-    "git://GITHUB.COM/leone-develop/api-key-case.git",
-    "git@github.com:leone-develop/api-key-case.git",
-    "github.com:leone-develop/api-key-case.git"
+    "https://github.com/melavern/api-key-case.git",
+    "ssh://git@github.com/melavern/api-key-case.git",
+    "git://GITHUB.COM/melavern/api-key-case.git",
+    "git@github.com:melavern/api-key-case.git",
+    "github.com:melavern/api-key-case.git"
   ]) {
     assert.equal(isGitHubRemoteUrl(remote), true, `expected GitHub remote: ${remote}`);
   }
@@ -1420,6 +1421,7 @@ function testLicenseGate(root) {
 }
 
 async function testOnlineLicenseActivation(root) {
+  assert.equal(LICENSE_EXCHANGE_URL, "https://apikeycase-license.melavern.com/license/exchange");
   mkdirSync(root, { recursive: true });
   const { publicKey, privateKey } = generateKeyPairSync("ed25519");
   const privateKeyPem = privateKey.export({ type: "pkcs8", format: "pem" }).toString();

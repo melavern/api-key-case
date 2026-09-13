@@ -40,5 +40,5 @@ If a proposed feature needs to cross one of these boundaries, do not implement i
 ## Reporting security issues
 
 Use GitHub Private Vulnerability Reporting, not an Issue or pull request. If
-that route is unavailable, email [dev@leoneapps.com](mailto:dev@leoneapps.com)
+that route is unavailable, email [dev@melavern.com](mailto:dev@melavern.com)
 instead. See [SECURITY.md](SECURITY.md).

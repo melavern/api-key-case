@@ -14,9 +14,9 @@ for (const [name, content] of pages) {
   assert.equal(content.includes("ずっと無料"), false, `${name} makes an unlimited free-pricing promise`);
   assert.match(content, /<html lang="ja">/, `${name} must declare Japanese content`);
   assert.match(content, /<meta name="description" content="[^"]+">/, `${name} must have a description`);
-  assert.match(content, /<link rel="canonical" href="https:\/\/apikeycase\.leoneapps\.com\//, `${name} must have a production canonical URL`);
+  assert.match(content, /<link rel="canonical" href="https:\/\/apikeycase\.melavern\.com\//, `${name} must have a production canonical URL`);
   if (name !== "index.html") {
-    assert.doesNotMatch(content, /<link rel="canonical" href="https:\/\/apikeycase\.leoneapps\.com\/[^\"]+\.html/, `${name} canonical URL must use the live extensionless route`);
+    assert.doesNotMatch(content, /<link rel="canonical" href="https:\/\/apikeycase\.melavern\.com\/[^\"]+\.html/, `${name} canonical URL must use the live extensionless route`);
   }
 
   assert.doesNotMatch(
@@ -74,6 +74,9 @@ assert.match(terms, /生命もしくは身体/, "liability limit must preserve n
 assert.match(terms, /医療、生命維持、緊急対応/, "terms must define excluded high-stakes uses");
 
 const privacy = pages.get("privacy.html");
+assert.match(privacy, /api-key-case@0\.9\.0/, "privacy must distinguish the immutable published package");
+assert.match(privacy, /apikeycase-license\.leoneapps\.com/, "privacy must disclose npm 0.9.0's legacy endpoint");
+assert.match(privacy, /apikeycase-license\.melavern\.com/, "privacy must disclose the rebranded source endpoint");
 assert.match(privacy, /license activate/, "privacy must describe license activation traffic");
 assert.match(privacy, /公式CLIによる配置/, "privacy must distinguish deploy traffic from activation traffic");
 assert.match(privacy, /購入キーの SHA-256 ダイジェスト/, "privacy must describe purchase-key rate limiting");
@@ -82,10 +85,10 @@ const disclosure = pages.get("tokushoho.html");
 assert.match(disclosure, /請求があれば遅滞なく開示します/, "commercial disclosure must provide a delayed-disclosure commitment");
 assert.match(disclosure, /特商法に基づく表示の開示請求/, "commercial disclosure must provide a concrete request route");
 assert.match(disclosure, /Sold through Link, LLC/, "commercial disclosure must identify the Merchant of Record entity");
-assert.match(disclosure, /mailto:dev@leoneapps\.com/, "commercial disclosure must provide a private email route");
+assert.match(disclosure, /mailto:dev@melavern\.com/, "commercial disclosure must provide a private email route");
 
 for (const name of ["index.html", "tokushoho.html", "terms.html", "privacy.html", "refund.html"]) {
-  assert.match(pages.get(name), /dev@leoneapps\.com/, `${name} must expose the private contact address`);
+  assert.match(pages.get(name), /dev@melavern\.com/, `${name} must expose the private contact address`);
 }
 
 console.log("site content tests passed");

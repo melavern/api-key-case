@@ -4,7 +4,7 @@ API Key Case is maintained as an individual open-source project. Support is best
 
 ## Product questions and bug reports
 
-Use [GitHub Issues](https://github.com/leone-develop/api-key-case/issues) for reproducible, non-sensitive product questions, bug reports, and feature requests. For private context, purchase questions, or a request that includes an order or account detail, email [dev@leoneapps.com](mailto:dev@leoneapps.com).
+Use [GitHub Issues](https://github.com/melavern/api-key-case/issues) for reproducible, non-sensitive product questions, bug reports, and feature requests. For private context, purchase questions, or a request that includes an order or account detail, email [dev@melavern.com](mailto:dev@melavern.com).
 
 Before posting:
 
@@ -18,13 +18,13 @@ Never post a real API key, access token, `.env` file, private key, Lemon Squeezy
 
 ## Purchases and refunds
 
-Do not put transaction details in a public Issue. Use the support or refund route in the Lemon Squeezy order email or order page, or email [dev@leoneapps.com](mailto:dev@leoneapps.com) for private purchase and refund support. The product's [14-day refund policy](https://apikeycase.leoneapps.com/refund) applies.
+Do not put transaction details in a public Issue. Use the support or refund route in the Lemon Squeezy order email or order page, or email [dev@melavern.com](mailto:dev@melavern.com) for private purchase and refund support. The product's [14-day refund policy](https://apikeycase.melavern.com/refund) applies.
 
 If you only need help finding that route, open an Issue without including your order number, purchase key, email address, or other buyer information.
 
 ## Security vulnerabilities
 
-Do not report vulnerabilities in a public Issue. Use GitHub Private Vulnerability Reporting from the repository's Security tab, or email [dev@leoneapps.com](mailto:dev@leoneapps.com) if that route is unavailable, and follow [SECURITY.md](SECURITY.md). Use fake canary credentials in every reproduction.
+Do not report vulnerabilities in a public Issue. Use GitHub Private Vulnerability Reporting from the repository's Security tab, or email [dev@melavern.com](mailto:dev@melavern.com) if that route is unavailable, and follow [SECURITY.md](SECURITY.md). Use fake canary credentials in every reproduction.
 
 ## What support does not cover
 

@@ -63,7 +63,7 @@ These follow directly from the boundaries above; they are the edge of what a loc
 
 Do not include a real credential, `.env` file, access token, private key, or unredacted scan output in a report.
 
-Once the GitHub repository is public, use GitHub Private Vulnerability Reporting. Until then, or when that route is unavailable, email [dev@leoneapps.com](mailto:dev@leoneapps.com). Do not include credentials or other sensitive values in the email; use fake canaries and redact output.
+Once the GitHub repository is public, use GitHub Private Vulnerability Reporting. Until then, or when that route is unavailable, email [dev@melavern.com](mailto:dev@melavern.com). Do not include credentials or other sensitive values in the email; use fake canaries and redact output.
 
 Include:
 
