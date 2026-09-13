@@ -27,8 +27,11 @@ const PREVIEW_BRANCH = "preview";
 // docs/landing-page/PAGE_SPEC.md §8 (AC-1..AC-4) is unmet, production
 // deployment is refused and the review Preview is staged noindex, so a page
 // that claims an unimplemented experience cannot be read as the live site.
-// Flip this to true only when those acceptance criteria are met.
-const LANDING_PAGE_PUBLISH_GATE_MET = false;
+// Opened on 2026-09-14 for 0.9.1: AC-1..AC-4 were accepted on the Windows
+// 11 + Hello host, and the exact-version package plus its public source were
+// verified from an external path before this flag changed (PAGE_SPEC §9).
+// Flip it back to false only as a deliberate withdrawal of the page's claims.
+const LANDING_PAGE_PUBLISH_GATE_MET = true;
 const LP_POSTHOG_PROJECT_TOKEN_ENV = "API_KEY_CASE_LP_POSTHOG_PROJECT_TOKEN";
 const LP_POSTHOG_API_HOST_ENV = "API_KEY_CASE_LP_POSTHOG_API_HOST";
 const DEFAULT_POSTHOG_API_HOST = "https://us.i.posthog.com";

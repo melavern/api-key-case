@@ -15,6 +15,51 @@ tracks remaining acceptance. In particular, the [later Windows v1 decision](desi
 retains in-process verification and does not adopt the elevated-broker PoC;
 the older research stop below is not a requirement to finish that broker.
 
+## 0.9.1 published and verified from the outside — 2026-09-14
+
+Base: Public `main` `f0c2a931cf1eeb7e0e6bddb351ee220bba77da2e`, exported from
+Private `main` `c656505`; annotated tag `v0.9.1` (tag object `de6f931`,
+tagger the public maintainer identity) points at that commit.
+
+**Observed, not inferred.**
+
+- The Public CI run on `f0c2a93` passed all nine jobs (Node 20/22/24 on
+  Ubuntu, Node 24 on macOS and Windows, package lane, keyring e2e on all
+  three OSes) and CodeQL passed. The tag-triggered Publish run
+  `34772659529` passed its actor/repository, version, annotated-tag identity
+  and target, `origin/main` ancestry and Public-visibility checks, then
+  `npm ci`, `npm test` and a dry run, and published with no `NPM_TOKEN`
+  through npm Trusted Publishing; npm attached SLSA v1 provenance naming
+  `melavern/api-key-case@refs/tags/v0.9.1` at `f0c2a93` from
+  `.github/workflows/publish.yml` (Sigstore log index 2820561074).
+- Registry: `api-key-case@0.9.1`, `latest` → `0.9.1`, integrity
+  `sha512-HLwOOUaoU1QTbr/…` identical to a local `npm pack --dry-run` of the
+  same source, 129 files, `gitHead f0c2a93`, `license Elastic-2.0`.
+- From a disposable directory with an empty npm cache and no repository
+  checkout: `npx --yes api-key-case@0.9.1 --version` printed `0.9.1`;
+  `npx --yes api-key-case@0.9.1 scan .` produced the expected report for a
+  fixture project; `npx --yes api-key-case@latest --version` printed `0.9.1`;
+  the installed consumer's `npm audit --omit=dev` reported 0 vulnerabilities
+  and `npm audit signatures` verified registry signatures and attestations.
+- An anonymous `git clone` of the Public repository resolved `HEAD` and
+  `v0.9.1^{}` to `f0c2a93`; reachable authors are the public maintainer
+  identity (current and pre-rename spellings of the same account) and
+  Dependabot.
+- The landing page publish gate was opened after those checks and the site
+  deployed to Pages production (deployment `f4d7b6c5-7653-43c4-90ac-2bd75dcb44e3`).
+  All 17 deployed assets are byte-identical on `api-key-case-lp.pages.dev`;
+  the custom domain whose TLS this Ubuntu host can verify serves the same
+  pages (after reversing Cloudflare's email obfuscation only), with the
+  exact-version setup prompt, the live checkout link, and the legal,
+  os-support, npm and GitHub links.
+
+**Not verified here.** `https://apikeycase.melavern.com` and
+`https://apikeycase-license.melavern.com` could not be fetched with a trusted
+certificate chain from this host's network (an intercepting proxy certificate
+is presented); their external check was handed to the owner's browser. No
+purchase, license exchange or `license activate` was performed for this
+release; the earlier controlled test-mode record remains the evidence.
+
 ## GitHub Actions re-enabled; portable/keyring CI on all three OSes — 2026-09-12
 
 Base: Private `main`, candidate 0.9.1. This closes the gap noted in the

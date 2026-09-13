@@ -308,10 +308,12 @@ third-party failure.
 - [x] The public PostHog Project Token and its US/EU region are configured in
       `POSTHOG_PUBLIC_PROJECT_TOKEN` and `POSTHOG_PUBLIC_API_HOST` in
       `packages/core/telemetry-config.ts` for the v0.9.1 npm candidate.
-- [ ] The same public Project Token and region are supplied through the LP
+- [x] The same public Project Token and region are supplied through the LP
       staging environment variables before the production site is deployed.
       Observed 2026-09-11: the Pages `preview` alias injects the CLI's token
-      with the US host; the production site does not carry the hook yet.
+      with the US host; the production site did not carry the hook yet.
+      Done 2026-09-14: the production deployment injects the CLI's public
+      Project Token with `https://us.i.posthog.com`.
 - [ ] PostHog project settings do not re-enable autocapture, replay, heatmaps,
       automatic form capture, or person identification for this page.
       Observed 2026-09-11 from the project's public remote config: session

@@ -415,14 +415,23 @@ for (const forbidden of ["実機の録画です", "本当に進みます", "初�
 assert.match(readFileSync(resolve(repoDir, "launch-ja.vtt"), "utf8"), /^WEBVTT\r?\n/, "the committed captions must be WebVTT");
 
 // PAGE_SPEC §8 publish gate. The page no longer protects itself by being a
-// separate file, so the gate lives in the publish script. Both assertions below
-// are meant to fail the day someone flips LANDING_PAGE_PUBLISH_GATE_MET, so the
-// decision to publish these claims is made deliberately and not as a side effect.
+// separate file, so the gate lives in the publish script. It was opened for
+// 0.9.1 on 2026-09-14, so a staged build must now be indexable and carry the
+// committed robots.txt; closing it again is a deliberate withdrawal of the
+// page's claims and must fail these assertions rather than slip through.
+// deploy() is deliberately not invoked here: with the gate open it would
+// reach Wrangler, and the PostHog requirement it shares with the Preview lane
+// is already asserted above through stageSite({ requirePostHog: true }).
 assert.doesNotThrow(() => checkLandingPage(landing), "the landing page must pass its publish checks");
 assert.throws(() => checkLandingPage(landing + "<p>npx api-key-case scan</p>"), /must not teach CLI usage/);
 assert.throws(() => checkLandingPage('<textarea id="unrelated">npx api-key-case scan</textarea>'), /must not teach CLI usage/);
-assert.throws(() => deploy(), /PAGE_SPEC\.md §8/, "production deployment must stay refused while AC-1..AC-4 are unmet");
-assert.match(applyPublishGate(landing), /<meta name="robots" content="noindex, nofollow">/, "a gated Preview build must be staged noindex");
+assert.equal(typeof deploy, "function", "the production deploy lane must still exist");
+assert.equal(applyPublishGate(landing), landing, "an open gate must leave the published page untouched (no noindex)");
+{
+  const stagedDir = stageSite();
+  assert.equal(readFileSync(join(stagedDir, "robots.txt"), "utf8"), readFileSync(resolve(repoDir, "robots.txt"), "utf8"), "an open gate must stage the committed robots.txt, not Disallow: /");
+  assert.doesNotMatch(readFileSync(join(stagedDir, "index.html"), "utf8"), /name="robots"/, "the staged production page must be indexable");
+}
 
 for (const source of editorialSources) {
   assert.match(source, /APIキーの設定も、Agentに任せたい。/, "the LP copy source must record the hero hook shared with the announcement video");

@@ -30,14 +30,24 @@ Linux keyring backend and login/reboot persistence remain environment-dependent.
 `deploy --dry-run` is still a Pro feature and only shows a plan; it is not free
 deployment support.
 
+## Release status — 2026-09-14
+
+`api-key-case@0.9.1` is published on npm with Trusted Publishing provenance,
+`latest` resolves to it, and the public repository carries the matching
+source at annotated tag `v0.9.1` (commit `f0c2a93`). From a disposable
+directory, `npx --yes api-key-case@0.9.1 --version` and `scan .` behave as
+documented, and an anonymous clone resolves the tag to the same commit. The
+LP publish gate (`docs/landing-page/PAGE_SPEC.md` §8) was opened only after
+those external checks. Dated observations remain in [VERIFICATION](VERIFICATION.md).
+
 ## Agent-first candidate status — 2026-09-08
 
-The working candidate is 0.9.1. On this date npm `latest` still resolved to
+The working candidate was 0.9.1. On this date npm `latest` still resolved to
 0.9.0, and the public repository had not received the Agent-first changes.
-The local LP therefore describes a candidate, not the experience currently
-available through a fresh registry download. Do not open its publish gate
-until the exact-version prompt and its public review links resolve to the
-reviewed release.
+The local LP therefore described a candidate, not the experience available
+through a fresh registry download; its publish gate stayed closed until the
+exact-version prompt and its public review links resolved to the reviewed
+release (see the 2026-09-14 status above).
 
 Read documents in this order:
 
@@ -61,7 +71,7 @@ Read documents in this order:
 | User's actual Coding Agent | Codex followed the LP exact-version prompt from a fresh disposable repository, ran `agent-init --host agents`, resumed in a new chat from generated AGENTS.md, and completed the selected Vercel preview flow without receiving Secret input. See [fresh-consumer acceptance](VERIFICATION.md#fresh-consumer-coding-agent-and-vercel-force-acceptance--2026-09-08) | Passed for Codex on this Windows host. Re-run after protocol/artifact changes; the sandbox/user-shell execution-context difference is a documented host constraint, not a product permission to bridge accounts |
 | Real provider compatibility | All three advertised providers now have one authorized real Windows write: GitHub `development` (gh 2.96.0), Cloudflare `production` (wrangler 4.104.0) and Vercel `preview` (vercel 59.11.7). The Vercel run exposed a silent success — the CLI exited 0 without creating the variable — which is fixed and re-verified. Vercel preview `--force` also passed both refusal-without-mutation and approved delete/re-add with independent provider/history checks. See [GitHub](VERIFICATION.md#authorized-real-github-provider-write--2026-09-08), [Cloudflare](VERIFICATION.md#authorized-real-cloudflare-provider-write--2026-09-08), [Vercel](VERIFICATION.md#authorized-real-vercel-write-and-a-silent-success-defect--2026-09-08) and [fresh-consumer force acceptance](VERIFICATION.md#fresh-consumer-coding-agent-and-vercel-force-acceptance--2026-09-08) | Other provider CLI versions, advertised OSes and force paths outside this Vercel preview combination remain coverage limits, not evidence for broader compatibility. Treat a provider CLI's exit code as insufficient evidence on its own: only a real write with an independent name/metadata read-back catches a silent no-op |
 | macOS contributor testing (not a Windows release blocker) | AppKit/Keychain implementation exists; current candidate's real GUI/architecture results remain unverified. Portable generated-script tests cover storage failure/refusal and decision control flow. [SECURITY](../SECURITY.md#known-limitations) records the button-only approval asymmetry; TCC protection against a same-user Accessibility caller remains unmeasured. See the [verification plan](design/macos-human-plane-verification.md) | Windows 11 + Hello is the normal release target. macOS remains a collaborative verification edition. Track native GUI, both removal kinds, architectures, provider discovery and Accessibility before any later promotion to regular support. CI cannot settle human/Accessibility acceptance |
-| Publication and sales | Existing release pipeline; new LP gate closed | Review the final security boundary and sales conditions, publish the reviewed package/public source through the gates below, verify exact-version bootstrap externally, then approve the LP gate |
+| Publication and sales | Done 2026-09-14: `0.9.1` published through the gates below with provenance, exact-version bootstrap verified externally, LP gate opened afterwards | Live checkout facts were re-read the same day without a purchase; the Lemon Squeezy license-key setting on the live variant and PostHog IP/GeoIP/retention remain dashboard reads for the owner |
 
 The supported Windows path and three provider writes are accepted as recorded
 above. Do not repeat that acceptance or reopen the macOS release-policy decision
