@@ -1,6 +1,6 @@
 import { KeyringVault } from "./keyring.js";
 import { removeRegistryEntry, upsertRegistryEntry, readRegistry, type RegistryEntry } from "./registry.js";
-import type { SecretRef, Vault } from "./types.js";
+import { SecretStoreMetadataError, type SecretRef, type Vault } from "./types.js";
 
 export function createVault(): Vault {
   return new KeyringVault();
@@ -13,18 +13,35 @@ export async function saveSecret(
   projectPath: string | null
 ): Promise<void> {
   await vault.setSecret(ref, value);
-  upsertRegistryEntry({
-    name: ref.name,
-    scope: ref.scope,
-    projectId: ref.projectId,
-    projectPath
-  });
+  try {
+    upsertRegistryEntry({
+      name: ref.name,
+      scope: ref.scope,
+      projectId: ref.projectId,
+      projectPath
+    });
+  } catch {
+    throw new SecretStoreMetadataError();
+  }
 }
 
-export async function removeSecret(vault: Vault, ref: SecretRef): Promise<boolean> {
-  const existed = await vault.deleteSecret(ref);
-  removeRegistryEntry({ name: ref.name, scope: ref.scope, projectId: ref.projectId });
-  return existed;
+export async function removeSecret(
+  vault: Vault,
+  ref: SecretRef,
+  registryBaseDir?: string // test-only; keeps `npm test` off the real vault index
+): Promise<boolean> {
+  const removed = await vault.deleteSecret(ref);
+  if (!removed) {
+    // A false result is only safe to interpret as absence when the caller has
+    // not already confirmed that the Secret exists. Never clear metadata after
+    // an unconfirmed deletion result.
+    return false;
+  }
+  removeRegistryEntry(
+    { name: ref.name, scope: ref.scope, projectId: ref.projectId },
+    registryBaseDir
+  );
+  return true;
 }
 
 export type VaultListEntry = RegistryEntry & { storeStatus: "registered" | "stale" };

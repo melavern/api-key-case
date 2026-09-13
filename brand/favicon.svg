@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="API Key Case">
+  <rect width="256" height="256" rx="52" fill="#c2fb60"/>
+  <g fill="none" stroke="#0d1714" stroke-linejoin="round" stroke-width="20">
+    <path d="M92 90V70a14 14 0 0 1 14-14h44a14 14 0 0 1 14 14v20"/>
+    <rect x="34" y="90" width="188" height="130" rx="26"/>
+    <circle cx="94" cy="156" r="20"/>
+    <path d="M124 156h58" stroke-width="22" stroke-linecap="round"/>
+  </g>
+  <path fill="#0d1714" d="M158 162h16v16a4 4 0 0 1-4 4h-8a4 4 0 0 1-4-4z"/>
+</svg>

@@ -17,8 +17,11 @@ MCowBQYDK2VwAyEA2h2jC83HL2Q+gSqXNgIxsiCsIUJIZ7P2hoXAMcajvbM=
 const KEY_PREFIX = "AKC1";
 
 // Single source of truth so the CLI and MCP purchase prompts never drift apart.
-export const PURCHASE_URL =
-  "https://api-key-case.lemonsqueezy.com/checkout/buy/ce328419-7617-463d-941d-e62fb37d4b42";
+// This points at the site's purchase section rather than the bare Lemon
+// Squeezy checkout: the human has to pass the price, host conditions, Terms
+// and refund policy before the checkout button, and an Agent relaying this
+// link never lands anyone directly on a payment form.
+export const PURCHASE_URL = "https://apikeycase.melavern.com/#purchase";
 
 export class ProFeatureError extends Error {
   readonly feature: string;

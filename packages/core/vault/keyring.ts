@@ -1,6 +1,11 @@
 import { Entry } from "@napi-rs/keyring";
-import { toAccount, VAULT_SERVICE } from "./naming.js";
-import type { SecretRef, Vault } from "./types.js";
+import {
+  DESTINATION_TRUST_MARKER,
+  toAccount,
+  toDestinationAccount,
+  VAULT_SERVICE
+} from "./naming.js";
+import type { DestinationTrustRef, SecretRef, Vault } from "./types.js";
 
 const PROBE_ACCOUNT = "v1|probe";
 
@@ -40,6 +45,36 @@ export class KeyringVault implements Vault {
 
   async deleteSecret(ref: SecretRef): Promise<boolean> {
     const entry = new Entry(VAULT_SERVICE, toAccount(ref));
+    try {
+      return entry.deleteCredential();
+    } catch (err) {
+      throw sanitizeError(err, undefined);
+    }
+  }
+
+  // Destination trust records (Phase D). The account name is a destination
+  // fingerprint and the value is a fixed marker, so this path reads and writes
+  // no Secret material. Existence is the entire record.
+  async hasDestinationTrust(ref: DestinationTrustRef): Promise<boolean> {
+    const entry = new Entry(VAULT_SERVICE, toDestinationAccount(ref));
+    try {
+      return entry.getPassword() !== null;
+    } catch (err) {
+      throw sanitizeError(err, undefined);
+    }
+  }
+
+  async saveDestinationTrust(ref: DestinationTrustRef): Promise<void> {
+    const entry = new Entry(VAULT_SERVICE, toDestinationAccount(ref));
+    try {
+      entry.setPassword(DESTINATION_TRUST_MARKER);
+    } catch (err) {
+      throw sanitizeError(err, undefined);
+    }
+  }
+
+  async deleteDestinationTrust(ref: DestinationTrustRef): Promise<boolean> {
+    const entry = new Entry(VAULT_SERVICE, toDestinationAccount(ref));
     try {
       return entry.deleteCredential();
     } catch (err) {

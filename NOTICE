@@ -3,17 +3,35 @@ API Key Case notices
 
 Copyright (c) 2026 Melavern.
 
-The MIT License in LICENSE applies to the API Key Case software and its
-associated source code unless a file or notice says otherwise. The names
-"API Key Case" and "Melavern", the project logo, and related brand assets
-are not licensed as trademarks by the MIT License. This notice does not grant
-permission to use those marks or to imply that a fork, product, service, or
-communication is official, sponsored, or endorsed by Melavern. A fork may
-use the MIT-licensed code under the terms of LICENSE, but should choose its
-own name and branding.
+Except for the separately licensed material identified below or in a
+file-specific notice, API Key Case version 0.9.1 and later and its associated
+source code are made available under the Elastic License 2.0 (`Elastic-2.0`) in
+LICENSE.
 
-The demo soundtrack at
-demo/assets/bgm/Mesmerizing Galaxy Loop.mp3 is third-party material and is
-not covered by the MIT License. It is distributed under the Creative Commons
-Attribution 4.0 International license (CC BY 4.0); see
-demo/assets/bgm/README.md for the attribution and license link.
+API Key Case version 0.9.0 was released under the MIT License included with
+that version. This licensing change does not withdraw or limit rights already
+granted for version 0.9.0 under that license.
+
+The instruction text created by `agent-init` inside an API Key Case managed
+instruction block is separately made available under the BSD Zero Clause
+License (`0BSD`) in LICENSES/0BSD.txt. This license applies only to that
+generated instruction text. It does not apply to the implementation that
+generates it, including packages/core/agent/init.ts, or to other contents of a
+user's repository. Including or editing the generated block does not change
+the license of the surrounding repository.
+
+The names "API Key Case" and "Melavern", the project logo, and related brand
+assets are not licensed as trademarks by the Elastic License 2.0 or the BSD
+Zero Clause License. This notice does not grant permission to use those marks
+or to imply that a fork, product, service, or communication is official,
+sponsored, or endorsed by Melavern. A permitted redistribution or derivative
+work should choose its own name and branding.
+
+The demo soundtrack at demo/assets/bgm/Mesmerizing Galaxy Loop.mp3 is
+third-party material and is not covered by the Elastic License 2.0 or the BSD
+Zero Clause License. It is distributed under the Creative Commons Attribution
+4.0 International license (CC BY 4.0); see demo/assets/bgm/README.md for the
+attribution and license link.
+
+Third-party code and dependencies retain their respective licenses. Nothing in
+LICENSE or this notice replaces those licenses.

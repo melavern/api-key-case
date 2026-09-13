@@ -22,6 +22,7 @@ import {
   SANDBOX_DIR,
   TRANSCRIPT_PATH
 } from "./config.mjs";
+import { removeDemoSecret } from "./cleanup-demo.mjs";
 import { isMain } from "./lib/main.mjs";
 import { runInPty } from "./lib/pty.mjs";
 import { trimLeadingBlank } from "./lib/screen.mjs";
@@ -80,13 +81,8 @@ async function record(step) {
   };
 }
 
-function clearSandboxSecret() {
-  const result = spawnSync(process.execPath, [CLI_ENTRY, "remove", DEMO_SECRET_NAME, "--yes"], {
-    cwd: SANDBOX_DIR,
-    encoding: "utf8",
-    windowsHide: true
-  });
-  if (result.status === 0) {
+async function clearSandboxSecret() {
+  if (await removeDemoSecret()) {
     console.log(`  cleared a leftover ${DEMO_SECRET_NAME} from the sandbox scope`);
   }
 }
@@ -121,7 +117,7 @@ export async function capture() {
   // registered under it and `save` would refuse to overwrite. Clearing it
   // keeps capture repeatable. Scope is derived from the sandbox cwd, so this
   // can only ever match the demo's own entry.
-  clearSandboxSecret();
+  await clearSandboxSecret();
 
   console.log("capturing real CLI runs ...");
 

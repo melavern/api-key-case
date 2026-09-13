@@ -31,7 +31,9 @@ export function renderTextReport(report: ScanReport): string {
 
   lines.push("Required secrets");
   if (report.requiredSecrets.length === 0) {
-    lines.push("- none detected");
+    lines.push(
+      "- none detected by the current API Key Case scanner (this does not prove that the project needs no secrets)"
+    );
   } else {
     for (const name of report.requiredSecrets) {
       lines.push(`- ${name}`);

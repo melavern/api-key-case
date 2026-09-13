@@ -1,5 +1,18 @@
-import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { extname, join, relative, resolve } from "node:path";
+import {
+  closeSync,
+  constants,
+  fstatSync,
+  ftruncateSync,
+  lstatSync,
+  openSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  statSync,
+  writeFileSync,
+  type Stats
+} from "node:fs";
+import { extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { inspectGit, type GitState } from "./git.js";
 import { checkGitignore, isPathIgnored, type GitignoreCheck } from "./gitignore.js";
 import { findSecretLikeTokens, type SecretFinding } from "./patterns.js";
@@ -81,19 +94,19 @@ const TEXT_EXTENSIONS = new Set([
 ]);
 
 export function scanProject(options: ScanOptions): ScanReport {
-  const targetDir = resolve(options.targetDir);
+  const targetDir = realpathSync.native(resolve(options.targetDir));
   const gitignore = checkGitignore(targetDir);
   const git = inspectGit(targetDir);
   const files = walkFiles(targetDir);
   const envFiles = inspectEnvFiles(targetDir, files, git);
   const sourceFiles = files.filter((file) => shouldScanTextFile(file));
-  const { requiredSecrets, secretUsages } = collectRequiredSecrets(targetDir, sourceFiles);
+  const { requiredSecrets, secretUsages, envExampleUnsafe } = collectRequiredSecrets(targetDir, sourceFiles);
   const secretFindings = sourceFiles.flatMap((file) => {
     const rel = toRelative(targetDir, file);
     return findSecretLikeTokens(rel, readFileSync(file, "utf8"));
   });
   const envExampleContent = generateEnvExample(requiredSecrets);
-  const envExamplePath = join(targetDir, ".env.example");
+  const envExamplePath = projectFilePath(targetDir, ".env.example");
   const shouldWriteEnvExample = Boolean(options.writeEnvExample || options.agentReport);
   const envExampleState = writeGeneratedFile({
     absolutePath: envExamplePath,
@@ -102,7 +115,7 @@ export function scanProject(options: ScanOptions): ScanReport {
     requested: shouldWriteEnvExample && requiredSecrets.length > 0,
     force: Boolean(options.force),
     emptyReason: requiredSecrets.length === 0
-      ? "not generated because no required secrets were detected"
+      ? "not generated because the current scanner detected no required Secret names; this does not prove that the project needs no secrets"
       : undefined
   });
   const agentReportFiles = options.agentReport
@@ -129,7 +142,7 @@ export function scanProject(options: ScanOptions): ScanReport {
       requested: Boolean(options.agentReport),
       files: agentReportFiles.map(({ content: _content, ...file }) => file)
     },
-    warnings: buildWarnings(gitignore, git, envFiles, secretFindings)
+    warnings: buildWarnings(gitignore, git, envFiles, secretFindings, envExampleUnsafe)
   };
 }
 
@@ -178,13 +191,14 @@ function inspectEnvFiles(
 function collectRequiredSecrets(
   rootDir: string,
   files: string[]
-): { requiredSecrets: string[]; secretUsages: SecretUsage[] } {
+): { requiredSecrets: string[]; secretUsages: SecretUsage[]; envExampleUnsafe: boolean } {
   const names = new Set<string>();
   const usages = new Map<string, Set<string>>();
-  const envExample = join(rootDir, ".env.example");
+  const envExample = projectFilePath(rootDir, ".env.example");
+  const envExampleRead = readSafeProjectFile(envExample);
 
-  if (existsSync(envExample)) {
-    for (const name of parseEnvExample(readFileSync(envExample, "utf8"))) {
+  if (envExampleRead.content !== undefined) {
+    for (const name of parseEnvExample(envExampleRead.content)) {
       names.add(name);
     }
   }
@@ -210,7 +224,8 @@ function collectRequiredSecrets(
     secretUsages: requiredSecrets.map((name) => ({
       name,
       files: [...(usages.get(name) ?? [])].sort()
-    }))
+    })),
+    envExampleUnsafe: envExampleRead.exists && !envExampleRead.safe
   };
 }
 
@@ -272,7 +287,17 @@ function writeGeneratedFile(options: {
   force: boolean;
   emptyReason?: string;
 }): GeneratedFileState {
-  const exists = existsSync(options.absolutePath);
+  const pathState = inspectSafeProjectFile(options.absolutePath);
+  const exists = pathState.exists;
+
+  if (exists && !pathState.safe) {
+    return {
+      path: options.relativePath,
+      exists: true,
+      written: false,
+      reason: "refused unsafe path; existing file preserved"
+    };
+  }
 
   if (!options.requested) {
     return {
@@ -292,10 +317,41 @@ function writeGeneratedFile(options: {
     };
   }
 
-  writeFileSync(options.absolutePath, options.content, {
-    encoding: "utf8",
-    flag: options.force ? "w" : "wx"
-  });
+  let fileDescriptor: number | undefined;
+  try {
+    const noFollow = constants.O_NOFOLLOW ?? 0;
+    const flags = options.force && exists
+      ? constants.O_WRONLY | noFollow
+      : constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | noFollow;
+    fileDescriptor = openSync(options.absolutePath, flags, 0o666);
+    const opened = fstatSync(fileDescriptor);
+    const current = lstatSync(options.absolutePath);
+    if (!isSafeRegularFile(opened) || !isSafeRegularFile(current) || !sameFile(opened, current)) {
+      return {
+        path: options.relativePath,
+        exists: true,
+        written: false,
+        reason: "refused unsafe path; existing file preserved"
+      };
+    }
+    if (options.force && exists) {
+      ftruncateSync(fileDescriptor, 0);
+    }
+    writeFileSync(fileDescriptor, options.content, { encoding: "utf8" });
+  } catch (error) {
+    const current = inspectSafeProjectFile(options.absolutePath);
+    if (current.exists && !current.safe) {
+      return {
+        path: options.relativePath,
+        exists: true,
+        written: false,
+        reason: "refused unsafe path; existing file preserved"
+      };
+    }
+    throw error;
+  } finally {
+    if (fileDescriptor !== undefined) closeSync(fileDescriptor);
+  }
 
   return {
     path: options.relativePath,
@@ -324,7 +380,7 @@ function writeAgentReport(
 
   return generated.map((file) => ({
     ...writeGeneratedFile({
-      absolutePath: join(targetDir, file.path),
+      absolutePath: projectFilePath(targetDir, file.path),
       relativePath: file.path,
       content: file.content,
       requested: true,
@@ -332,6 +388,66 @@ function writeAgentReport(
     }),
     content: file.content
   }));
+}
+
+type SafeProjectFileRead = {
+  exists: boolean;
+  safe: boolean;
+  content?: string;
+};
+
+function projectFilePath(rootDir: string, relativePath: string): string {
+  const candidate = resolve(rootDir, relativePath);
+  const fromRoot = relative(rootDir, candidate);
+  if (!fromRoot || fromRoot === ".." || fromRoot.startsWith(`..${sep}`) || isAbsolute(fromRoot)) {
+    throw new Error("Generated path is outside the project.");
+  }
+  return candidate;
+}
+
+function inspectSafeProjectFile(path: string): { exists: boolean; safe: boolean } {
+  try {
+    return { exists: true, safe: isSafeRegularFile(lstatSync(path)) };
+  } catch (error) {
+    const code = error && typeof error === "object" && "code" in error
+      ? (error as { code?: unknown }).code
+      : undefined;
+    if (code === "ENOENT" || code === "ENOTDIR") return { exists: false, safe: true };
+    return { exists: true, safe: false };
+  }
+}
+
+function readSafeProjectFile(path: string): SafeProjectFileRead {
+  const initial = inspectSafeProjectFile(path);
+  if (!initial.exists || !initial.safe) return initial;
+
+  let fileDescriptor: number | undefined;
+  try {
+    const noFollow = constants.O_NOFOLLOW ?? 0;
+    fileDescriptor = openSync(path, constants.O_RDONLY | noFollow);
+    const opened = fstatSync(fileDescriptor);
+    const current = lstatSync(path);
+    if (!isSafeRegularFile(opened) || !isSafeRegularFile(current) || !sameFile(opened, current)) {
+      return { exists: true, safe: false };
+    }
+    return { exists: true, safe: true, content: readFileSync(fileDescriptor, "utf8") };
+  } catch (error) {
+    const code = error && typeof error === "object" && "code" in error
+      ? (error as { code?: unknown }).code
+      : undefined;
+    if (code === "ENOENT" || code === "ENOTDIR") return { exists: false, safe: true };
+    return { exists: true, safe: false };
+  } finally {
+    if (fileDescriptor !== undefined) closeSync(fileDescriptor);
+  }
+}
+
+function isSafeRegularFile(stats: Stats): boolean {
+  return stats.isFile() && !stats.isSymbolicLink() && stats.nlink <= 1;
+}
+
+function sameFile(left: Stats, right: Stats): boolean {
+  return left.dev === right.dev && left.ino === right.ino;
 }
 
 function generateAgentContext(
@@ -350,7 +466,9 @@ function generateAgentContext(
   ];
 
   if (requiredSecrets.length === 0) {
-    lines.push("- None detected.");
+    lines.push(
+      "- None detected by the current scanner; this does not prove that the project needs no secrets."
+    );
   } else {
     for (const name of requiredSecrets) {
       const usage = secretUsages.find((item) => item.name === name);
@@ -408,6 +526,7 @@ Important constraints:
 - No real API keys or secret values will be provided.
 - Do not read \`.env\`, \`.env.local\`, or other files that may contain secrets.
 - Use only environment variable names listed in \`.env.example\` or \`AGENT_CONTEXT.safe.md\`.
+- An empty detected list means the current scanner found no supported references; it does not prove that the project needs no secrets.
 - Never place secret values in logs, errors, test output, README files, JSON, screenshots, or comments.
 - When configuration is missing, report only the variable name, for example: \`OPENAI_API_KEY is required\`.
 - Put API calls behind an adapter or service boundary.
@@ -422,7 +541,8 @@ function buildWarnings(
   gitignore: GitignoreCheck,
   git: GitState,
   envFiles: EnvFileState[],
-  findings: SecretFinding[]
+  findings: SecretFinding[],
+  envExampleUnsafe: boolean
 ): string[] {
   const warnings: string[] = [];
 
@@ -454,6 +574,10 @@ function buildWarnings(
 
   if (findings.length > 0) {
     warnings.push(`${findings.length} possible secret value(s) found outside ignored env files.`);
+  }
+
+  if (envExampleUnsafe) {
+    warnings.push("Refused to read or write an unsafe .env.example path.");
   }
 
   return warnings;

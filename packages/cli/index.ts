@@ -4,8 +4,19 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { ADAPTERS, isTargetId } from "../adapters/index.js";
+import {
+  AgentInitSafetyError,
+  initializeAgentInstructions,
+  renderAgentProtocol,
+  type AgentHost
+} from "../core/agent/init.js";
+import { buildNextReport } from "../core/agent/next.js";
+import { buildHistoryReport, historyDiagnostic, historyIssueFromError, renderHistoryDiagnostic } from "../core/deploy/history.js";
+import { askAndRecordSecret, createHumanPlane, humanPlaneRequirement } from "../core/human/index.js";
 import { inspectTargets, runDeploy } from "../core/deploy/engine.js";
+import { AUTOMATIC_SAFE_ENVS, inspectDestinationTrust } from "../core/deploy/destination.js";
 import { isDeployEnv, type DeployEnv, type TargetId } from "../core/deploy/types.js";
+import { runForgetDestinationTrust, runRemoveSecret } from "../core/lifecycle.js";
 import {
   assertProFeature,
   deactivateLicense,
@@ -18,17 +29,27 @@ import { createMcpServer } from "../mcp/server.js";
 import { renderTextReport } from "../core/report.js";
 import { scanProject } from "../core/scanner.js";
 import {
+  createCliTelemetry,
+  disableTelemetry,
+  enableTelemetry,
+  getTelemetryStatus,
+  type CliTelemetryCommand,
+  type CliTelemetryErrorCategory,
+  type CliTelemetryOutcome,
+  type CliTelemetryTarget
+} from "../core/telemetry.js";
+import {
   assertValidSecretName,
   createVault,
   deriveProjectId,
   listSecrets,
-  removeSecret,
   saveSecret,
   SecretNameError,
+  SecretStoreMetadataError,
   type SecretRef,
   type SecretScope
 } from "../core/vault/index.js";
-import { confirm, confirmExact, promptPurchaseLicenseKey, promptSecretValue } from "./prompt.js";
+import { promptPurchaseLicenseKey, promptSecretValue } from "./prompt.js";
 
 type ScanArgs = {
   targetDir: string;
@@ -39,10 +60,8 @@ type ScanArgs = {
   force: boolean;
 };
 
-type SaveArgs = { name: string; scope: SecretScope; force: boolean };
 type CheckArgs = { name: string | null; scope: SecretScope; json: boolean; strict: boolean; targetDir: string };
 type ListArgs = { scope: SecretScope; json: boolean; targetDir: string };
-type RemoveArgs = { name: string; scope: SecretScope; yes: boolean };
 type DeployArgs = {
   name: string;
   target: TargetId;
@@ -53,8 +72,31 @@ type DeployArgs = {
   targetDir: string;
 };
 type TargetsArgs = { targetDir: string; json: boolean };
+type NextArgs = { targetDir: string; json: boolean };
+type AgentInitArgs = { targetDir: string; check: boolean };
 
-main(process.argv.slice(2)).catch(() => {
+type CommandTelemetryResult = {
+  command: CliTelemetryCommand;
+  outcome: CliTelemetryOutcome;
+  errorCategory?: CliTelemetryErrorCategory;
+  target?: CliTelemetryTarget;
+};
+
+class CliExit extends Error {
+  constructor(
+    readonly code: number,
+    readonly telemetry?: Omit<CommandTelemetryResult, "command">
+  ) {
+    super("CLI command terminated.");
+    this.name = "CliExit";
+  }
+}
+
+main(process.argv.slice(2)).catch((err) => {
+  if (err instanceof CliExit) {
+    process.exitCode = err.code;
+    return;
+  }
   console.error("Unexpected error.");
   process.exitCode = 1;
 });
@@ -73,12 +115,27 @@ async function main(argv: string[]): Promise<void> {
   }
 
   if (command === "scan") {
-    runScan(rest);
+    await runObservedCommand("scan", undefined, () => runScan(rest));
+    return;
+  }
+
+  if (command === "history") {
+    await runHistoryCommand(rest);
+    return;
+  }
+
+  if (command === "next") {
+    await runNextCommand(rest);
+    return;
+  }
+
+  if (command === "agent-init") {
+    runAgentInitCommand(rest);
     return;
   }
 
   if (command === "save") {
-    await runSave(rest);
+    await runObservedCommand("save", undefined, () => runSave(rest));
     return;
   }
 
@@ -98,7 +155,7 @@ async function main(argv: string[]): Promise<void> {
   }
 
   if (command === "deploy") {
-    await runDeployCommand(rest);
+    await runObservedCommand("deploy", readDeployTargetForTelemetry(rest), () => runDeployCommand(rest));
     return;
   }
 
@@ -107,8 +164,18 @@ async function main(argv: string[]): Promise<void> {
     return;
   }
 
+  if (command === "trust") {
+    await runTrustCommand(rest);
+    return;
+  }
+
   if (command === "mcp") {
     await runMcpCommand(rest);
+    return;
+  }
+
+  if (command === "telemetry") {
+    runTelemetryCommand(rest);
     return;
   }
 
@@ -120,6 +187,90 @@ async function main(argv: string[]): Promise<void> {
   console.error("Unknown command.");
   printHelp();
   process.exitCode = 1;
+}
+
+async function runObservedCommand(
+  command: CliTelemetryCommand,
+  target: CliTelemetryTarget | undefined,
+  operation: () => Promise<void> | void
+): Promise<void> {
+  const telemetry = createCliTelemetry({
+    cliVersion: readCliVersion(),
+    env: process.env,
+    platform: process.platform,
+    isTTY: Boolean(process.stdin.isTTY),
+    writeNotice: (message) => process.stderr.write(message)
+  });
+  telemetry.prepare();
+
+  let result: CommandTelemetryResult = {
+    command,
+    outcome: "success",
+    ...(target ? { target } : {})
+  };
+
+  try {
+    await operation();
+    if (typeof process.exitCode === "number" && process.exitCode !== 0) {
+      result = resultForExitCode(command, process.exitCode, target);
+    }
+  } catch (err) {
+    if (err instanceof CliExit) {
+      process.exitCode = err.code;
+      result = {
+        command,
+        outcome: err.telemetry?.outcome ?? "failure",
+        ...(err.telemetry?.errorCategory ? { errorCategory: err.telemetry.errorCategory } : {}),
+        ...(err.telemetry?.target ?? target ? { target: err.telemetry?.target ?? target } : {})
+      };
+    } else {
+      console.error("Unexpected error.");
+      process.exitCode = 1;
+      result = {
+        command,
+        outcome: "failure",
+        errorCategory: "unexpected_error",
+        ...(target ? { target } : {})
+      };
+    }
+  }
+
+  await telemetry.record(result);
+}
+
+function resultForExitCode(
+  command: CliTelemetryCommand,
+  exitCode: number,
+  target: CliTelemetryTarget | undefined
+): CommandTelemetryResult {
+  const common = target ? { target } : {};
+  if (exitCode === 2) {
+    return { command, outcome: "failure", errorCategory: "strict_findings", ...common };
+  }
+  if (exitCode === 4) {
+    return { command, outcome: "cancelled", errorCategory: "confirmation_declined", ...common };
+  }
+  if (exitCode === 5) {
+    return { command, outcome: "failure", errorCategory: "dependency_unavailable", ...common };
+  }
+  if (exitCode === 6) {
+    return { command, outcome: "blocked", errorCategory: "license_required", ...common };
+  }
+  return { command, outcome: "failure", errorCategory: "operation_failed", ...common };
+}
+
+function terminate(code: number, telemetry?: Omit<CommandTelemetryResult, "command">): never {
+  throw new CliExit(code, telemetry);
+}
+
+function readDeployTargetForTelemetry(rest: string[]): CliTelemetryTarget | undefined {
+  for (let i = 0; i < rest.length - 1; i++) {
+    const value = rest[i + 1];
+    if (rest[i] === "--target" && isTargetId(value)) {
+      return value;
+    }
+  }
+  return undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -173,13 +324,154 @@ function parseScanArgs(rest: string[]): ScanArgs {
       force = true;
     } else if (arg.startsWith("-")) {
       console.error("Unknown option.");
-      process.exit(1);
+      terminate(1);
     } else {
       targetDir = resolve(arg);
     }
   }
 
   return { targetDir, json, strict, writeEnvExample, agentReport, force };
+}
+
+// ---------------------------------------------------------------------------
+// Agent Control Plane (Phase 6A)
+// ---------------------------------------------------------------------------
+
+async function runHistoryCommand(rest: string[]): Promise<void> {
+  const args = parseNextArgs(rest, "history");
+  if (!args.json) {
+    console.error("Usage: api-key-case history --json [path]");
+    terminate(1);
+  }
+  try {
+    const report = await buildHistoryReport(args.targetDir, { adapters: ADAPTERS });
+    console.log(JSON.stringify(report, null, 2));
+  } catch (error) {
+    console.error("History inspection failed. No deployment was requested by this inspection.");
+    console.error(renderHistoryDiagnostic(historyDiagnostic("inspect", historyIssueFromError(error))));
+    terminate(1);
+  }
+}
+
+async function runNextCommand(rest: string[]): Promise<void> {
+  const args = parseNextArgs(rest);
+  if (!args.json) {
+    console.error("Usage: api-key-case next --json [path]");
+    terminate(1);
+  }
+
+  try {
+    const targetDir = realpathSync(args.targetDir);
+    const license = readLicenseStatus();
+    const report = await buildNextReport(targetDir, {
+      vault: createVault(),
+      adapters: ADAPTERS.values(),
+      licensePlan: license.plan
+    });
+    console.log(JSON.stringify(report, null, 2));
+  } catch {
+    console.error("Next-action inspection failed. Check the target path and local dependencies, then try again.");
+    terminate(1);
+  }
+}
+
+function parseNextArgs(rest: string[], command: "next" | "history" = "next"): NextArgs {
+  let targetDir = process.cwd();
+  let json = false;
+  let positionalCount = 0;
+
+  for (const arg of rest) {
+    if (arg === "--json") {
+      json = true;
+    } else if (arg.startsWith("-")) {
+      console.error("Unknown option.");
+      terminate(1);
+    } else {
+      positionalCount += 1;
+      if (positionalCount > 1) {
+        console.error(`Usage: api-key-case ${command} --json [path]`);
+        terminate(1);
+      }
+      targetDir = resolve(arg);
+    }
+  }
+
+  return { targetDir, json };
+}
+
+function runAgentInitCommand(rest: string[]): void {
+  const args = parseAgentInitArgs(rest);
+  const version = readCliVersion();
+
+  let result: ReturnType<typeof initializeAgentInstructions>;
+  try {
+    result = initializeAgentInstructions({
+      projectDir: args.targetDir,
+      packageVersion: version,
+      check: args.check,
+      host: args.host
+    });
+  } catch (error) {
+    if (error instanceof AgentInitSafetyError) {
+      console.error("NG: agent instruction path or managed block is unsafe; no files were changed.");
+      terminate(args.check ? 2 : 1);
+    }
+    console.error("NG: agent initialization failed; no instruction file was intentionally changed.");
+    terminate(args.check ? 2 : 1);
+  }
+
+  if (args.check) {
+    console.log(JSON.stringify(result, null, 2));
+    const failed =
+      result.persistence !== "configured" ||
+      result.files.some((file) => file.status !== "current");
+    if (failed) process.exitCode = 2;
+    return;
+  }
+
+  console.log(renderAgentProtocol(version));
+  console.log("");
+  if (result.persistence === "unavailable") {
+    console.log("Persistence: no existing Agent host marker was found; no host-specific file was created.");
+    return;
+  }
+  console.log("Persistence:");
+  for (const file of result.files) {
+    console.log(`- ${file.status}: ${file.path}`);
+  }
+}
+
+function parseAgentInitArgs(rest: string[]): AgentInitArgs & { host?: AgentHost } {
+  let targetDir = process.cwd();
+  let check = false;
+  let positionalCount = 0;
+  let host: AgentHost | undefined;
+
+  for (let index = 0; index < rest.length; index++) {
+    const arg = rest[index];
+    if (arg === "--check") {
+      check = true;
+    } else if (arg === "--host") {
+      const value = rest[++index];
+      if (host || (value !== "agents" && value !== "claude" && value !== "cursor")) {
+        console.error("Usage: api-key-case agent-init [path] [--check] [--host agents|claude|cursor]");
+        terminate(1);
+      }
+      host = value;
+    } else if (arg.startsWith("-")) {
+      console.error("Unknown option.");
+      terminate(1);
+    } else {
+      positionalCount += 1;
+      if (positionalCount > 1) {
+        console.error("Usage: api-key-case agent-init [path] [--check]");
+        terminate(1);
+      }
+      targetDir = resolve(arg);
+    }
+  }
+
+  return { targetDir, check, host };
 }
 
 // ---------------------------------------------------------------------------
@@ -190,6 +482,7 @@ async function runSave(rest: string[]): Promise<void> {
   const positionals: string[] = [];
   let scope: SecretScope = "project";
   let force = false;
+  let ask = false;
 
   for (let i = 0; i < rest.length; i++) {
     const arg = rest[i];
@@ -197,17 +490,19 @@ async function runSave(rest: string[]): Promise<void> {
       scope = readScopeValue(rest[++i]);
     } else if (arg === "--force") {
       force = true;
+    } else if (arg === "--ask") {
+      ask = true;
     } else if (arg.startsWith("-")) {
       console.error("Unknown option.");
-      process.exit(1);
+      terminate(1, { outcome: "failure", errorCategory: "invalid_input" });
     } else {
       positionals.push(arg);
     }
   }
 
   if (positionals.length === 0) {
-    console.error("Usage: api-key-case save <NAME> [--scope user|project] [--force]");
-    process.exit(1);
+    console.error("Usage: api-key-case save <NAME> [--scope user|project] [--force] [--ask]");
+    terminate(1, { outcome: "failure", errorCategory: "invalid_input" });
   }
 
   if (positionals.length > 1) {
@@ -215,15 +510,15 @@ async function runSave(rest: string[]): Promise<void> {
       "NG: refusing to accept a secret value as a command-line argument. " +
         "It may already be in your shell history; rotate this key."
     );
-    process.exit(1);
+    terminate(1, { outcome: "failure", errorCategory: "invalid_input" });
   }
 
   const name = positionals[0];
   validateNameOrExit(name);
 
-  if (!process.stdin.isTTY) {
+  if (!ask && !process.stdin.isTTY) {
     console.error("NG: secret input requires an interactive terminal.");
-    process.exit(1);
+    terminate(1, { outcome: "failure", errorCategory: "non_interactive" });
   }
 
   const vault = createVault();
@@ -238,14 +533,58 @@ async function runSave(rest: string[]): Promise<void> {
 
   if (!force && (await vault.hasSecret(ref))) {
     console.error(`NG: ${name} already exists (use --force to overwrite)`);
-    process.exit(1);
+    terminate(1, { outcome: "failure", errorCategory: "already_registered" });
+  }
+
+  const projectPath = scope === "project" ? normalizePath(targetDir) : null;
+  if (ask) {
+    let status;
+    try {
+      status = await askAndRecordSecret(createHumanPlane(), ref, projectPath);
+    } catch (error) {
+      if (error instanceof SecretStoreMetadataError) {
+        reportSecretMetadataFailure(name, scope);
+      }
+      throw error;
+    }
+    if (status === "saved") {
+      console.log(`OK: ${name} saved to ${scope} scope by the Human Plane.`);
+      return;
+    }
+    if (status === "cancelled") {
+      console.error("NG: Human Plane secret input was cancelled; nothing was saved.");
+      terminate(4, { outcome: "cancelled", errorCategory: "confirmation_declined" });
+    }
+
+    const scopeFlag = scope === "user" ? " --scope user" : "";
+    console.error(
+      "NG: secure Human Plane secret input is unavailable; no terminal fallback was used.\n" +
+        `    Ask the human to open their own terminal and run: npx api-key-case save ${name}${scopeFlag}`
+    );
+    terminate(1, { outcome: "blocked", errorCategory: "dependency_unavailable" });
   }
 
   const value = await promptSecretValue(name);
-  const projectPath = scope === "project" ? normalizePath(targetDir) : null;
-  await saveSecret(vault, ref, value, projectPath);
+  try {
+    await saveSecret(vault, ref, value, projectPath);
+  } catch (error) {
+    if (error instanceof SecretStoreMetadataError) {
+      reportSecretMetadataFailure(name, scope);
+    }
+    throw error;
+  }
 
   console.log(`OK: ${name} saved to ${scope} scope.`);
+}
+
+function reportSecretMetadataFailure(name: string, scope: SecretScope): never {
+  const scopeFlag = scope === "user" ? " --scope user" : "";
+  console.error(
+    `NG: ${name} was saved to the OS secret store, but the API Key Case metadata index update failed.\n` +
+      `    Confirm the OS-store result with: api-key-case check ${name}${scopeFlag}\n` +
+      "    A missing list or next entry is not proof that the Secret is missing."
+  );
+  terminate(5, { outcome: "blocked", errorCategory: "dependency_unavailable" });
 }
 
 // ---------------------------------------------------------------------------
@@ -321,7 +660,7 @@ async function runCheck(rest: string[]): Promise<void> {
       )
     );
   } else if (secrets.length === 0) {
-    console.log("No required secrets detected.");
+    console.log("No required secrets detected by the current scanner. This does not prove that the project needs no secrets.");
   } else {
     console.log("Required secrets (from scan):");
     for (const entry of secrets) {
@@ -359,7 +698,7 @@ function parseCheckArgs(rest: string[]): CheckArgs {
       strict = true;
     } else if (arg.startsWith("-")) {
       console.error("Unknown option.");
-      process.exit(1);
+      terminate(1);
     } else {
       positionals.push(arg);
     }
@@ -408,7 +747,11 @@ async function runList(rest: string[]): Promise<void> {
   }
 
   if (entries.length === 0) {
-    console.log(`No secrets registered (${args.scope} scope).`);
+    const scopeFlag = args.scope === "user" ? " --scope user" : "";
+    console.log(
+      `No secrets indexed (${args.scope} scope). For a known name, run: api-key-case check <NAME>${scopeFlag}; ` +
+        "absence from this index does not prove that the Secret is missing."
+    );
     return;
   }
 
@@ -431,7 +774,7 @@ function parseListArgs(rest: string[]): ListArgs {
       json = true;
     } else if (arg.startsWith("-")) {
       console.error("Unknown option.");
-      process.exit(1);
+      terminate(1);
     } else {
       targetDir = resolve(arg);
     }
@@ -444,61 +787,229 @@ function parseListArgs(rest: string[]): ListArgs {
 // remove
 // ---------------------------------------------------------------------------
 
+// Phase E: deleting a stored value is a human action. There is no --yes, no
+// stdin confirmation, and no terminal fallback: an Agent that owns this
+// process's stdin/PTY must not be able to complete a deletion, so the decision
+// is taken in the Agent-independent Human Plane or not at all.
 async function runRemove(rest: string[]): Promise<void> {
   const positionals: string[] = [];
   let scope: SecretScope = "project";
-  let yes = false;
 
   for (let i = 0; i < rest.length; i++) {
     const arg = rest[i];
     if (arg === "--scope") {
       scope = readScopeValue(rest[++i]);
-    } else if (arg === "--yes") {
-      yes = true;
     } else if (arg.startsWith("-")) {
       console.error("Unknown option.");
-      process.exit(1);
+      terminate(1);
     } else {
       positionals.push(arg);
     }
   }
 
   if (positionals.length !== 1) {
-    console.error("Usage: api-key-case remove <NAME> [--scope user|project] [--yes]");
-    process.exit(1);
+    console.error("Usage: api-key-case remove <NAME> [--scope user|project]");
+    terminate(1);
   }
 
   const name = positionals[0];
   validateNameOrExit(name);
 
-  if (!yes) {
-    if (!process.stdin.isTTY) {
-      console.error("NG: confirmation requires --yes in a non-interactive terminal.");
-      process.exit(1);
+  const vault = createVault();
+  await requireVaultAvailable(vault);
+
+  const result = await runRemoveSecret(
+    { vault, humanPlane: createHumanPlane(), print: (line) => console.log(line) },
+    { name, scope, projectDir: process.cwd() }
+  );
+
+  switch (result.kind) {
+    case "removed":
+      console.log(`OK: ${name} removed from ${scope} scope.`);
+      return;
+    case "index-pruned":
+      console.log(`OK: ${name} was not in the store; a stale index entry was cleared.`);
+      return;
+    case "not-registered":
+      console.error(`NG: ${name} is not registered.`);
+      terminate(1);
+      break;
+    case "declined":
+      console.error("NG: the removal was declined in the Human Plane; nothing was deleted.");
+      terminate(4);
+      break;
+    case "unavailable":
+      terminate(1);
+      break;
+    case "human-plane-unavailable":
+      printHumanPlaneRemovalHandoff(name, scope);
+      terminate(5);
+    case "vault-read-failed":
+      console.error("NG: the OS secret store could not be read; nothing was deleted.");
+      terminate(1);
+      break;
+    case "vault-delete-failed":
+      console.error("NG: the OS secret store did not confirm deletion; no success was reported.");
+      terminate(1);
+  }
+}
+
+function printHumanPlaneRemovalHandoff(name: string, scope: SecretScope): void {
+  const scopeFlag = scope === "user" ? " --scope user" : "";
+  console.error(
+    "NG: deleting a secret requires the Agent-independent Human Plane; nothing was deleted.\n" +
+      `    That needs ${humanPlaneRequirement()}.\n` +
+      `    Where it is available, a human can run: api-key-case remove ${name}${scopeFlag}\n` +
+      "    Otherwise delete the entry in the OS secret store's own UI:\n" +
+      "      macOS: Keychain Access, service \"api-key-case\"\n" +
+      "      Windows: Credential Manager, generic credential \"api-key-case\"\n" +
+      "      Linux: your Secret Service UI (e.g. seahorse), collection \"api-key-case\""
+  );
+}
+
+// ---------------------------------------------------------------------------
+// trust (Phase E destination lifecycle)
+// ---------------------------------------------------------------------------
+
+async function runTrustCommand(rest: string[]): Promise<void> {
+  const [sub, ...subRest] = rest;
+
+  if (sub === "status") {
+    await runTrustStatus(subRest);
+    return;
+  }
+
+  if (sub === "forget") {
+    await runTrustForget(subRest);
+    return;
+  }
+
+  console.error(
+    "Usage: api-key-case trust status [path] [--json]\n" +
+      "       api-key-case trust forget --target <cloudflare|vercel|github> " +
+      "--env <production|preview|development> [path]"
+  );
+  terminate(1);
+}
+
+// Status only. It reads trust records through the same trusted resolution a
+// deploy would use and can never create, change, or delete one.
+async function runTrustStatus(rest: string[]): Promise<void> {
+  const args = parseTargetsArgs(rest);
+  const vault = createVault();
+  await requireVaultAvailable(vault);
+
+  const destinations: { target: TargetId; env: DeployEnv; trust: string }[] = [];
+  for (const [target, envs] of Object.entries(AUTOMATIC_SAFE_ENVS) as [TargetId, readonly DeployEnv[]][]) {
+    const adapter = ADAPTERS.get(target);
+    if (!adapter) continue;
+    for (const env of envs) {
+      destinations.push({
+        target,
+        env,
+        trust: await inspectDestinationTrust({ vault, adapter, projectDir: args.targetDir, env })
+      });
     }
-    const confirmed = await confirm(`Remove ${name} (${scope} scope)? [y/N]`);
-    if (!confirmed) {
-      console.error("Aborted.");
-      process.exit(1);
+  }
+
+  if (args.json) {
+    console.log(JSON.stringify({ schemaVersion: 1, destinations }, null, 2));
+    return;
+  }
+
+  if (destinations.length === 0) {
+    console.log("No deploy target records a destination confirmation.");
+    return;
+  }
+
+  console.log(`Confirmed deploy destinations for ${args.targetDir}:`);
+  for (const entry of destinations) {
+    console.log(`  ${entry.target.padEnd(11)} ${entry.env.padEnd(12)} ${entry.trust}`);
+  }
+  console.log("");
+  console.log("Every other target/environment always asks a human, so it records nothing.");
+}
+
+async function runTrustForget(rest: string[]): Promise<void> {
+  let target: TargetId | null = null;
+  let env: DeployEnv | null = null;
+  let targetDir = process.cwd();
+  let positionalCount = 0;
+
+  for (let i = 0; i < rest.length; i++) {
+    const arg = rest[i];
+    if (arg === "--target") {
+      target = readTargetValue(rest[++i]);
+    } else if (arg === "--env") {
+      env = readEnvValue(rest[++i]);
+    } else if (arg.startsWith("-")) {
+      console.error("Unknown option.");
+      terminate(1);
+    } else {
+      positionalCount += 1;
+      if (positionalCount > 1) {
+        console.error("Usage: api-key-case trust forget --target <target> --env <env> [path]");
+        terminate(1);
+      }
+      targetDir = resolve(arg);
     }
+  }
+
+  if (!target || !env) {
+    console.error("Usage: api-key-case trust forget --target <target> --env <env> [path]");
+    terminate(1);
+  }
+
+  const adapter = ADAPTERS.get(target);
+  if (!adapter) {
+    console.error("Unknown option. --target must be one of: cloudflare, vercel, github");
+    terminate(1);
   }
 
   const vault = createVault();
   await requireVaultAvailable(vault);
 
-  const targetDir = process.cwd();
-  const ref: SecretRef = {
-    name,
-    scope,
-    projectId: scope === "project" ? deriveProjectId(targetDir) : null
-  };
+  const result = await runForgetDestinationTrust(
+    { vault, humanPlane: createHumanPlane(), print: (line) => console.log(line) },
+    { adapter, projectDir: targetDir, env }
+  );
 
-  const existed = await removeSecret(vault, ref);
-  if (existed) {
-    console.log(`OK: ${name} removed from ${scope} scope.`);
-  } else {
-    console.error(`NG: ${name} is not registered.`);
-    process.exit(1);
+  switch (result.kind) {
+    case "nothing-recorded":
+      console.log(`OK: no destination confirmation is recorded for ${target} (${env}).`);
+      return;
+    case "forgotten": {
+      console.log(`OK: ${target} (${env}) will ask for approval again on the next deploy.`);
+      if (result.removal.destination === "unresolved") {
+        console.error(
+          "NG: the current destination could not be resolved, so a confirmation recorded\n" +
+            "    for it may remain. Re-run this once the target CLI is installed and logged in."
+        );
+        terminate(1);
+      }
+      return;
+    }
+    case "declined":
+      console.error("NG: the removal was declined in the Human Plane; nothing was changed.");
+      terminate(4);
+      break;
+    case "unavailable":
+      terminate(1);
+      break;
+    case "human-plane-unavailable":
+      console.error(
+        "NG: forgetting a confirmed destination requires the Agent-independent Human Plane;\n" +
+          `    nothing was changed. That needs ${humanPlaneRequirement()}.`
+      );
+      terminate(5);
+      break;
+    case "vault-read-failed":
+      console.error("NG: the OS secret store could not be read; no trust state was changed.");
+      terminate(1);
+      break;
+    case "vault-delete-failed":
+      console.error("NG: destination trust deletion was not confirmed; no success was reported.");
+      terminate(1);
   }
 }
 
@@ -512,7 +1023,7 @@ async function runDeployCommand(rest: string[]): Promise<void> {
   } catch (err) {
     if (err instanceof ProFeatureError) {
       printProFeatureRequired();
-      process.exit(6);
+      terminate(6, { outcome: "blocked", errorCategory: "license_required" });
     }
     throw err;
   }
@@ -523,7 +1034,7 @@ async function runDeployCommand(rest: string[]): Promise<void> {
   const adapter = ADAPTERS.get(args.target);
   if (!adapter) {
     console.error("Unknown option. --target must be one of: cloudflare, vercel, github");
-    process.exit(1);
+    terminate(1, { outcome: "failure", errorCategory: "invalid_input" });
   }
 
   const vault = createVault();
@@ -536,7 +1047,11 @@ async function runDeployCommand(rest: string[]): Promise<void> {
       vault,
       adapter,
       print: (line) => console.log(line),
-      confirmProduction: (summary) => confirmExact(summary)
+      // High-risk approval is never read from this Agent-owned terminal.
+      // WindowsHumanPlane opens a fixed-path plan dialog and requires the
+      // HWND-bound OS verifier to return Verified. Unsupported platforms and
+      // Windows builds below 22000 fail closed and provide only a handoff.
+      humanPlane: createHumanPlane()
     },
     {
       name: args.name,
@@ -550,19 +1065,28 @@ async function runDeployCommand(rest: string[]): Promise<void> {
   );
 
   switch (result.kind) {
+    case "history-unavailable":
+      terminate(5, { outcome: "failure", errorCategory: "dependency_unavailable" });
+      break;
     case "cli-unavailable":
-      process.exit(5);
+      terminate(5, { outcome: "failure", errorCategory: "dependency_unavailable" });
       break;
     case "missing-secret":
-      process.exit(1);
+      terminate(1, { outcome: "failure", errorCategory: "not_registered" });
       break;
     case "dry-run":
-      return;
+      terminate(0, { outcome: "blocked", errorCategory: "dry_run" });
     case "declined":
-      process.exit(4);
+      terminate(4, { outcome: "cancelled", errorCategory: "confirmation_declined" });
+      break;
+    case "unavailable":
+      terminate(5, { outcome: "failure", errorCategory: "dependency_unavailable" });
+      break;
+    case "changed":
+      terminate(1, { outcome: "failure", errorCategory: "operation_failed" });
       break;
     case "executed": {
-      const ok = result.handoff.exitCode === 0;
+      const ok = result.handoff.exitCode === 0 && !result.handoff.timedOut;
       if (ok) {
         console.log(`OK: ${args.name} deployed to ${args.target} (${args.env}).`);
         return;
@@ -575,10 +1099,21 @@ async function runDeployCommand(rest: string[]): Promise<void> {
       if (detail) {
         console.error(detail);
       }
-      if (args.target === "vercel" && !args.force) {
-        console.error("If the secret already exists on Vercel, retry with --force.");
+      if (result.handoff.timedOut || result.handoff.exitCode === null) {
+        console.error(
+          "The deployment result is unknown; provider changes may already exist. " +
+            "Run: api-key-case history --json . and agree the next step with the human."
+        );
+      } else {
+        console.error(
+          "The provider reported a deployment failure. Run: api-key-case history --json . " +
+            "and agree the next step with the human; do not retry automatically."
+        );
       }
-      process.exit(1);
+      terminate(1, {
+        outcome: "failure",
+        errorCategory: result.handoff.timedOut ? "timeout" : "operation_failed"
+      });
     }
   }
 }
@@ -605,7 +1140,7 @@ function parseDeployArgs(rest: string[]): DeployArgs {
       force = true;
     } else if (arg.startsWith("-")) {
       console.error("Unknown option.");
-      process.exit(1);
+      terminate(1, { outcome: "failure", errorCategory: "invalid_input" });
     } else {
       positionals.push(arg);
     }
@@ -616,7 +1151,7 @@ function parseDeployArgs(rest: string[]): DeployArgs {
       "Usage: api-key-case deploy <NAME> --target <cloudflare|vercel|github> " +
         "[--env production|preview|development] [--scope user|project] [--dry-run] [--force] [path]"
     );
-    process.exit(1);
+    terminate(1, { outcome: "failure", errorCategory: "invalid_input" });
   }
 
   const name = positionals[0];
@@ -639,7 +1174,7 @@ function readTargetValue(value: string | undefined): TargetId {
     return value;
   }
   console.error("Unknown option. --target must be one of: cloudflare, vercel, github");
-  process.exit(1);
+  terminate(1, { outcome: "failure", errorCategory: "invalid_input" });
 }
 
 function readEnvValue(value: string | undefined): DeployEnv {
@@ -647,7 +1182,7 @@ function readEnvValue(value: string | undefined): DeployEnv {
     return value;
   }
   console.error("Unknown option. --env must be one of: production, preview, development");
-  process.exit(1);
+  terminate(1, { outcome: "failure", errorCategory: "invalid_input" });
 }
 
 // ---------------------------------------------------------------------------
@@ -713,7 +1248,7 @@ function parseTargetsArgs(rest: string[]): TargetsArgs {
       json = true;
     } else if (arg.startsWith("-")) {
       console.error("Unknown option.");
-      process.exit(1);
+      terminate(1);
     } else {
       targetDir = resolve(arg);
     }
@@ -730,7 +1265,7 @@ async function runLicenseCommand(rest: string[]): Promise<void> {
   const [sub, ...subRest] = rest;
 
   if (sub === "activate") {
-    await runLicenseActivate(subRest);
+    await runObservedCommand("license_activate", undefined, () => runLicenseActivate(subRest));
     return;
   }
 
@@ -745,13 +1280,13 @@ async function runLicenseCommand(rest: string[]): Promise<void> {
   }
 
   console.error("Usage: api-key-case license <activate|status|deactivate>");
-  process.exit(1);
+  terminate(1);
 }
 
 async function runLicenseActivate(rest: string[]): Promise<void> {
   if (rest.length !== 0) {
     console.error("Usage: api-key-case license activate");
-    process.exit(1);
+    terminate(1, { outcome: "failure", errorCategory: "invalid_input" });
   }
 
   let purchaseKey: string;
@@ -759,7 +1294,7 @@ async function runLicenseActivate(rest: string[]): Promise<void> {
     purchaseKey = await promptPurchaseLicenseKey();
   } catch {
     console.error("NG: purchase license key input requires an interactive terminal.");
-    process.exit(1);
+    terminate(1, { outcome: "failure", errorCategory: "non_interactive" });
   }
 
   let status: Extract<ReturnType<typeof readLicenseStatus>, { plan: "pro" }>;
@@ -767,7 +1302,7 @@ async function runLicenseActivate(rest: string[]): Promise<void> {
     status = await activatePurchaseLicense(purchaseKey);
   } catch {
     console.error("NG: license activation failed. Check the key and your network connection, then retry.");
-    process.exit(1);
+    terminate(1, { outcome: "failure", errorCategory: "license_activation_failed" });
   }
 
   console.log(`OK: pro license activated (license ${status.entitlementId}).`);
@@ -795,6 +1330,49 @@ function runLicenseDeactivate(): void {
 }
 
 // ---------------------------------------------------------------------------
+// telemetry controls
+// ---------------------------------------------------------------------------
+
+function runTelemetryCommand(rest: string[]): void {
+  const [sub, ...subRest] = rest;
+
+  if (sub === "status" && subRest.every((arg) => arg === "--json")) {
+    const status = getTelemetryStatus({ env: process.env });
+    if (subRest.includes("--json")) {
+      console.log(JSON.stringify(status, null, 2));
+      return;
+    }
+
+    console.log(`configured: ${status.configured ? "enabled" : "disabled"}`);
+    console.log(`effective: ${status.effective ? "enabled" : `disabled (${status.suppression})`}`);
+    console.log(`notice: ${status.noticeShown ? "shown" : "not shown"}`);
+    console.log(`installation id: ${status.installationIdPresent ? "present" : "absent"}`);
+    return;
+  }
+
+  if (sub === "enable" && subRest.length === 0) {
+    if (!enableTelemetry()) {
+      console.error("NG: telemetry setting could not be saved.");
+      terminate(1);
+    }
+    console.log("OK: telemetry enabled.");
+    return;
+  }
+
+  if (sub === "disable" && subRest.length === 0) {
+    if (!disableTelemetry()) {
+      console.error("NG: telemetry setting could not be saved.");
+      terminate(1);
+    }
+    console.log("OK: telemetry disabled.");
+    return;
+  }
+
+  console.error("Usage: api-key-case telemetry <status [--json]|enable|disable>");
+  terminate(1);
+}
+
+// ---------------------------------------------------------------------------
 // shared helpers
 // ---------------------------------------------------------------------------
 
@@ -803,7 +1381,7 @@ function readScopeValue(value: string | undefined): SecretScope {
     return value;
   }
   console.error("Unknown option.");
-  process.exit(1);
+  terminate(1);
 }
 
 function validateNameOrExit(name: string): void {
@@ -812,7 +1390,7 @@ function validateNameOrExit(name: string): void {
   } catch (err) {
     if (err instanceof SecretNameError) {
       console.error(`NG: ${err.message}`);
-      process.exit(1);
+      terminate(1);
     }
     throw err;
   }
@@ -829,7 +1407,7 @@ async function requireVaultAvailable(vault: { isAvailable(): Promise<boolean> })
       "    Windows: Credential Manager should be available by default.\n" +
       "    Linux: install and unlock a Secret Service provider (e.g. gnome-keyring)."
   );
-  process.exit(3);
+  terminate(3, { outcome: "failure", errorCategory: "dependency_unavailable" });
 }
 
 function normalizePath(dir: string): string {
@@ -844,34 +1422,52 @@ function printHelp(): void {
   process.stdout.write(`api-key-case
 
 Usage:
+  api-key-case agent-init [path] [--check] [--host agents|claude|cursor]
+  api-key-case next --json [path]
+  api-key-case history --json [path]
   api-key-case scan [path] [--json] [--strict]
                             [--write-env-example] [--agent-report] [--force]
-  api-key-case save <NAME> [--scope user|project] [--force]
+  api-key-case save <NAME> [--scope user|project] [--force] [--ask]
   api-key-case check [NAME] [path] [--scope user|project] [--json] [--strict]
   api-key-case list [path] [--scope user|project] [--json]
-  api-key-case remove <NAME> [--scope user|project] [--yes]
+  api-key-case remove <NAME> [--scope user|project]
   api-key-case deploy <NAME> --target <cloudflare|vercel|github>
                        [--env production|preview|development]
                        [--scope user|project] [--dry-run] [--force] [path]
   api-key-case targets [path] [--json]
+  api-key-case trust status [path] [--json]
+  api-key-case trust forget --target <cloudflare|vercel|github>
+                       --env <production|preview|development> [path]
   api-key-case mcp [path]
   api-key-case license activate
   api-key-case license status [--json]
   api-key-case license deactivate
+  api-key-case telemetry status [--json]
+  api-key-case telemetry enable
+  api-key-case telemetry disable
 
 Commands:
+  agent-init Initialize the Agent Control Plane and managed project instruction.
+  next       Return a closed, status-only schema of semantic next actions.
+  history    Inspect advisory past deploy results, never current remote values.
   scan       Check .env safety, required secret names, and likely leaked tokens.
-  save       Store a secret value in the OS secret store (interactive, hidden input).
+  save       Store a secret value in the OS secret store. --ask opens the
+             Agent-independent Human Plane and never reads this process's stdin.
   check      Report registered/missing status for one secret or all secrets from scan.
   list       List registered secret names and metadata (never values).
-  remove     Delete a secret from the OS secret store.
+  remove     Delete a secret from the OS secret store. The decision is made in
+             the Agent-independent Human Plane; there is no stdin confirmation.
   deploy     Send a stored secret to Cloudflare/Vercel/GitHub via their official CLI.
              Pro feature (one-time purchase) — the current core feature set is free.
   targets    Show which deploy targets are detected and whether their CLI is ready.
+  trust      Show, or let a human forget, the deploy destinations previously
+             confirmed on this machine. Forgetting only ever asks more often.
   mcp        Start an MCP server (stdio) exposing status-only tools to an agent.
              Optional, for agents — the CLI remains the primary interface.
   license    Exchange a Lemon Squeezy purchase key once, then check/deactivate
              the local Pro license. Pro checks remain fully offline afterward.
+  telemetry  Show or change anonymous CLI usage telemetry. It never includes
+             secret values, names, paths, scan results, or command arguments.
   version    Print package version.
   help       Print this help.
 
@@ -880,10 +1476,25 @@ Security boundary:
   It does not print, export, or write real secret values.
   Secret values are typed by a human, stored in the OS secret store,
   and never printed, exported, or written to files by this CLI.
+  Agent-first secret input uses --ask; it never falls back to an Agent-owned
+  terminal when the Human Plane is unavailable.
   deploy reads a value only to hand it to the target CLI's stdin, once, and
   never places it in argv, an environment variable, a file, or a log line.
-  Deploying to production always requires typing "yes" at an interactive
-  prompt; there is no flag to skip this.
+  High-risk deploys require a fixed-path Agent-independent Human Plane. On
+  Windows 11 build 22000+ with Windows Hello set up, only OS user verification
+  returning Verified can approve; older builds and accounts without Hello fail
+  closed. The approval and execution happen in one call;
+  there is no stdin, token, or flag that can skip this boundary.
+  Deleting a secret and forgetting a confirmed destination use that same
+  Human Plane. On Windows, an agent can ask for the dialog but cannot answer
+  it without your own OS verification.
+  Normal Agent-first support: Windows 11 with Windows Hello.
+  macOS is a collaborative verification edition; native GUI/Accessibility
+  acceptance, Intel hardware and real-Mac provider deployment are unverified.
+  Verification continues toward regular support. Do not buy Pro for macOS.
+  macOS approval currently uses an AppKit button, not OS identity verification.
+  Linux provides diagnosis, status/history and human-owned-terminal storage
+  where available; Agent-first input, approval and executing deploy are not provided.
 
 Generated files:
   --write-env-example  Write an empty-value .env.example.
@@ -897,14 +1508,18 @@ Exit codes:
   1  general error (validation, not registered, target CLI error)
   2  --strict found warnings/missing secrets (scan, check)
   3  no OS secret store is available
-  4  production confirmation was not given
-  5  the target's CLI is not installed or not logged in
+  4  the high-risk operation or removal was declined
+  5  the target CLI, Human Plane, or deploy history is unavailable/not logged in
   6  a Pro license is required (deploy)
 `);
 }
 
 function printVersion(): void {
+  console.log(readCliVersion());
+}
+
+function readCliVersion(): string {
   const here = dirname(fileURLToPath(import.meta.url));
   const pkg = JSON.parse(readFileSync(join(here, "../../package.json"), "utf8")) as { version: string };
-  console.log(pkg.version);
+  return pkg.version;
 }

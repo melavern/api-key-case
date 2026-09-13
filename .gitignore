@@ -6,6 +6,7 @@ coverage/
 # Secrets must never be committed.
 .env
 .env.*
+.env.local
 !.env.example
 !.env.*.example
 .dev.vars
@@ -17,23 +18,7 @@ coverage/
 # Local tool output
 *.log
 
-# Local strategy notes (not part of the shipped repo). No trailing slash: the
-# note is a plain file, and a directory-only pattern silently failed to match
-# it, leaving pricing and licensing deliberations staged for a repository that
-# is meant to become public.
-20260701戦略・機能
-
 # Signing-key material must never be committed (tools/issue-license.mjs
 # already refuses to write inside the repo; this is a second layer).
 *.pem
 license.key
-
-# Internal business and operations notes. Kept on disk, never published:
-# strategy, storefront copy, payment-provider correspondence, and the
-# release checklist all describe how the product is sold and operated,
-# not how it works. Product rationale lives in docs/design/ instead.
-api_key_case_agent_brief_draft.md
-docs/LEMON_SQUEEZY_REVIEW_REPLY.md
-docs/RELEASE_CHECKLIST.md
-docs/STORE_COPY_JA.md
-docs/SELLING.md

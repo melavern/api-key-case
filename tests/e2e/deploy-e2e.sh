@@ -140,8 +140,23 @@ cleanup() {
       ;;
   esac
 
-  # Always clear the local vault entry, whatever happened above.
-  (cd "$FIXTURE" && node "$CLI" remove "$SECRET_NAME" --scope project --yes) 2>&1 | tail -2
+  # Always clear the local vault entry, whatever happened above. Since Phase 6E
+  # `api-key-case remove` is a Human Plane decision with no unattended path, so
+  # this harness calls the vault module directly instead of trying to bypass
+  # that boundary from a script.
+  node -e '
+    const [entry, name, dir] = process.argv.slice(1);
+    import(entry).then(async (vault) => {
+      const store = vault.createVault();
+      if (!(await store.isAvailable())) return;
+      const removed = await vault.removeSecret(store, {
+        name,
+        scope: "project",
+        projectId: vault.deriveProjectId(dir)
+      });
+      console.log(removed ? `cleared ${name} from the local vault` : `${name} was not registered`);
+    });
+  ' "file://$REPO_ROOT/dist/core/vault/index.js" "$SECRET_NAME" "$FIXTURE" 2>&1 | tail -2
   rm -rf "$WORK"
 
   if [ "$status" -eq 0 ]; then

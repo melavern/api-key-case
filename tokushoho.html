@@ -6,6 +6,9 @@
   <meta name="theme-color" content="#0d1714">
   <meta name="description" content="API Key Case Pro の特定商取引法に基づく表記。">
   <link rel="canonical" href="https://apikeycase.melavern.com/tokushoho">
+  <link rel="icon" href="favicon.ico" sizes="48x48">
+  <link rel="icon" href="brand/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="brand/apple-touch-icon.png">
   <title>特定商取引法に基づく表記 — API Key Case</title>
 
   <style>
@@ -57,17 +60,10 @@
       letter-spacing: -0.03em;
       text-decoration: none;
     }
-    .brand-mark {
-      display: grid;
-      width: 34px;
-      height: 34px;
-      place-items: center;
-      border: 1.5px solid var(--ink);
-      border-radius: 10px;
-      background: var(--lime);
-      box-shadow: 3px 3px 0 var(--ink);
-    }
-    .brand-mark svg { display: block; width: 21px; height: 21px; }
+    /* The mark carries its own lime tile (brand/mark.svg), so the container
+       only sizes it. */
+    .brand-mark { display: block; width: 34px; height: 34px; flex: none; }
+    .brand-mark svg { display: block; width: 100%; height: 100%; }
     .back { font-size: 13px; font-weight: 700; text-decoration: none; white-space: nowrap; }
 
     main { padding: 56px 0 24px; }
@@ -171,9 +167,15 @@
     <div class="wrap">
       <a class="brand" href="index.html">
         <span class="brand-mark" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none">
-            <path d="M4.5 7.8A3.3 3.3 0 0 1 7.8 4.5h8.4a3.3 3.3 0 0 1 3.3 3.3v8.4a3.3 3.3 0 0 1-3.3 3.3H7.8a3.3 3.3 0 0 1-3.3-3.3V7.8Z" stroke="currentColor" stroke-width="1.8"/>
-            <path d="M9.1 11.5a2.9 2.9 0 1 1 4.6 2.35l2.2 2.15M15.9 16l1.2-1.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          <svg viewBox="0 0 256 256">
+            <rect width="256" height="256" rx="52" fill="#c2fb60"/>
+            <g fill="none" stroke="#0d1714" stroke-linejoin="round">
+              <path d="M91 86V69a12 12 0 0 1 12-12h50a12 12 0 0 1 12 12v17" stroke-width="14"/>
+              <rect x="48" y="86" width="160" height="112" rx="22" stroke-width="14"/>
+              <circle cx="98" cy="143" r="17.5" stroke-width="17"/>
+              <path d="M124 144h49" stroke-width="19" stroke-linecap="round"/>
+            </g>
+            <path fill="#0d1714" d="M144 150h13v12a3 3 0 0 1-3 3h-7a3 3 0 0 1-3-3zM161.5 150h13v12a3 3 0 0 1-3 3h-7a3 3 0 0 1-3-3z"/>
           </svg>
         </span>
         <span>API Key Case</span>
@@ -185,13 +187,13 @@
   <main>
     <div class="wrap">
       <h1>特定商取引法に基づく表記</h1>
-      <p class="updated">最終更新：2026-08-19</p>
+      <p class="updated">最終更新：2026-09-11</p>
 
       <div class="notice" role="note">
         <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 8v5m0 3.5v.1M4.7 20h14.6a1.5 1.5 0 0 0 1.3-2.25L13.3 5.1a1.5 1.5 0 0 0-2.6 0L3.4 17.75A1.5 1.5 0 0 0 4.7 20Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
         <div>
           <h2>販売条件の確認について</h2>
-          <p>決済前に、Lemon Squeezy の最終確認画面で商品、価格、税、支払方法および返金条件をご確認いただけます。</p>
+          <p>決済前に、Lemon Squeezy の最終確認画面で商品、価格、税および支払方法を、本ページと<a href="refund.html">返金ポリシー</a>で返金条件と動作環境をご確認ください。</p>
           <p>販売事業者の正式氏名、運営責任者、所在地および電話番号は、下記窓口から請求があった場合、購入判断に間に合うよう遅滞なく電子的に開示します。</p>
         </div>
       </div>
@@ -268,8 +270,9 @@
           <dt>動作環境</dt>
           <dd>
             <p>Node.js 20 以上／Windows・macOS・Linux</p>
+            <p>OSシークレットストアが利用できる環境では無料の保存・確認ができます。Agentからの専用画面による入力・承認および配置実行の通常対応の基準はWindowsの対応環境です。Windowsの重要操作・秘密値の削除・配置先の信頼の削除には、Windows 11 Build 22000以降、そのアカウントのWindows Hello設定とOS本人確認の成功が必要です。macOSは協力検証版です。実装・CI・実Keychain連携は確認済みですが、実機GUI、承認耐性、Intel実機、実Macからの配置は未確認です。macOSではProの配置機能を実機検証中です。購入はできますが、現時点では正常な動作を保証していません。Linuxは診断・状態確認・履歴と、利用可能なOS保管庫への人間所有ターミナルからの保管を維持しますが、Agent-firstの入力・承認・配置実行は提供していません。</p>
             <p><code>deploy</code> には、配置先に応じた公式CLI（Cloudflare Wrangler／Vercel CLI／GitHub CLI）と、当該サービスへの有効なログインが必要です。ライセンス有効化および配置時にはインターネット接続が必要です。</p>
-            <p>現行版はプレリリース版です。購入前に Free 機能と対象環境での動作をご確認ください。</p>
+            <p>v0.9.1はv1.0前のプレスタブル版です。購入前に Free の利用条件診断と対象環境での動作をご確認ください。診断は実際の配置成功を保証せず、購入しても非対応環境の条件は変わりません。<code>deploy --dry-run</code> は Pro 機能です。</p>
           </dd>
         </div>
         <div class="row">

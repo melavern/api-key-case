@@ -1,28 +1,39 @@
 // Removes everything the demo created outside build/: the sandbox project and
 // the demo secret in the OS secret store.
 //
-// The secret is deleted through the product's own `remove` command, so this
-// script never touches the store directly.
+// The secret is deleted through the product's own vault module, in this
+// human-run maintenance script. It deliberately does not shell out to
+// `api-key-case remove`: since Phase 6E that command is a Human Plane decision
+// with no unattended path, which is the boundary itself and not something a
+// demo script should try to route around.
 
-import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { isMain } from "./lib/main.mjs";
-import { CLI_ENTRY, DEMO_SECRET_NAME, SANDBOX_DIR, SANDBOX_ROOT } from "./config.mjs";
+import { DEMO_SECRET_NAME, REPO_DIR, SANDBOX_DIR, SANDBOX_ROOT } from "./config.mjs";
 
-export function cleanup() {
-  let removedSecret = false;
+const VAULT_ENTRY = join(REPO_DIR, "dist", "core", "vault", "index.js");
 
-  if (existsSync(CLI_ENTRY)) {
-    // Project scope is derived from the cwd's real path, so the directory has
-    // to exist for `remove` to resolve the same scope `save` used. Recreating
-    // it means a deleted sandbox cannot orphan the demo secret in the store.
-    mkdirSync(SANDBOX_DIR, { recursive: true });
-    const result = spawnSync(process.execPath, [CLI_ENTRY, "remove", DEMO_SECRET_NAME, "--yes"], {
-      cwd: SANDBOX_DIR,
-      encoding: "utf8",
-      windowsHide: true
-    });
-    removedSecret = result.status === 0;
+export async function removeDemoSecret() {
+  if (!existsSync(VAULT_ENTRY)) return false;
+  // Project scope is derived from the directory's real path, so it has to
+  // exist to resolve the same scope `save` used. Recreating it means a deleted
+  // sandbox cannot orphan the demo secret in the store.
+  mkdirSync(SANDBOX_DIR, { recursive: true });
+  const vault = await import(pathToFileURL(VAULT_ENTRY).href);
+  const store = vault.createVault();
+  if (!(await store.isAvailable())) return false;
+  return await vault.removeSecret(store, {
+    name: DEMO_SECRET_NAME,
+    scope: "project",
+    projectId: vault.deriveProjectId(SANDBOX_DIR)
+  });
+}
+
+export async function cleanup() {
+  const removedSecret = await removeDemoSecret();
+  if (existsSync(VAULT_ENTRY)) {
     console.log(
       removedSecret
         ? `removed ${DEMO_SECRET_NAME} from the OS secret store (project scope)`
@@ -39,5 +50,5 @@ export function cleanup() {
 }
 
 if (isMain(import.meta.url)) {
-  cleanup();
+  await cleanup();
 }

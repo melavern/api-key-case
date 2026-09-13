@@ -1,6 +1,8 @@
 # Support
 
-API Key Case is maintained as an individual open-source project. Support is best-effort; response times and fixes are not guaranteed.
+API Key Case is maintained as an individual source-available project under the Elastic License 2.0. Support is best-effort; response times and fixes are not guaranteed.
+
+[Website](https://apikeycase.melavern.com/) · [npm](https://www.npmjs.com/package/api-key-case) · [Changelog](CHANGELOG.md) · [Security policy](SECURITY.md)
 
 ## Product questions and bug reports
 
@@ -28,6 +30,7 @@ Do not report vulnerabilities in a public Issue. Use GitHub Private Vulnerabilit
 
 ## What support does not cover
 
+- macOS Agent-first use as a regular workflow: 0.9.1 is a collaborative verification edition. Current CI and real Keychain evidence exist, but native GUI/Accessibility acceptance, Intel hardware and real-Mac provider deployment remain open. Do not purchase Pro relying on macOS deploy; see the [OS support status](https://apikeycase.melavern.com/os-support) and [macOS verification plan](docs/design/macos-human-plane-verification.md).
 - obtaining or recovering API keys from a provider;
 - account administration for Cloudflare, Vercel, GitHub, Lemon Squeezy, npm, or an operating system;
 - writing application-specific deployment or compliance policy;

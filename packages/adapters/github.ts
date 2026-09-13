@@ -1,5 +1,5 @@
 import { getRemoteUrl } from "../core/git.js";
-import type { CliStatus, DeployEnv, DeployPlan, DeployTarget, DetectResult } from "../core/deploy/types.js";
+import type { CliCheckOptions, CliStatus, DeployEnv, DeployPlan, DeployTarget, DetectResult } from "../core/deploy/types.js";
 import { extractVersion, runCliSync } from "./shared.js";
 
 export class GitHubAdapter implements DeployTarget {
@@ -14,18 +14,26 @@ export class GitHubAdapter implements DeployTarget {
     return { detected: false, reason: "no github.com git remote found" };
   }
 
-  async checkCli(): Promise<CliStatus> {
-    const version = runCliSync("gh", ["--version"]);
+  async checkCli(options: CliCheckOptions = {}): Promise<CliStatus> {
+    const version = runCliSync("gh", ["--version"], 15_000, options);
     if (!version.installed) {
       return { installed: false, loggedIn: false, hint: "winget install GitHub.cli (or: brew install gh)" };
     }
 
-    const status = runCliSync("gh", ["auth", "status"]);
-    const loggedIn = status.status === 0;
+    const status = runCliSync("gh", ["auth", "status"], 15_000, options);
+    const user = status.status === 0
+      ? runCliSync("gh", ["api", "user", "--jq", ".login"], 15_000, options)
+      : null;
+    const login = user?.status === 0 ? user.stdout.trim() : "";
+    const identity = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/.test(login)
+      ? `user:${login.toLowerCase()}`
+      : undefined;
+    const loggedIn = status.status === 0 && identity !== undefined;
     return {
       installed: true,
       version: extractVersion(version.stdout),
       loggedIn,
+      identity,
       hint: loggedIn ? undefined : "gh auth login"
     };
   }

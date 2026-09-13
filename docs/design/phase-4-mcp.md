@@ -1,5 +1,11 @@
 # Phase 4 Design — MCP Server (agent-facing tool surface)
 
+> **履歴文書（2026-09-08整理）:** 以下はPhase 4導入時の設計記録。7ツール・stdio・値を受け取らず返さない境界は維持する。
+> 現行`save_secret`は別の`save --ask`へhandoffし、高リスク配置のhandoff先CLIはHuman Planeで判断する。
+> 本書の人の端末/TTYに関する記述を、Agentのstdin入力で承認できる仕様として使わない。
+> 現行のMCP仕様は[MCP README](../../packages/mcp/README.md)、必須ではないMCPと主入口CLIの関係は
+> [setup契約](agent-setup-readiness.md)を参照する。
+
 > 対象読者: 実装を担当する AI エージェント（Sonnet / Codex クラス）および人間レビュアー。
 > この文書は CLAUDE.md（リポジトリ直下）の下位文書である。**矛盾したら CLAUDE.md セクション3が常に勝つ。**
 > 前提: [phase-2-vault.md](phase-2-vault.md) と [phase-3-deploy.md](phase-3-deploy.md) が実装済みであること。

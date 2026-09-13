@@ -19,13 +19,13 @@ export async function promptSecretValue(
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     stdout.write(`Enter value for ${label} (input is hidden): `);
     const raw = await readHiddenLine(stdin, stdout);
-    const value = raw.trim();
+    const value = raw;
 
-    if (value.length === 0) {
+    if (value.length === 0 || /^\s*$/.test(value)) {
       stdout.write("Value cannot be empty.\n");
       continue;
     }
-    if (value.length > MAX_LENGTH) {
+    if (value.length > MAX_LENGTH || /[\r\n]/.test(value)) {
       stdout.write(`Value exceeds ${MAX_LENGTH} characters.\n`);
       continue;
     }
@@ -49,27 +49,6 @@ export async function confirm(
   try {
     const answer = await rl.question(`${question} `);
     return /^y(es)?$/i.test(answer.trim());
-  } finally {
-    rl.close();
-  }
-}
-
-// Stricter than confirm(): requires the exact word "yes", not just "y".
-// Used for production deploy confirmation, which must not have a shorthand
-// (phase-3-deploy.md §2-14 — no bypass flag, and no accidental fat-finger "y").
-export async function confirmExact(
-  question: string,
-  stdin: NodeJS.ReadStream = process.stdin,
-  stdout: NodeJS.WriteStream = process.stdout
-): Promise<boolean> {
-  if (!stdin.isTTY) {
-    return false;
-  }
-
-  const rl = createInterface({ input: stdin, output: stdout });
-  try {
-    const answer = await rl.question(`${question} `);
-    return answer.trim().toLowerCase() === "yes";
   } finally {
     rl.close();
   }

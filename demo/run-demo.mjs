@@ -47,7 +47,7 @@ async function main() {
   if (flags.has("--keep-sandbox")) {
     console.log("sandbox kept (--keep-sandbox)");
   } else {
-    cleanup();
+    await cleanup();
   }
 
   console.log(probe(locale));

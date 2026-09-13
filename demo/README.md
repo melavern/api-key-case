@@ -6,8 +6,9 @@ localizes the explanatory cards and captions; the captured CLI output remains
 English so the terminal recording is never rewritten.
 
 This directory is a build tool, not part of the product. The root
-`package.json` ships only `dist/`, `README.md`, `LICENSE` and `SECURITY.md`, so
-nothing here reaches the npm package. Its dependencies are declared in
+`package.json` ships only `dist/` and the allowlisted user-facing documents
+(`README.md`, `README.ja.md`, `CHANGELOG.md`, `LICENSE`, `NOTICE`, `SECURITY.md`,
+and `SUPPORT.md`), so nothing here reaches the npm package. Its dependencies are declared in
 `demo/package.json` and are not installed by a normal `npm install` at the root.
 
 ```sh
@@ -121,9 +122,27 @@ reads the stored value.
 | `lib/screen.mjs` | ANSI/ConPTY screen emulator |
 | `lib/cdp.mjs` | dependency-free Chrome DevTools Protocol client |
 
+## Local LP preview
+
+The Development Hub's `keycase:api` service runs `serve-site.mjs` on the
+working tree so the latest LP can be checked before publication. It serves the
+same allowlisted bundle shape as the publishing script: the five HTML pages,
+`robots.txt`, `sitemap.xml`, the three committed announcement files
+(`launch-ja.mp4`, `launch-ja-poster.jpg`, `launch-ja.vtt`), the brand assets
+(`favicon.ico` and `brand/`: SVG mark/logo/favicon, touch icon, OG image), and the six
+generated demo media files under `demo/build/` (when present). Repository source, tests, docs, configuration,
+and other build artifacts are not HTTP routes. The server binds to loopback;
+mobile publication and `remoteAccess.services` are managed separately by the
+Development Hub.
+
 ## Publishing
 
-`publish-demo.mjs` copies the repository's pages plus both language editions
+`publish-demo.mjs` copies the repository's pages, the committed 28-second
+announcement embedded in the landing page (`launch-ja.mp4`,
+`launch-ja-poster.jpg`, `launch-ja.vtt` at the repository root — rendered by the
+private marketing-video harness, not by this directory; provenance in
+`docs/landing-page/PAGE_SPEC.md` §7), the brand assets (`favicon.ico`, `brand/`),
+plus both language editions of the demo
 (`demo*.mp4`, posters, and WebVTT captions) into `build/site/`, checks the page
 actually references every asset, and can deploy that directory to the existing
 `api-key-case-lp` Cloudflare Pages project:
@@ -131,7 +150,35 @@ actually references every asset, and can deploy that directory to the existing
 ```sh
 node publish-demo.mjs            # stage only, print the deploy command
 node publish-demo.mjs --deploy   # stage, then deploy to production
+node publish-demo.mjs --preview  # stage, then update the fixed preview branch
 ```
+
+For the LP analytics hook used by the review Preview and later production,
+set the public PostHog Project Token and region explicitly in the process
+environment before staging, or put them in the ignored repository-root
+`.env.local` for repeated Preview updates. Preview settings use process
+environment variables first, then `.env.local`; other `.env` files are not
+read. The script only accepts the US or EU PostHog capture host:
+
+```sh
+API_KEY_CASE_LP_POSTHOG_PROJECT_TOKEN=<API Key Case public Project Token> \
+API_KEY_CASE_LP_POSTHOG_API_HOST=https://us.i.posthog.com \
+node publish-demo.mjs --preview
+```
+
+For local setup, create `.env.local` once with the two settings above. On
+PowerShell, process variables can still be set with `$env:` for a one-off
+override. If the token is absent, staging intentionally publishes a safe
+no-op analytics page; an invalid token or host fails before deployment. Use
+only the public Project Token, never a Personal API Key or Project Secret API
+Key. The `--deploy` Production path remains separate and does not read
+`.env.local`.
+
+The `--preview` command deploys the same staged site to the existing
+`api-key-case-lp` Pages project with the fixed `preview` branch name. It refuses
+to deploy if the public PostHog token is missing, so the review Preview stays
+connected to the shared project. Wrangler prints the actual branch alias after
+deployment; do not infer or hard-code that URL from the project name.
 
 The project holds only these files, so a deployment replaces the landing page
 and the video together and removes nothing else.

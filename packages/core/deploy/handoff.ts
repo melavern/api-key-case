@@ -2,7 +2,7 @@ import { Entry } from "@napi-rs/keyring";
 import { toAccount, VAULT_SERVICE } from "../vault/naming.js";
 import type { SecretRef, Vault } from "../vault/types.js";
 import type { DeployPlan } from "./types.js";
-import { resolveCli, spawnResolvedCli } from "./which.js";
+import { resolveCli, spawnResolvedCli, type ResolvedCli } from "./which.js";
 
 // The only module allowed to retain a secret value for deployment and pass it
 // to a target CLI's stdin (phase-3-deploy.md §2-9). `vault/keyring.ts` may
@@ -16,6 +16,7 @@ export interface HandoffResult {
   stdoutRedacted: string;
   stderrRedacted: string;
   timedOut: boolean;
+  blocked?: "changed";
 }
 
 export class SecretNotRegisteredError extends Error {}
@@ -28,24 +29,48 @@ export async function runWithSecret(
   vault: Vault, // unused for reading (Phase 2's Vault interface has no read method by design); kept for signature symmetry with the rest of the engine.
   ref: SecretRef,
   plan: DeployPlan,
-  opts?: { timeoutMs?: number; pathOverride?: string }
+  opts?: {
+    timeoutMs?: number;
+    pathOverride?: string;
+    cwd?: string;
+    env?: Record<string, string>;
+    resolvedCli?: ResolvedCli;
+    suppressOutput?: boolean;
+    beforeSecretRead?: () => boolean | Promise<boolean>;
+    beforeSpawn?: () => boolean | Promise<boolean>;
+  }
 ): Promise<HandoffResult> {
   void vault;
   const timeoutMs = opts?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const pathOverride = opts?.pathOverride;
+  const beforeSpawn = opts?.beforeSpawn;
+  const suppressOutput = opts?.suppressOutput ?? false;
 
   for (const step of plan.preSteps ?? []) {
-    const result = await runStep(step, null, timeoutMs, pathOverride);
+    const result = await runStep(
+      step,
+      null,
+      timeoutMs,
+      pathOverride,
+      opts?.cwd,
+      opts?.env,
+      opts?.resolvedCli,
+      beforeSpawn,
+      suppressOutput
+    );
     if (result.exitCode !== 0) {
       return result;
     }
   }
 
+  if (opts?.beforeSecretRead && !(await opts.beforeSecretRead())) {
+    return blockedResult();
+  }
+
   const entry = new Entry(VAULT_SERVICE, toAccount(ref));
-  // getPassword() returns null for a missing entry rather than throwing
-  // (verified against real Windows Credential Manager; see
-  // phase-2-vault.md §4.3). A thrown exception here is a genuine backend
-  // error and is left to propagate, not reinterpreted as "not registered".
+  // @napi-rs/keyring 2.0.0 returns null for a missing entry. A credential-store
+  // read failure throws and is left to propagate, never reinterpreted as
+  // "not registered".
   let value: string | null = entry.getPassword();
 
   if (value === null) {
@@ -55,7 +80,17 @@ export async function runWithSecret(
   }
 
   try {
-    return await runStep(plan, value, timeoutMs, pathOverride);
+    return await runStep(
+      plan,
+      value,
+      timeoutMs,
+      pathOverride,
+      opts?.cwd,
+      opts?.env,
+      opts?.resolvedCli,
+      beforeSpawn,
+      suppressOutput
+    );
   } finally {
     // Best-effort only: JS strings are immutable, so this cannot zero the
     // underlying memory before GC — it only drops our reference to it.
@@ -63,14 +98,23 @@ export async function runWithSecret(
   }
 }
 
-function runStep(
+async function runStep(
   plan: DeployPlan,
   value: string | null,
   timeoutMs: number,
-  pathOverride: string | undefined
+  pathOverride: string | undefined,
+  cwd: string | undefined,
+  env: Record<string, string> | undefined,
+  resolvedCli: ResolvedCli | undefined,
+  beforeSpawn: (() => boolean | Promise<boolean>) | undefined,
+  suppressOutput: boolean
 ): Promise<HandoffResult> {
+  if (beforeSpawn && !(await beforeSpawn())) {
+    return blockedResult();
+  }
+
   const [cliName, ...args] = plan.argv;
-  const resolved = resolveCli(cliName, pathOverride);
+  const resolved = resolvedCli ?? resolveCli(cliName, pathOverride);
   if (!resolved) {
     return Promise.resolve({
       exitCode: null,
@@ -81,7 +125,11 @@ function runStep(
   }
 
   return new Promise((resolvePromise) => {
-    const child = spawnResolvedCli(resolved, args, { windowsHide: true });
+    const child = spawnResolvedCli(resolved, args, {
+      cwd,
+      env,
+      windowsHide: true
+    });
     let stdout = "";
     let stderr = "";
     let timedOut = false;
@@ -105,8 +153,8 @@ function runStep(
       clearTimeout(timer);
       resolvePromise({
         exitCode: null,
-        stdoutRedacted: scrub(stdout, value),
-        stderrRedacted: scrub(`${stderr}\n${err.message}`, value),
+        stdoutRedacted: suppressOutput ? "" : scrub(stdout, value),
+        stderrRedacted: suppressOutput ? "" : scrub(`${stderr}\n${err.message}`, value),
         timedOut
       });
     });
@@ -117,8 +165,8 @@ function runStep(
       clearTimeout(timer);
       resolvePromise({
         exitCode: code,
-        stdoutRedacted: scrub(stdout, value),
-        stderrRedacted: scrub(stderr, value),
+        stdoutRedacted: suppressOutput ? "" : scrub(stdout, value),
+        stderrRedacted: suppressOutput ? "" : scrub(stderr, value),
         timedOut
       });
     });
@@ -130,6 +178,16 @@ function runStep(
   });
 }
 
+function blockedResult(): HandoffResult {
+  return {
+    exitCode: null,
+    stdoutRedacted: "",
+    stderrRedacted: "",
+    timedOut: false,
+    blocked: "changed"
+  };
+}
+
 // Multi-layer defense (§2-10): scrub in case the official CLI ever echoes
 // the value back. Never write the pre-scrub raw output to a file or log.
 function scrub(output: string, value: string | null): string {
@@ -137,7 +195,7 @@ function scrub(output: string, value: string | null): string {
     return output;
   }
   if (value.length < 8) {
-    return "(output withheld: secret too short to redact safely)";
+    return "(output withheld)";
   }
   return output.split(value).join("***REDACTED***");
 }

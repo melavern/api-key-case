@@ -4,20 +4,26 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0d1714">
-  <meta name="description" content="API Key Caseは、APIキーをAIに見せずに実装を進めるためのローカルCLIです。スキャン・OSシークレットストアへの保存・Cloudflare、Vercel、GitHubへの安全な受け渡しを支援します。">
+  <meta name="description" content="API Key Caseは、APIキーをAIに見せずに扱うローカルCLIです。Windows 11＋Windows Helloを通常対応の基準に、macOSは協力検証版、Linuxは診断・手動保管に対応します。">
   <meta property="og:type" content="website">
   <meta property="og:locale" content="ja_JP">
-  <meta property="og:title" content="API Key Case — APIキーを、AIに見せない。">
-  <meta property="og:description" content="AIコーディング時代の、ローカルファーストなAPIキー管理CLI。">
+  <meta property="og:title" content="API Key Case — APIキーの設定も、Agentに任せたい。でも、値は渡したくない。">
+  <meta property="og:description" content="APIキーの設定はAgentに任せ、値は専用画面へ。重要な操作はあなたが確認する、AIコーディング時代のローカルCLI。">
   <meta property="og:url" content="https://apikeycase.melavern.com/">
-  <meta property="og:image" content="https://apikeycase.melavern.com/demo-ja-poster.jpg">
-  <meta property="og:image:alt" content="API Key Caseの実行デモ。秘密値を表示せず、スキャン、保存確認、Cloudflareへの配置を行うターミナル画面。">
+  <meta property="og:image" content="https://apikeycase.melavern.com/brand/og-image.png">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="API Key Case — APIキーの設定も、Agentに任せたい。でも、値は渡したくない。Agentに依頼し、あなたが値を安全に入力し、送信先を確認して実行する3ステップのイラスト。">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="API Key Case — APIキーを、AIに見せない。">
-  <meta name="twitter:description" content="ローカルスキャン、OSシークレットストア、公式CLIへの安全な受け渡しを1つのCLIで。">
-  <meta name="twitter:image" content="https://apikeycase.melavern.com/demo-ja-poster.jpg">
+  <meta name="twitter:title" content="API Key Case — APIキーの設定も、Agentに任せたい。でも、値は渡したくない。">
+  <meta name="twitter:description" content="APIキーの設定はAgentに任せ、値は専用画面へ。重要な操作はあなたが確認する、AIコーディング時代のローカルCLI。">
+  <meta name="twitter:image" content="https://apikeycase.melavern.com/brand/og-image.png">
   <link rel="canonical" href="https://apikeycase.melavern.com/">
-  <title>API Key Case — APIキーを、AIに見せない。</title>
+  <link rel="icon" href="favicon.ico" sizes="48x48">
+  <link rel="icon" href="brand/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="brand/apple-touch-icon.png">
+  <title>API Key Case — APIキーの設定も、Agentに任せたい。でも、値は渡したくない。</title>
 
   <script type="application/ld+json">
   {
@@ -25,10 +31,13 @@
     "@type": "SoftwareApplication",
     "name": "API Key Case",
     "applicationCategory": "DeveloperApplication",
-    "operatingSystem": "Windows, macOS, Linux",
-    "softwareVersion": "0.9.0",
+    "operatingSystem": "Windows 11 with Windows Hello; macOS collaborative verification; Linux diagnosis and manual storage",
+    "softwareVersion": "0.9.1",
     "description": "APIキーをAIに見せずに実装を進めるためのローカルCLI。",
     "url": "https://apikeycase.melavern.com/",
+    "downloadUrl": "https://www.npmjs.com/package/api-key-case",
+    "codeRepository": "https://github.com/melavern/api-key-case",
+    "license": "https://www.elastic.co/licensing/elastic-license",
     "author": {
       "@type": "Organization",
       "name": "Melavern"
@@ -52,6 +61,11 @@
   </script>
 
   <style>
+    /*
+     * Visual identity, tokens and shared components are shared with the policy
+     * pages, so the site keeps one design language rather than a second one for
+     * the Agent-first information architecture.
+     */
     :root {
       --ink: #0d1714;
       --ink-soft: #40504b;
@@ -99,9 +113,9 @@
     a { color: inherit; }
     button, a { -webkit-tap-highlight-color: transparent; }
     button { font: inherit; }
-    code, pre { font-family: var(--mono); }
+    code, pre, textarea { font-family: var(--mono); }
     svg { display: block; }
-    section { scroll-margin-top: 110px; }
+    section { scroll-margin-top: 120px; }
 
     .skip-link {
       position: fixed;
@@ -112,14 +126,11 @@
       border-radius: 10px;
       color: #fff;
       background: var(--ink);
-      transform: translateY(-160%);
+      transform: translateY(-260%);
     }
     .skip-link:focus { transform: translateY(0); }
 
-    .wrap {
-      width: min(1160px, calc(100% - 40px));
-      margin-inline: auto;
-    }
+    .wrap { width: min(1160px, calc(100% - 40px)); margin-inline: auto; }
 
     .site-header {
       position: sticky;
@@ -131,12 +142,7 @@
       backdrop-filter: blur(18px);
     }
 
-    .nav {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 26px;
-    }
+    .nav { display: flex; align-items: center; justify-content: space-between; gap: 26px; }
 
     .brand {
       display: inline-flex;
@@ -148,33 +154,29 @@
       text-decoration: none;
     }
 
-    .brand-mark {
+    /* The mark carries its own lime tile (brand/mark.svg), so the container
+       only sizes it. */
+    .brand-mark { display: block; width: 38px; height: 38px; flex: none; }
+    .brand-mark svg { display: block; width: 100%; height: 100%; }
+
+    .nav-links { display: flex; align-items: center; gap: 26px; margin-left: auto; }
+    .nav-links a { color: var(--ink-soft); font-size: 14px; font-weight: 700; text-decoration: none; }
+    .nav-links a:hover { color: var(--ink); }
+
+    /* GitHub stays a small header icon only: PAGE_SPEC §5 keeps it out of the
+       hero so it cannot compete with the primary CTA. */
+    .nav-github {
       display: grid;
       width: 38px;
       height: 38px;
       place-items: center;
-      border: 1.5px solid var(--ink);
+      border: 1px solid var(--line);
       border-radius: 11px;
-      background: var(--lime);
-      box-shadow: 3px 3px 0 var(--ink);
-    }
-
-    .brand-mark svg { width: 23px; height: 23px; }
-
-    .nav-links {
-      display: flex;
-      align-items: center;
-      gap: 28px;
-      margin-left: auto;
-    }
-
-    .nav-links a {
       color: var(--ink-soft);
-      font-size: 14px;
-      font-weight: 700;
-      text-decoration: none;
+      background: rgba(255, 254, 250, 0.6);
     }
-    .nav-links a:hover { color: var(--ink); }
+    .nav-github:hover { color: var(--ink); background: var(--panel); }
+    .nav-github svg { width: 19px; height: 19px; }
 
     .button {
       display: inline-flex;
@@ -190,110 +192,86 @@
       box-shadow: 4px 4px 0 var(--ink);
       font-size: 14px;
       font-weight: 850;
-      line-height: 1;
+      line-height: 1.25;
+      cursor: pointer;
+      text-align: center;
       text-decoration: none;
       transition: transform 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
     }
-
-    .button:hover {
-      background: #e4ff91;
-      box-shadow: 2px 2px 0 var(--ink);
-      transform: translate(2px, 2px);
-    }
-
-    .button:disabled {
-      cursor: not-allowed;
-      filter: saturate(0.65);
-      opacity: 0.88;
-    }
-    .button:disabled:hover { background: var(--lime); box-shadow: 4px 4px 0 var(--ink); transform: none; }
-
-    .button:focus-visible, .copy-button:focus-visible, summary:focus-visible, a:focus-visible {
+    .button:hover { background: #e4ff91; box-shadow: 2px 2px 0 var(--ink); transform: translate(2px, 2px); }
+    .button:focus-visible, summary:focus-visible, a:focus-visible, textarea:focus-visible, video:focus-visible {
       outline: 3px solid var(--coral);
       outline-offset: 3px;
     }
 
-    .button--dark {
-      color: #fff;
-      background: var(--ink);
-      box-shadow: 4px 4px 0 var(--aqua);
+    /* The secondary CTA must read as clearly weaker than the primary one. */
+    .button--quiet {
+      border-color: var(--ink);
+      background: transparent;
+      box-shadow: 3px 3px 0 rgba(13, 23, 20, 0.18);
+      font-weight: 800;
     }
-    .button--dark:hover { background: #1b2a25; box-shadow: 2px 2px 0 var(--aqua); }
+    .button--quiet:hover { background: rgba(255, 254, 250, 0.9); box-shadow: 1px 1px 0 rgba(13, 23, 20, 0.18); }
 
-    .button--ghost {
-      border-color: var(--line);
-      background: rgba(255, 254, 250, 0.5);
+    .button--onDark {
+      border-color: rgba(255, 255, 255, 0.55);
+      color: #fff;
+      background: transparent;
       box-shadow: none;
     }
-    .button--ghost:hover { background: #fffefa; box-shadow: none; transform: none; }
+    .button--onDark:hover { background: rgba(255, 255, 255, 0.12); box-shadow: none; transform: none; }
 
-    .hero {
-      position: relative;
-      overflow: hidden;
-      padding: 88px 0 74px;
-    }
+    h1, h2, h3, p { margin-top: 0; }
 
+    .hero { position: relative; overflow: hidden; padding: 56px 0 72px; }
     .hero::after {
       position: absolute;
-      top: 70px;
-      right: max(-70px, calc((100vw - 1240px) / 2 - 30px));
-      width: 260px;
-      height: 260px;
+      top: 40px;
+      right: max(-90px, calc((100vw - 1260px) / 2 - 40px));
+      width: 300px;
+      height: 300px;
       border: 1px solid rgba(13, 23, 20, 0.08);
       border-radius: 50%;
       content: "";
-      box-shadow: inset 0 0 0 34px rgba(117, 231, 196, 0.08), inset 0 0 0 68px rgba(217, 255, 103, 0.08);
+      box-shadow: inset 0 0 0 40px rgba(117, 231, 196, 0.08), inset 0 0 0 80px rgba(217, 255, 103, 0.08);
     }
+    .hero > .wrap { position: relative; z-index: 1; }
 
+    /* Two columns so the three steps and the primary CTA stay inside the
+       first view on a laptop, next to the benefit rather than under it. */
     .hero-grid {
-      position: relative;
-      z-index: 1;
       display: grid;
-      grid-template-columns: minmax(0, 1.03fr) minmax(430px, 0.97fr);
+      grid-template-columns: minmax(0, 1.04fr) minmax(390px, 0.96fr);
+      gap: 54px;
       align-items: center;
-      gap: 68px;
+    }
+    .hero-panel {
+      padding: 26px 26px 28px;
+      border: 1.5px solid var(--ink);
+      border-radius: var(--radius-md);
+      background: var(--panel);
+      box-shadow: 8px 8px 0 var(--mint);
+    }
+    .hero-panel-title {
+      margin: 0 0 16px;
+      color: #178e61;
+      font: 800 12px var(--mono);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
     }
 
-    .eyebrow {
-      display: inline-flex;
-      align-items: center;
-      gap: 9px;
-      margin: 0 0 24px;
-      padding: 7px 12px 7px 9px;
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      color: var(--ink-soft);
-      background: rgba(255, 254, 250, 0.68);
-      font-family: var(--mono);
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: 0.02em;
-    }
-
-    .eyebrow::before {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #27bd76;
-      box-shadow: 0 0 0 4px rgba(39, 189, 118, 0.13);
-      content: "";
-    }
-
-    h1, h2, h3, p { margin-top: 0; }
     h1 {
-      max-width: 720px;
-      margin-bottom: 26px;
-      font-size: clamp(46px, 6.3vw, 82px);
+      max-width: 15em;
+      margin-bottom: 24px;
+      font-size: clamp(38px, 4.5vw, 60px);
       font-weight: 900;
       letter-spacing: -0.075em;
-      line-height: 1.02;
+      line-height: 1.08;
     }
 
-    .marker {
-      position: relative;
-      display: inline-block;
-      z-index: 0;
-    }
+    .hero-last-line { display: block; margin-top: 0.35em; font-size: 0.72em; }
+
+    .marker { position: relative; display: inline-block; z-index: 0; }
     .marker::after {
       position: absolute;
       right: -0.04em;
@@ -308,106 +286,90 @@
     }
 
     .hero-copy {
-      max-width: 640px;
-      margin-bottom: 34px;
+      max-width: 30em;
+      margin-bottom: 18px;
       color: var(--ink-soft);
-      font-size: clamp(17px, 1.8vw, 20px);
+      font-size: clamp(16px, 1.5vw, 18px);
       font-weight: 520;
-      line-height: 1.85;
+      line-height: 1.8;
+      /* Keeps Japanese lines from breaking mid-phrase where it is supported;
+         ignored elsewhere. */
+      word-break: auto-phrase;
     }
 
-    .hero-actions { display: flex; flex-wrap: wrap; gap: 14px; }
+    .hero-boundary {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 0;
+      padding: 10px 16px 10px 13px;
+      border: 1.5px solid var(--ink);
+      border-radius: 999px;
+      background: var(--panel);
+      font-size: 15px;
+      font-weight: 800;
+    }
+    .hero-boundary svg { width: 18px; min-width: 18px; height: 18px; color: #139263; }
 
-    .trust-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px 18px;
-      margin-top: 34px;
+    /* Hero mini three-step list: 貼る / 入れる / 確認する */
+    .mini-steps {
+      display: grid;
+      gap: 10px;
+      margin: 0 0 24px;
+      padding: 0;
+      list-style: none;
+    }
+    .mini-steps li {
+      display: grid;
+      grid-template-columns: 30px 1fr;
+      gap: 2px 12px;
+      align-items: baseline;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--line);
+    }
+    .mini-steps li:last-child { padding-bottom: 0; border-bottom: 0; }
+    .mini-steps i {
+      color: #178e61;
+      font-family: var(--mono);
+      font-size: 15px;
+      font-style: normal;
+      font-weight: 800;
+    }
+    .mini-steps b { font-size: 17px; letter-spacing: -0.02em; }
+    .mini-steps span { grid-column: 2; color: var(--ink-soft); font-size: 13.5px; line-height: 1.6; }
+
+    /* Shared prompt CTA layout. */
+    .cta-pair { display: flex; flex-wrap: wrap; gap: 16px 22px; align-items: flex-start; }
+    .cta-slot { display: flex; flex-direction: column; gap: 8px; max-width: 340px; }
+    .cta-slot .button { width: 100%; }
+    .cta-micro { margin: 0; color: var(--ink-soft); font-size: 12.5px; line-height: 1.6; }
+    .cta-status { margin: 0; min-height: 1.2em; font-size: 12.5px; line-height: 1.6; }
+    .cta-status[data-state="success"] { color: #087f53; font-weight: 700; }
+    .cta-status[data-state="failure"] { color: #a84c39; font-weight: 700; }
+
+    .hero-panel .cta-pair { flex-direction: column; gap: 18px; }
+    .hero-panel .cta-slot { max-width: none; width: 100%; }
+    .os-status-brief {
+      margin-top: 22px;
+      padding-top: 17px;
+      border-top: 1px solid var(--line);
       color: var(--ink-soft);
       font-size: 13px;
-      font-weight: 750;
+      line-height: 1.65;
     }
-
-    .trust-item { display: inline-flex; align-items: center; gap: 7px; }
-    .trust-item svg { width: 16px; height: 16px; color: #159965; }
-
-    .terminal-wrap { position: relative; }
-    .terminal-wrap::before {
-      position: absolute;
-      inset: -20px -18px 18px 22px;
-      z-index: -1;
-      border: 1.5px solid var(--ink);
-      border-radius: 30px;
-      background: var(--mint);
-      content: "";
-      transform: rotate(2.4deg);
-    }
-
-    .terminal {
-      overflow: hidden;
-      border: 1.5px solid #26362f;
-      border-radius: 24px;
-      color: #eaf6ef;
-      background: #0d1714;
-      box-shadow: var(--shadow);
-      transform: rotate(-0.6deg);
-    }
-
-    .terminal-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      min-height: 48px;
-      padding: 0 17px;
-      border-bottom: 1px solid rgba(255,255,255,0.1);
-      background: #15221e;
-    }
-
-    .dots { display: flex; gap: 7px; }
-    .dots i { width: 9px; height: 9px; border-radius: 50%; background: #61716a; }
-    .dots i:first-child { background: var(--coral); }
-    .dots i:nth-child(2) { background: #f8ca5c; }
-    .dots i:last-child { background: #49d18d; }
-    .terminal-title { color: #9eb0a8; font: 11px var(--mono); }
-
-    .copy-button {
-      padding: 5px 8px;
-      border: 1px solid rgba(255,255,255,0.16);
-      border-radius: 7px;
-      color: #b9c9c2;
-      background: transparent;
-      cursor: pointer;
-      font-family: var(--mono);
-      font-size: 10px;
-    }
-    .copy-button:hover { color: #fff; background: rgba(255,255,255,0.08); }
-
-    .terminal-body {
-      min-height: 425px;
-      padding: 25px 24px 28px;
-      font: 13px/1.75 var(--mono);
-    }
-    .terminal-body p { margin: 0; white-space: pre-wrap; }
-    .terminal-body .space { height: 16px; }
-    .prompt { color: var(--lime); user-select: none; }
-    .command { color: #fff; }
-    .muted { color: #80948b; }
-    .ok { color: #67e6a3; }
-    .warn { color: #ffd978; }
-    .redacted { color: #ff9988; }
-    .pro-tag {
+    .os-status-brief p { margin: 0; }
+    .os-status-brief p + p { margin-top: 2px; }
+    .os-status-brief strong { color: var(--ink); }
+    .os-status-brief a {
       display: inline-block;
-      margin-left: 7px;
-      padding: 1px 6px;
-      border: 1px solid rgba(217,255,103,0.5);
-      border-radius: 5px;
-      color: var(--lime);
-      font-size: 9px;
-      letter-spacing: 0.08em;
-      vertical-align: 2px;
+      margin-top: 8px;
+      color: #157a53;
+      font-size: 12.5px;
+      font-weight: 800;
     }
 
-    .section { padding: 112px 0; }
+    .section { padding: 108px 0; }
+    .section--tight { padding: 78px 0; }
     .section--dark {
       position: relative;
       overflow: hidden;
@@ -420,11 +382,13 @@
       right: -220px;
       width: 620px;
       height: 620px;
-      border: 1px solid rgba(217,255,103,0.12);
+      border: 1px solid rgba(217, 255, 103, 0.12);
       border-radius: 50%;
       content: "";
-      box-shadow: inset 0 0 0 90px rgba(117,231,196,0.025), inset 0 0 0 180px rgba(217,255,103,0.025);
+      box-shadow: inset 0 0 0 90px rgba(117, 231, 196, 0.025), inset 0 0 0 180px rgba(217, 255, 103, 0.025);
     }
+    .section--dark .section-lead { color: #aabab3; }
+    .section > .wrap { position: relative; z-index: 1; }
 
     .section-kicker {
       margin-bottom: 14px;
@@ -438,384 +402,291 @@
     .section--dark .section-kicker { color: var(--lime); }
 
     .section-heading {
-      max-width: 760px;
+      max-width: 18em;
       margin-bottom: 22px;
-      font-size: clamp(34px, 5vw, 58px);
+      font-size: clamp(32px, 4.6vw, 54px);
       font-weight: 880;
       letter-spacing: -0.055em;
-      line-height: 1.12;
+      line-height: 1.14;
     }
 
-    .section-lead {
-      max-width: 720px;
-      margin-bottom: 54px;
-      color: var(--ink-soft);
-      font-size: 18px;
-    }
+    /* Supporting sections stay a step below HERO / THREE so the centre
+       of the page keeps the strongest voice. */
+    .section-heading--sm { max-width: 24em; font-size: clamp(27px, 3.1vw, 38px); letter-spacing: -0.045em; }
 
-    .section--band { padding: 86px 0; }
-    .ba-grid {
+    .section-lead { max-width: 44em; margin-bottom: 48px; color: var(--ink-soft); font-size: 18px; }
+    .section-close { max-width: 44em; margin: 34px 0 0; font-size: 17px; font-weight: 750; }
+
+    /* PROB */
+    .prob-list {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 18px;
-      align-items: start;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px 28px;
+      margin: 0 0 6px;
+      padding: 0;
+      list-style: none;
+      max-width: 900px;
     }
-    .ba-card {
-      padding: 28px;
-      border: 1px solid var(--line);
-      border-radius: var(--radius-md);
-      background: rgba(255, 254, 250, 0.58);
-    }
-    .ba-card--after {
-      border: 1.5px solid var(--ink);
-      background: var(--panel);
-      box-shadow: 6px 6px 0 var(--mint);
-    }
-    .ba-label {
-      margin-bottom: 17px;
-      color: var(--ink-soft);
-      font: 800 12px var(--mono);
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-    }
-    .ba-card--after .ba-label { color: #178e61; }
-    .ba-list { display: grid; gap: 11px; margin: 0; padding: 0; list-style: none; }
-    .ba-list li {
+    .prob-list li {
       position: relative;
-      padding-left: 25px;
+      padding-left: 26px;
       color: var(--ink-soft);
-      font-size: 14px;
-      line-height: 1.72;
+      font-size: 15px;
+      line-height: 1.7;
     }
-    .ba-list li::before {
+    .prob-list li::before {
       position: absolute;
       top: 0;
-      left: 0;
+      left: 2px;
       color: #98a6a1;
       content: "×";
       font-weight: 850;
     }
-    .ba-card--after .ba-list li { color: var(--ink); }
-    .ba-card--after .ba-list li::before { color: #139263; content: "✓"; }
-    .ba-list code {
-      padding: 1px 5px;
-      border-radius: 5px;
-      background: var(--paper-deep);
-      font-size: 0.86em;
+    .market-evidence {
+      max-width: 900px;
+      margin-top: 24px;
+      padding: 13px 0 0 18px;
+      border-left: 3px solid var(--aqua);
+      color: var(--ink-soft);
     }
-    .section--demo { padding: 72px 0 92px; }
-    .section--demo .section-lead { max-width: 760px; margin-bottom: 34px; }
-    .demo-figure {
-      width: min(100%, 900px);
-      margin: 0 auto;
-      scroll-margin-top: 88px;
-    }
-    .demo-toolbar {
+    .market-evidence p { margin: 0; font-size: 14.5px; line-height: 1.75; }
+    .market-evidence a { font-size: 12px; font-weight: 700; }
+    .market-evidence a:hover { color: var(--ink); }
+
+    /* THREE — the centre of the page */
+    .three-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+    .three-card {
       display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      margin-bottom: 14px;
+      flex-direction: column;
+      padding: 30px 28px 26px;
+      border: 1.5px solid var(--ink);
+      border-radius: var(--radius-md);
+      background: var(--panel);
+      box-shadow: 7px 7px 0 var(--mint);
     }
-    .demo-language-label {
-      margin: 0;
-      color: var(--ink-soft);
+    .three-num {
+      display: grid;
+      width: 44px;
+      height: 44px;
+      margin-bottom: 20px;
+      place-items: center;
+      border: 1.5px solid var(--ink);
+      border-radius: 13px;
+      background: var(--lime);
+      font: 800 14px var(--mono);
+      box-shadow: 3px 3px 0 var(--ink);
+    }
+    .three-card h3 { margin-bottom: 12px; font-size: 21px; letter-spacing: -0.03em; line-height: 1.4; }
+    .three-card p { margin: 0 0 14px; color: var(--ink-soft); font-size: 14.5px; }
+    .three-not {
+      margin-top: auto;
+      padding-top: 16px;
+      border-top: 1px solid var(--line);
+      color: #7c6157;
       font-size: 13px;
-      font-weight: 700;
+      font-weight: 750;
     }
-    .demo-language {
-      display: inline-flex;
-      gap: 4px;
-      padding: 4px;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      background: var(--paper-deep);
-    }
-    .demo-language button {
-      min-height: 38px;
-      padding: 8px 14px;
-      border: 0;
-      border-radius: 8px;
-      background: transparent;
+    .three-not b { margin-right: 7px; color: var(--coral); font-weight: 850; }
+    .three-not-label {
+      display: block;
+      margin-bottom: 5px;
       color: var(--ink-soft);
-      cursor: pointer;
-      font: 800 12px var(--mono);
+      font: 800 10.5px var(--mono);
+      letter-spacing: 0.1em;
     }
-    .demo-language button[aria-pressed="true"] {
-      background: var(--ink);
-      color: var(--paper);
+
+    /* EV — the announcement between THREE and SECURITY (PAGE_SPEC §7).
+       The video is vertical, so it stands beside the copy on a laptop and
+       below the heading on a phone; it is never stretched full-bleed. */
+    .ev-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 340px;
+      grid-template-areas:
+        "head video"
+        "body video";
+      gap: 28px 56px;
+      align-items: center;
     }
-    .demo-language button:focus-visible {
-      outline: 3px solid var(--mint);
-      outline-offset: 2px;
-    }
-    .demo-player {
+    .ev-head { grid-area: head; align-self: end; }
+    .ev-head .section-lead { margin-bottom: 0; }
+    .ev-body { grid-area: body; align-self: start; }
+    .ev-player { grid-area: video; width: 100%; max-width: 340px; margin: 0; }
+    .ev-player video {
       display: block;
       width: 100%;
       height: auto;
-      aspect-ratio: 16 / 9;
-      border: 1.5px solid var(--line);
+      aspect-ratio: 9 / 16;
+      border: 1.5px solid var(--ink);
       border-radius: var(--radius-md);
       background: var(--ink);
-      box-shadow: var(--shadow);
+      box-shadow: 8px 8px 0 var(--mint);
     }
-    .demo-caption {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px 18px;
-      margin-top: 14px;
+    .ev-player figcaption {
+      margin-top: 16px;
       color: var(--ink-soft);
-      font-family: var(--mono);
       font-size: 12px;
-      letter-spacing: 0.02em;
+      text-align: center;
     }
-    .demo-caption a { color: #178e61; font-weight: 700; }
-    .demo-direct-links { display: inline-flex; flex-wrap: wrap; gap: 8px; }
-    .demo-bgm-credit { flex-basis: 100%; }
-    .section--dark .section-lead { color: #aabab3; }
-
-    .feature-grid {
-      position: relative;
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 18px;
+    .ev-note {
+      max-width: 34em;
+      margin: 0;
+      color: var(--ink-soft);
+      font-size: 12px;
+      line-height: 1.7;
     }
 
-    .feature-card {
-      min-height: 310px;
-      padding: 28px;
-      border: 1px solid rgba(255,255,255,0.11);
-      border-radius: 22px;
-      background: rgba(255,255,255,0.045);
-    }
-    .feature-card:nth-child(2) { transform: translateY(18px); }
-    .feature-card:nth-child(3) { transform: translateY(36px); }
+    /* Setup stays with the three steps; the prompt keeps one copy source. */
+    .setup-start { max-width: 680px; margin-top: 24px; scroll-margin-top: 100px; }
+    .env-details { max-width: 900px; margin-top: 16px; color: var(--ink-soft); font-size: 14px; }
+    .env-details summary, .security-more summary { cursor: pointer; font-weight: 750; padding-block: 12px; }
+    .env-details ul, .security-more ul { margin: 10px 0 0; padding-left: 22px; }
+    .env-details li, .security-more li { margin-bottom: 12px; }
 
-    .feature-icon {
-      display: grid;
-      width: 46px;
-      height: 46px;
-      margin-bottom: 54px;
-      place-items: center;
-      border-radius: 13px;
-      color: var(--ink);
-      background: var(--lime);
+    .prompt-source { margin-top: 18px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: rgba(255, 254, 250, 0.8); }
+    .prompt-source summary {
+      padding: 13px 18px;
+      color: var(--ink-soft);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 800;
+      list-style: none;
     }
-    .feature-card:nth-child(2) .feature-icon { background: var(--mint); }
-    .feature-card:nth-child(3) .feature-icon { background: #ffd1c9; }
-    .feature-icon svg { width: 23px; height: 23px; }
-    .feature-card h3 { margin-bottom: 12px; font-size: 21px; letter-spacing: -0.025em; }
-    .feature-card p { margin-bottom: 0; color: #aabab3; font-size: 14px; }
-
-    .flow-grid {
-      display: grid;
-      grid-template-columns: 0.85fr 1.15fr;
-      gap: 70px;
-      align-items: start;
-    }
-
-    .sticky-copy { position: sticky; top: 126px; }
-    .steps { display: grid; gap: 14px; }
-    .step {
-      display: grid;
-      grid-template-columns: 46px 1fr;
-      gap: 18px;
-      padding: 24px;
+    .prompt-source summary::-webkit-details-marker { display: none; }
+    .prompt-source summary::before { margin-right: 8px; content: "＋"; font-family: var(--mono); }
+    .prompt-source[open] summary::before { content: "－"; }
+    .prompt-text {
+      display: block;
+      width: calc(100% - 28px);
+      margin: 0 14px 14px;
+      padding: 14px;
       border: 1px solid var(--line);
-      border-radius: 20px;
-      background: rgba(255,254,250,0.65);
-    }
-    .step-num {
-      display: grid;
-      width: 42px;
-      height: 42px;
-      place-items: center;
-      border: 1.5px solid var(--ink);
-      border-radius: 12px;
-      background: var(--mint);
-      font: 800 13px var(--mono);
-      box-shadow: 3px 3px 0 var(--ink);
-    }
-    .step h3 { margin: 1px 0 5px; font-size: 18px; letter-spacing: -0.02em; }
-    .step p { margin: 0; color: var(--ink-soft); font-size: 14px; }
-
-    .roles {
-      margin-top: 10px;
-      padding: 26px;
-      border: 1.5px solid var(--ink);
-      border-radius: 20px;
-      background: var(--panel);
-    }
-    .roles-title {
-      margin-bottom: 18px;
-      color: #178e61;
-      font: 800 12px var(--mono);
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-    }
-    .roles-list { display: grid; gap: 13px; margin: 0; }
-    .roles-list > div {
-      display: grid;
-      grid-template-columns: minmax(150px, 0.82fr) 1.18fr;
-      gap: 5px 18px;
-      padding-bottom: 13px;
-      border-bottom: 1px solid var(--line);
-    }
-    .roles-list > div:last-child { padding-bottom: 0; border-bottom: 0; }
-    .roles-list dt { font-size: 14px; font-weight: 800; }
-    .roles-list dd { margin: 0; color: var(--ink-soft); font-size: 13px; line-height: 1.65; }
-    .roles-list code {
-      padding: 1px 5px;
-      border-radius: 5px;
-      background: var(--paper-deep);
-      font-size: 0.88em;
-    }
-    .inline-code {
-      padding: 0.14em 0.42em;
-      border: 1px solid var(--line);
-      border-radius: 5px;
+      border-radius: 10px;
       color: var(--ink);
       background: var(--paper-deep);
-      font-family: var(--mono);
-      font-size: 0.88em;
+      font-size: 12.5px;
+      line-height: 1.7;
+      resize: vertical;
     }
 
-    .pricing-wrap {
-      display: grid;
-      grid-template-columns: 0.88fr 1.12fr;
-      gap: 22px;
-      align-items: stretch;
-    }
+    /* One security story, with public evidence immediately after its limits. */
+    #security, #proof { scroll-margin-top: 90px; }
+    .security-grid { display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 60px; align-items: start; }
+    .security-flow { display: grid; gap: 28px; margin: 0; padding: 0; list-style: none; }
+    .security-flow li { padding-bottom: 28px; border-bottom: 1px solid rgba(255, 255, 255, 0.12); }
+    .security-flow li:last-child { padding-bottom: 0; border-bottom: 0; }
+    .security-flow h3 { margin-bottom: 12px; color: var(--lime); font-size: 20px; line-height: 1.5; }
+    .security-flow p { margin: 0 0 12px; color: #aabab3; font-size: 15px; }
+    .security-flow p:last-child { margin-bottom: 0; }
+    .security-details { padding-block: 56px; }
+    .security-scope { display: grid; grid-template-columns: 0.6fr 1.4fr; gap: 40px; }
+    .security-details h3 { margin-bottom: 18px; font-size: 24px; letter-spacing: -0.035em; line-height: 1.5; }
+    .security-details p { color: var(--ink-soft); font-size: 15px; }
+    .security-more { color: var(--ink-soft); font-size: 14px; }
+    .security-proof { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 48px; margin-top: 48px; padding-top: 48px; border-top: 1px solid var(--line); }
+    .security-review { padding-left: 28px; border-left: 3px solid var(--aqua); }
+    .security-review h4 { margin: 0 0 14px; font-size: 18px; line-height: 1.5; }
+    .security-review .review-note { font-size: 13px; }
+    .security-review .cta-micro, .security-review .cta-status { font-size: 12px; }
+
+    /* PRICE */
+    .pricing-wrap { display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 22px; align-items: stretch; }
     .price-card {
       position: relative;
       display: flex;
-      min-height: 560px;
       flex-direction: column;
       padding: 34px;
       border: 1.5px solid var(--ink);
       border-radius: 28px;
       background: var(--panel);
-      box-shadow: 7px 7px 0 rgba(13,23,20,0.12);
+      box-shadow: 7px 7px 0 rgba(13, 23, 20, 0.12);
     }
-    .price-card--pro {
-      overflow: hidden;
-      color: #fff;
-      background: var(--ink);
-      box-shadow: 8px 8px 0 var(--aqua);
-    }
+    .price-card--pro { overflow: hidden; color: #fff; background: var(--ink); box-shadow: 8px 8px 0 var(--aqua); }
     .price-card--pro::after {
       position: absolute;
       top: -100px;
       right: -80px;
       width: 270px;
       height: 270px;
-      border: 44px solid rgba(217,255,103,0.09);
+      border: 44px solid rgba(217, 255, 103, 0.09);
       border-radius: 50%;
       content: "";
     }
-    .plan-label { margin-bottom: 28px; font: 800 12px var(--mono); letter-spacing: 0.1em; text-transform: uppercase; }
-    .price { margin-bottom: 12px; font-size: clamp(44px, 5vw, 66px); font-weight: 900; letter-spacing: -0.065em; line-height: 1; }
+    .price-card > * { position: relative; z-index: 1; }
+    .plan-label { margin-bottom: 26px; font: 800 12px var(--mono); letter-spacing: 0.1em; text-transform: uppercase; }
+    .price { margin-bottom: 12px; font-size: clamp(40px, 4.6vw, 60px); font-weight: 900; letter-spacing: -0.065em; line-height: 1; }
     .price small { margin-left: 8px; font-size: 14px; font-weight: 700; letter-spacing: 0; }
-    .price-note { min-height: 52px; margin-bottom: 26px; color: var(--ink-soft); font-size: 14px; }
+    .price-note { margin-bottom: 24px; color: var(--ink-soft); font-size: 14px; }
     .price-card--pro .price-note { color: #aabab3; }
-    .feature-list { display: grid; gap: 13px; margin: 0 0 34px; padding: 0; list-style: none; }
-    .feature-list li { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; }
+    .feature-list { display: grid; gap: 12px; margin: 0 0 30px; padding: 0; list-style: none; }
+    .feature-list li { display: flex; gap: 10px; align-items: flex-start; font-size: 14.5px; }
     .feature-list svg { width: 18px; min-width: 18px; margin-top: 4px; color: #139263; }
     .price-card--pro .feature-list svg { color: var(--lime); }
     .plan-action { margin-top: auto; }
     .plan-action .button { width: 100%; }
-    .availability {
-      margin-top: 14px;
-      color: #9fb0a8;
-      font-size: 11px;
-      text-align: center;
-    }
-    .purchase-terms {
-      margin: 9px 4px 0;
-      color: #9fb0a8;
-      font-size: 11px;
-      line-height: 1.65;
-      text-align: center;
-    }
+    .purchase-terms { margin: 12px 2px 0; color: #9fb0a8; font-size: 11px; line-height: 1.65; text-align: center; }
     .purchase-terms a { color: #d9ff67; }
-
-    .comparison {
-      margin-top: 26px;
-      overflow: hidden;
+    .purchase-note { margin: 22px 2px 0; color: var(--ink-soft); font-size: 12px; line-height: 1.7; }
+    .purchase-note strong { color: var(--ink); font-weight: 800; }
+    .os-pricing-summary {
+      margin: 0 0 26px;
+      padding: 24px 26px 26px;
       border: 1px solid var(--line);
-      border-radius: 20px;
-      background: rgba(255,254,250,0.68);
+      border-radius: var(--radius-md);
+      background: rgba(255, 254, 250, 0.72);
     }
-    .comparison-row {
-      display: grid;
-      grid-template-columns: minmax(180px, 1.6fr) 0.7fr 0.7fr;
-      min-height: 54px;
+    .os-pricing-summary h3 { margin-bottom: 18px; font-size: 22px; letter-spacing: -0.035em; line-height: 1.4; }
+    .os-pricing-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+    .os-pricing-item { padding-left: 16px; border-left: 3px solid var(--aqua); }
+    .os-pricing-item:nth-child(2) { border-left-color: var(--lime); }
+    .os-pricing-item:nth-child(3) { border-left-color: var(--coral); }
+    .os-pricing-item h4 { margin: 0 0 7px; font-size: 16px; line-height: 1.45; }
+    .os-pricing-item p { margin: 0; color: var(--ink-soft); font-size: 13px; line-height: 1.7; }
+    .os-pricing-detail { margin: 18px 0 0; color: var(--ink-soft); font-size: 12.5px; }
+    .os-pricing-detail a, .macos-invite a { color: #245e47; font-weight: 800; }
+    .macos-invite {
+      margin-top: 20px;
+      padding: 17px 19px;
+      border: 1px solid rgba(13, 23, 20, 0.12);
+      border-radius: 14px;
+      background: #edf3ee;
+    }
+    .macos-invite h4 { margin: 0 0 5px; font-size: 16px; line-height: 1.45; }
+    .macos-invite p { margin: 0 0 7px; color: var(--ink-soft); font-size: 13px; line-height: 1.7; }
+    .macos-invite a { font-size: 12.5px; }
+    .macos-invite .button { min-height: 44px; margin: 5px 0; color: var(--ink); background: #dcebdd; }
+    .macos-invite .button:hover { background: #d0e3d3; }
+    .pro-eligibility {
+      margin: 0 0 15px;
+      padding: 11px 13px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 12px;
+      color: #dcebe4;
+      background: rgba(255, 255, 255, 0.07);
+      font-size: 12.5px;
+      line-height: 1.65;
+    }
+
+    /* PROOF */
+    .proof-links { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+    .proof-links a {
+      display: inline-flex;
       align-items: center;
-      border-bottom: 1px solid var(--line);
-    }
-    .comparison-row:last-child { border-bottom: 0; }
-    .comparison-row > div { padding: 13px 20px; font-size: 13px; }
-    .comparison-row > div:not(:first-child) { border-left: 1px solid var(--line); text-align: center; }
-    .comparison-head { background: var(--paper-deep); font-weight: 850; }
-    .yes { color: #087f53; font-weight: 850; }
-    .pro-only { color: #a84c39; font-weight: 850; }
-
-    .details-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 14px;
-      margin-top: 48px;
-    }
-    details {
-      border: 1px solid var(--line);
-      border-radius: 17px;
-      background: rgba(255,254,250,0.66);
-    }
-    details[open] { background: var(--panel); }
-    summary {
-      position: relative;
-      padding: 21px 50px 21px 22px;
-      cursor: pointer;
+      gap: 7px;
+      padding: 11px 17px;
+      border: 1px solid var(--ink);
+      border-radius: 999px;
+      background: var(--panel);
+      font-size: 14px;
       font-weight: 800;
-      list-style: none;
+      text-decoration: none;
     }
-    summary::-webkit-details-marker { display: none; }
-    summary::after {
-      position: absolute;
-      top: 50%;
-      right: 22px;
-      width: 18px;
-      height: 18px;
-      content: "+";
-      font: 19px/18px var(--mono);
-      text-align: center;
-      transform: translateY(-50%);
-    }
-    details[open] summary::after { content: "−"; }
-    .detail-body { padding: 0 22px 22px; color: var(--ink-soft); font-size: 14px; }
-    .detail-body p:last-child { margin-bottom: 0; }
+    #proof .cta-slot { margin-top: 24px; }
+    .proof-links a:hover { background: var(--mint); }
 
-    .review-note {
-      display: grid;
-      grid-template-columns: auto 1fr;
-      gap: 16px;
-      margin-top: 34px;
-      padding: 22px;
-      border: 1px solid rgba(168,76,57,0.24);
-      border-radius: 17px;
-      background: #fff4ee;
-    }
-    .review-note svg { width: 24px; height: 24px; color: var(--coral); }
-    .review-note h3 { margin-bottom: 4px; font-size: 15px; }
-    .review-note p { margin: 0; color: #765247; font-size: 13px; }
-
+    /* Final CTA */
     .cta-band {
       position: relative;
       overflow: hidden;
-      display: grid;
-      grid-template-columns: 1fr auto;
-      align-items: center;
-      gap: 30px;
       padding: 48px;
       border: 1.5px solid var(--ink);
       border-radius: 30px;
@@ -824,25 +695,21 @@
     }
     .cta-band::after {
       position: absolute;
-      right: 180px;
-      bottom: -120px;
-      width: 250px;
-      height: 250px;
-      border: 44px solid rgba(13,23,20,0.06);
+      right: 120px;
+      bottom: -140px;
+      width: 260px;
+      height: 260px;
+      border: 44px solid rgba(13, 23, 20, 0.06);
       border-radius: 50%;
       content: "";
     }
-    .cta-band h2 { margin-bottom: 10px; font-size: clamp(30px, 4vw, 48px); letter-spacing: -0.05em; line-height: 1.12; }
-    .cta-band p { max-width: 680px; margin-bottom: 0; color: var(--ink-soft); }
-    .cta-band .button { position: relative; z-index: 1; white-space: nowrap; }
+    .cta-band > * { position: relative; z-index: 1; }
+    .cta-band h2 { margin-bottom: 26px; font-size: clamp(28px, 3.6vw, 44px); letter-spacing: -0.05em; line-height: 1.16; }
 
-    .site-footer {
-      padding: 56px 0 34px;
-      border-top: 1px solid var(--line);
-    }
+    .site-footer { padding: 56px 0 34px; border-top: 1px solid var(--line); }
     .footer-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 34px; }
     .footer-copy { max-width: 440px; margin-top: 16px; color: var(--ink-soft); font-size: 13px; }
-    .footer-links { display: flex; flex-wrap: wrap; gap: 20px 28px; }
+    .footer-links { display: flex; flex-wrap: wrap; gap: 18px 26px; max-width: 620px; }
     .footer-links a { color: var(--ink-soft); font-size: 13px; font-weight: 700; }
     .footer-links a:hover { color: var(--ink); }
     .footer-bottom {
@@ -856,57 +723,44 @@
       font-size: 11px;
     }
 
-    @media (max-width: 960px) {
-      .hero { padding-top: 64px; }
-      .hero-grid { grid-template-columns: 1fr; gap: 64px; }
-      .hero-copy { max-width: 730px; }
-      .terminal-wrap { width: min(650px, 96%); margin-inline: auto; }
-      .feature-grid { grid-template-columns: 1fr; }
-      .feature-card { min-height: 0; }
-      .feature-card:nth-child(n) { transform: none; }
-      .feature-icon { margin-bottom: 32px; }
-      .flow-grid { grid-template-columns: 1fr; gap: 30px; }
-      .sticky-copy { position: static; }
-      .pricing-wrap { grid-template-columns: 1fr 1fr; }
+    @media (max-width: 1000px) {
+      .hero-grid { grid-template-columns: 1fr; gap: 34px; }
+      .hero-panel { max-width: 640px; }
+      .three-grid { grid-template-columns: 1fr; }
+      .three-card { box-shadow: 6px 6px 0 var(--mint); }
+      .security-grid, .security-scope, .security-proof, .pricing-wrap { grid-template-columns: 1fr; }
+      .security-grid, .security-scope { gap: 24px; }
+      .security-grid .section-lead { margin-bottom: 0; }
+      .ev-grid { grid-template-columns: 1fr; grid-template-areas: "head" "video" "body"; gap: 30px; }
+      .ev-player { justify-self: center; }
+      .hero::after { display: none; }
+      .os-pricing-grid { grid-template-columns: 1fr; }
     }
 
     @media (max-width: 720px) {
       .wrap { width: min(100% - 26px, 1160px); }
       .nav-links { display: none; }
-      .nav > .button { min-height: 40px; padding: 0 14px; font-size: 12px; }
-      .hero { padding: 52px 0 58px; }
-      h1 { font-size: clamp(43px, 14vw, 67px); }
+      .hero { padding: 46px 0 56px; }
+      /* Keep the opening phrases together on narrow screens. */
+      h1 { font-size: clamp(28px, 8.2vw, 52px); }
       .hero-copy { font-size: 16px; }
-      .hero-actions { align-items: stretch; flex-direction: column; }
-      .hero-actions .button { width: 100%; }
-      .terminal-wrap { width: calc(100% - 8px); }
-      .terminal-wrap::before { inset: -12px -9px 10px 10px; }
-      .terminal-body { min-height: 390px; padding: 19px 16px 22px; font-size: 10.5px; overflow-x: auto; }
-      .section { padding: 82px 0; }
-      .section--demo { padding: 58px 0 68px; }
-      .section-heading { font-size: 38px; }
-      .section-lead { margin-bottom: 36px; font-size: 16px; }
-      .feature-card { padding: 24px; }
-      .step { grid-template-columns: 38px 1fr; padding: 19px; gap: 14px; }
-      .step-num { width: 36px; height: 36px; }
-      .ba-grid { grid-template-columns: 1fr; }
-      .ba-card { padding: 24px; }
-      .roles { padding: 22px; }
-      .roles-list > div { grid-template-columns: 1fr; }
-      .demo-toolbar { align-items: flex-start; flex-direction: column; }
-      .pricing-wrap { grid-template-columns: 1fr; }
-      .price-card { min-height: 0; padding: 27px; }
-      .comparison { overflow-x: auto; }
-      .comparison-row { min-width: 570px; }
-      .details-grid { grid-template-columns: 1fr; }
-      .cta-band { grid-template-columns: 1fr; padding: 32px 25px; }
-      .cta-band .button { width: 100%; }
+      .hero-boundary { font-size: 14px; }
+      .mini-steps { grid-template-columns: 1fr; gap: 10px; }
+      .cta-pair { flex-direction: column; }
+      .cta-slot { max-width: none; width: 100%; }
+      .section { padding: 68px 0; }
+      .section--tight { padding: 56px 0; }
+      .section-heading { font-size: 32px; }
+      .section-lead { margin-bottom: 32px; font-size: 16px; }
+      .prob-list { grid-template-columns: 1fr; }
+      .three-card, .price-card { padding: 24px 22px; }
+      .cta-band { padding: 30px 24px; }
       .footer-top, .footer-bottom { align-items: flex-start; flex-direction: column; }
     }
 
     @media (prefers-reduced-motion: reduce) {
       html { scroll-behavior: auto; }
-      *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
+      *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
     }
   </style>
 </head>
@@ -918,411 +772,411 @@
     <div class="wrap nav">
       <a class="brand" href="#top" aria-label="API Key Case トップへ">
         <span class="brand-mark" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none">
-            <path d="M4.5 7.8A3.3 3.3 0 0 1 7.8 4.5h8.4a3.3 3.3 0 0 1 3.3 3.3v8.4a3.3 3.3 0 0 1-3.3 3.3H7.8a3.3 3.3 0 0 1-3.3-3.3V7.8Z" stroke="currentColor" stroke-width="1.8"/>
-            <path d="M9.1 11.5a2.9 2.9 0 1 1 4.6 2.35l2.2 2.15M15.9 16l1.2-1.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          <svg viewBox="0 0 256 256">
+            <rect width="256" height="256" rx="52" fill="#c2fb60"/>
+            <g fill="none" stroke="#0d1714" stroke-linejoin="round">
+              <path d="M91 86V69a12 12 0 0 1 12-12h50a12 12 0 0 1 12 12v17" stroke-width="14"/>
+              <rect x="48" y="86" width="160" height="112" rx="22" stroke-width="14"/>
+              <circle cx="98" cy="143" r="17.5" stroke-width="17"/>
+              <path d="M124 144h49" stroke-width="19" stroke-linecap="round"/>
+            </g>
+            <path fill="#0d1714" d="M144 150h13v12a3 3 0 0 1-3 3h-7a3 3 0 0 1-3-3zM161.5 150h13v12a3 3 0 0 1-3 3h-7a3 3 0 0 1-3-3z"/>
           </svg>
         </span>
         <span>API Key Case</span>
       </a>
 
       <nav class="nav-links" aria-label="メインナビゲーション">
-        <a href="#demo-player">デモ</a>
-        <a href="#features">できること</a>
-        <a href="#how">しくみ</a>
-        <a href="#pricing">料金</a>
-        <a href="#faq">FAQ</a>
+        <a href="#three">使い方</a>
+        <a href="#security">安全の仕組み</a>
+        <a href="#price">料金</a>
+        <a href="#proof">公開ソース</a>
       </nav>
 
-      <a class="button" href="#pricing">Pro <span aria-hidden="true">→</span></a>
+      <a class="nav-github" data-lp-action="github" href="https://github.com/melavern/api-key-case" target="_blank" rel="noopener noreferrer" aria-label="GitHubリポジトリ（新しいタブで開きます）">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.9 1.53 2.36 1.09 2.94.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.65 0 0 .84-.27 2.75 1.02a9.5 9.5 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.38.2 2.4.1 2.65.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10 10 0 0 0 12 2Z"/></svg>
+      </a>
     </div>
   </header>
 
   <main id="main">
+    <!-- HERO — Benefit / 対象 / 安全性の区別 / 次の行動 -->
     <section class="hero" id="top">
       <div class="wrap hero-grid">
         <div>
-          <p class="eyebrow">v0.9.0 · LOCAL-FIRST CLI</p>
-          <h1>APIキーを、<br><span class="marker">AIに見せない。</span></h1>
+          <h1>APIキーの設定も、<br>Agentに任せたい。<br><span class="hero-last-line">でも、<span class="marker">値は渡したくない。</span></span></h1>
+
           <p class="hero-copy">
-            APIキーを毎回探して貼り付ける作業を、やめられます。最初に一度だけOSのシークレットストアへ保存すれば、あとはSecret名だけで確認とdeploy。AIには名前と状態だけを渡し、値はあなたの手元に残ります。
+            Coding Agentが進めるのは、API Key Caseの導入と、APIキーまわりの操作です。<br>
+            あなたがするのは、専用画面への値の入力と、重要な操作の確認です。
           </p>
 
-          <div class="hero-actions">
-            <a class="button button--dark" href="#demo-player">デモを見る <span aria-hidden="true">↓</span></a>
-            <a class="button button--ghost" href="https://github.com/melavern/api-key-case" target="_blank" rel="noopener noreferrer">GitHub <span aria-hidden="true">↗</span></a>
-          </div>
-
-          <div class="trust-row" aria-label="主な特徴">
-            <span class="trust-item">
-              <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m4 10 3.4 3.4L16 5.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              スキャンはローカルで完結
-            </span>
-            <span class="trust-item">
-              <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m4 10 3.4 3.4L16 5.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              テレメトリなし
-            </span>
-            <span class="trust-item">
-              <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m4 10 3.4 3.4L16 5.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              Pro判定は有効化後オフライン
-            </span>
-          </div>
+          <p class="hero-boundary">
+            <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M6 9V6.5a4 4 0 0 1 8 0V9M5 9h10a1 1 0 0 1 1 1v6H4v-6a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+            秘密値そのものは、AIに渡しません。
+          </p>
         </div>
 
-        <div class="terminal-wrap" id="demo">
-          <div class="terminal" role="group" aria-label="API Key Caseのコマンド実行例。スキャン結果では秘密値がリダクトされ、ProではVercelへの配置計画が表示されている。">
-            <div class="terminal-head">
-              <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
-              <span class="terminal-title">~/my-project — api-key-case</span>
-              <button class="copy-button" type="button" data-copy="npx api-key-case scan . --agent-report" aria-label="スキャンコマンドをコピー">copy</button>
+        <div class="hero-panel">
+          <p class="hero-panel-title">あなたがやるのは、3つだけ</p>
+          <ul class="mini-steps">
+            <li><i aria-hidden="true">①</i><b>貼る</b><span>最初に1回、Coding Agentへ</span></li>
+            <li><i aria-hidden="true">②</i><b>入れる</b><span>求められたAPIキーの値だけ</span></li>
+            <li><i aria-hidden="true">③</i><b>確認する</b><span>専用画面で、重要な操作を承認</span></li>
+          </ul>
+
+          <div class="cta-pair">
+            <div class="cta-slot">
+              <button
+                class="button"
+                type="button"
+                data-prompt-target="prompt-agent"
+                data-prompt-source="prompt-source-agent"
+                data-prompt-status="cta-status-hero-agent"
+                data-lp-action="setup-prompt"
+                data-lp-location="hero"
+                data-prompt-done="コピーしました。Claude Code / Codex / Cursor などのCoding Agentに貼り付けてください。"
+                aria-describedby="cta-micro-hero-agent cta-status-hero-agent">セットアップ用プロンプトをコピー</button>
+              <p class="cta-micro" id="cta-micro-hero-agent">Claude Code / Codex / Cursor に貼るだけ</p>
+              <p class="cta-status" id="cta-status-hero-agent" role="status" aria-live="polite"></p>
             </div>
-            <div class="terminal-body">
-              <p><span class="prompt">$</span> <span class="command">npx api-key-case scan . --agent-report</span></p>
-              <div class="space"></div>
-              <p class="muted">API Key Case scan</p>
-              <p><span class="ok">✓</span> .env / .env.* ignored</p>
-              <p><span class="ok">✓</span> secret values are never printed</p>
-              <p><span class="warn">!</span> 3 required secret names detected</p>
-              <p>  OPENAI_API_KEY</p>
-              <p>  CLOUDFLARE_API_TOKEN</p>
-              <p>  DATABASE_URL</p>
-              <p>  possible leak: <span class="redacted">***REDACTED***</span></p>
-              <p><span class="ok">→</span> wrote AGENT_CONTEXT.safe.md</p>
-              <p><span class="ok">→</span> wrote AI_SAFE_PROMPT.md</p>
-              <div class="space"></div>
-              <p><span class="prompt">$</span> <span class="command">api-key-case deploy OPENAI_API_KEY &#92;</span></p>
-              <p><span class="command">  --target vercel --env preview</span><span class="pro-tag">PRO</span></p>
-              <p class="muted">Deploy plan:</p>
-              <p class="muted">  secret : OPENAI_API_KEY (project scope)</p>
-              <p class="muted">  target : vercel (vercel)</p>
-              <p class="muted">  env    : preview</p>
-              <p><span class="ok">✓</span> value handed to official CLI via stdin</p>
-            </div>
+          </div>
+
+          <div class="os-status-brief" aria-label="OS対応状況">
+            <p><strong>Windows 11＋Hello：</strong>通常対応</p>
+            <p>macOS：協力検証版 ／ Linux：診断・手動保管</p>
+            <a href="os-support.html">対応状況と利用条件を見る <span aria-hidden="true">→</span></a>
+            <p><a href="https://tally.so/r/RGAYLK">Macの協力検証者を募集中 <span aria-hidden="true">→</span></a></p>
           </div>
         </div>
       </div>
     </section>
 
-    <section class="section section--band" aria-labelledby="ba-title">
+    <!-- PROB — 問題の名前づけ -->
+    <section class="section section--tight" id="prob" aria-labelledby="prob-title">
       <div class="wrap">
-        <p class="section-kicker">Before / After</p>
-        <h2 class="section-heading" id="ba-title">キーを探す時間が、<br>まるごと消える。</h2>
-        <p class="section-lead">やること自体は変わりません。変わるのは、そのたびにAPIキーの現物を探して貼り直すかどうかです。</p>
+        <p class="section-kicker">APIキーまわりの手間</p>
+        <h2 class="section-heading section-heading--sm" id="prob-title">APIキーを使うたび、これを毎回やっていませんか。</h2>
 
-        <div class="ba-grid">
-          <article class="ba-card">
-            <p class="ba-label">これまで</p>
-            <ul class="ba-list">
-              <li>配置のたびに、キーをどこに置いたか探し直す</li>
-              <li>Cloudflareは <code>wrangler secret put</code>、Vercelは <code>vercel env add</code>、GitHubは <code>gh secret set</code>。書き方をその都度確認する</li>
-              <li>値をターミナルへコピー＆ペーストする</li>
-              <li>AIにどこまで見せていいのか、そのつど迷う</li>
-            </ul>
+        <ul class="prob-list">
+          <li>探す</li>
+          <li>コピーする</li>
+          <li><code>.env</code> をAgentに見せていいか迷う</li>
+          <li>どのコマンドか調べる</li>
+          <li>サービスへの登録方法を調べる</li>
+          <li>任せて安全か判断する</li>
+          <li>本番環境だけ手で止める</li>
+        </ul>
+
+        <aside class="market-evidence" aria-label="公開コミットの調査データ">
+          <p>GitGuardianの調査では、2025年のGitHub公開コミットから、コードに埋め込まれた新しい認証情報（Secret）が約2,865万件検出されました。検出件数は前年比34%増です。</p>
+          <a href="https://blog.gitguardian.com/the-state-of-secrets-sprawl-2026/" target="_blank" rel="noopener noreferrer">GitGuardian, State of Secrets Sprawl 2026 <span aria-hidden="true">↗</span></a>
+        </aside>
+
+        <p class="section-close">実装はAIに任せられるのに、APIキーの周りだけ、まだ自分が残っています。</p>
+      </div>
+    </section>
+
+    <!-- THREE — LPの中心 -->
+    <section class="section" id="three" aria-labelledby="three-title">
+      <div class="wrap">
+        <p class="section-kicker">使い方</p>
+        <h2 class="section-heading" id="three-title">あなたがやるのは、<span class="marker">3つだけ。</span></h2>
+        <p class="section-lead">普段のCoding Agentが、導入・利用条件の確認から、あなたが希望する配置先への設定まで案内します。</p>
+
+        <div class="three-grid">
+          <article class="three-card">
+            <span class="three-num" aria-hidden="true">01</span>
+            <h3>最初に1回、Coding Agentへ貼る</h3>
+            <p>API Key Caseの使い方を覚える必要はありません。以降、どの操作が必要かはAgentが判断して進めます。</p>
+            <p class="three-not"><span class="three-not-label">やらなくていいこと</span><b aria-hidden="true">×</b>コマンドや使い方を覚える</p>
           </article>
 
-          <article class="ba-card ba-card--after">
-            <p class="ba-label">API Key Case</p>
-            <ul class="ba-list">
-              <li>最初に一度だけ、非表示入力でOSのシークレットストアへ保存</li>
-              <li>以後はSecret名だけ。3社とも同じ形の <code>api-key-case deploy &lt;NAME&gt; --target &lt;配置先&gt;</code></li>
-              <li>値はストアから公式CLIの標準入力へ直接渡る（画面を通らない）</li>
-              <li>AIが扱うのは名前・状態・配置計画。値の入力と本番承認は人間</li>
-            </ul>
+          <article class="three-card">
+            <span class="three-num" aria-hidden="true">02</span>
+            <h3>求められたAPIキーの値だけ入力する</h3>
+            <p>入力先はAgentのチャットではなく、API Key Caseの入力欄です。入力中も画面には表示されません。あなたが打つのは、値そのものだけ。</p>
+            <p class="three-not"><span class="three-not-label">やらなくていいこと</span><b aria-hidden="true">×</b>値をAgentのチャットへ貼る</p>
           </article>
+
+          <article class="three-card">
+            <span class="three-num" aria-hidden="true">03</span>
+            <h3>重要な操作を、専用画面で確認する</h3>
+            <p>本番環境やGitHubへの配置などは、対象と送り先を見て承認します。WindowsではWindows Helloで本人確認を行います。</p>
+            <p class="three-not"><span class="three-not-label">やらなくていいこと</span><b aria-hidden="true">×</b>すべての操作を一つずつ確認する</p>
+          </article>
+        </div>
+
+        <aside class="market-evidence" aria-label="今の .env から始める">
+          <p><strong>今の <code>.env</code> から始められます。</strong><br>すでに使っているAPIキーも、あなた自身が値だけをAPI Key Caseの入力欄へコピーして登録できます。Agentに <code>.env</code> を読ませたり、値をチャットへ貼ったりする必要はありません。登録しても <code>.env</code> は自動で置き換えないため、必要なら従来どおり使えます。</p>
+        </aside>
+
+        <details class="env-details">
+          <summary>登録・配置の前に知っておくこと</summary>
+          <ul>
+            <li>登録だけで終了できます。元の <code>.env</code> の削除や書き換え、ローカルアプリへの値の注入は行いません。配置は、あなたが希望したときに進めます。</li>
+            <li>同じプロジェクトの同じキー名には、開発用と本番用の別々の値を同時に保存できません。自動の洗い出しで見つからないキーも、名前が分かれば確認・登録できます。</li>
+            <li>Cloudflareへの配置では、設定ファイルと同じ場所に実際の <code>.env</code> や <code>.dev.vars</code> などがあると停止します。Agentが無料診断で案内します。ファイルは自動で読み取ったり変更したりしません。</li>
+          </ul>
+        </details>
+
+        <p class="section-close">まずは、無料で使える環境か確かめるところから。</p>
+        <p class="section-lead">外部サービスへのログイン・キーの発行・必要に応じたPro購入とライセンス有効化は、あなたが行う準備です。Agentが無料診断で利用条件と準備不足を確認し、順に案内します。</p>
+        <div class="setup-start" id="setup">
+          <div class="cta-slot">
+              <button
+                class="button"
+                type="button"
+                data-prompt-target="prompt-agent"
+                data-prompt-source="prompt-source-agent"
+                data-prompt-status="cta-status-two-agent"
+                data-lp-action="setup-prompt"
+                data-lp-location="two"
+                data-prompt-done="コピーしました。Claude Code / Codex / Cursor などのCoding Agentに貼り付けてください。"
+                aria-describedby="cta-micro-two-agent cta-status-two-agent">セットアップ用プロンプトをコピー</button>
+              <p class="cta-micro" id="cta-micro-two-agent">Claude Code / Codex / Cursor に貼るだけ</p>
+              <p class="cta-status" id="cta-status-two-agent" role="status" aria-live="polite"></p>
+            </div>
+          <details class="prompt-source" id="prompt-source-agent">
+              <summary>コピーされる内容を表示する</summary>
+              <textarea class="prompt-text" id="prompt-agent" rows="16" readonly aria-label="Coding Agent用プロンプトの本文">このプロジェクトで API Key Case を使えるようにして、以降のAPIキーまわりの作業を進めてください。
+
+前提
+- API Key Case は、APIキーの値をAIへ渡さずに、保存と配置を進めるためのツールです。
+- 使い方は公開ドキュメントを参照してください: https://github.com/melavern/api-key-case
+- 私への説明と作業の進行は、あなたが担当してください。CLIのコマンドを私に選ばせず、完了したこと・残っていること・いま必要な操作を私の言葉でまとめてください。
+
+守ってほしいこと
+- APIキーの値そのものを、私にチャットへ貼らせないでください。値の入力は API Key Case の入力欄で行わせてください。
+- .env や .env.* は読まないでください。
+- 本番環境（production）への配置やGitHubへの登録などの重要な操作はAPI Key Caseの確認画面で行わせてください。チャットでのYes / Noを承認の代わりに使ったり、画面を自動操作したりしないでください。
+
+進め方
+1. npx -y api-key-case@0.9.1 agent-init . を実行してください。新規プロジェクトで指示を残せない場合は、あなたが使用する指示形式に合わせて --host agents / --host claude / --host cursor のいずれかを明示してください。返された固定バージョンのprotocolに従ってください。
+2. next --json の無料診断から、保存と配置の利用条件、必要な準備、未確認事項を先に説明してください。環境の問題とPro購入の必要性を分け、購入すれば対応外の環境でも使えるとは案内しないでください。
+3. 必要なキーの名前と不足分をまとめて説明し、不足分だけ専用の入力画面を順に開いてください。既存の .env にあるキーも登録できますが、本文は読まず、私自身が値だけを専用画面へ入力します。登録だけで終了しても構いません。キーの発行・ログインなど私が行う準備は順に案内してください。
+4. 私が希望する配置先と環境を確認して、既存のdeployを使って進めてください。検出されたすべてのサービスへ勝手に配置せず、キャンセルや失敗があれば止めてください。
+5. 実際の操作結果から完了したことと残りをまとめてください。保存済みを配置済みと扱わず、不要なキーの削除は別途提案してください。</textarea>
+            </details>
         </div>
       </div>
     </section>
 
-    <section class="section section--demo" id="demo-video">
-      <div class="wrap">
-        <p class="section-kicker">Demo</p>
-        <h2 class="section-heading">実際の動作を、通しで。</h2>
-        <p class="section-lead">実際のCLIを収録したデモです。日本語版と英語版を切り替えながら、scan・安全な保存・Proのdeployまで確認できます。秘密値は一度も画面に出ません。</p>
+    <!-- EV — セットアップ後の一場面を図解する告知動画。 -->
+    <section class="section section--tight" id="ev" aria-labelledby="ev-title">
+      <div class="wrap ev-grid">
+        <div class="ev-head">
+          <h2 class="section-heading section-heading--sm" id="ev-title">「GitHubにAPIキーを設定して。」</h2>
+          <p class="section-lead">セットアップを済ませたあとは、いつもの言葉で依頼できます。値の入力と送り先の確認を挟んで、Agentが設定を進めるひと場面です。</p>
+        </div>
 
-        <figure class="demo-figure" id="demo-player">
-          <div class="demo-toolbar">
-            <p class="demo-language-label" id="demo-language-label">説明テロップの言語</p>
-            <div class="demo-language" role="group" aria-labelledby="demo-language-label">
-              <button
-                type="button"
-                aria-pressed="true"
-                data-demo-locale="ja"
-                data-video="demo-ja.mp4"
-                data-local-video="demo/build/demo-ja.mp4"
-                data-poster="demo-ja-poster.jpg"
-                data-local-poster-src="demo/build/demo-ja-poster.jpg"
-                data-captions="demo-ja.vtt"
-                data-local-captions="demo/build/demo-ja.vtt"
-                data-track-label="日本語"
-                data-player-label="API Key Case 製品デモ（日本語テロップ、BGMあり）"
-                data-meta="日本語テロップ · CLI出力は英語 · 1080p · BGMあり">日本語</button>
-              <button
-                type="button"
-                aria-pressed="false"
-                data-demo-locale="en"
-                data-video="demo.mp4"
-                data-local-video="demo/build/demo.mp4"
-                data-poster="demo-poster.jpg"
-                data-local-poster-src="demo/build/demo-poster.jpg"
-                data-captions="demo.vtt"
-                data-local-captions="demo/build/demo.vtt"
-                data-track-label="English"
-                data-player-label="API Key Case product demo (English, no narration)"
-                data-meta="English · 1080p · 音声なし">English</button>
-            </div>
-          </div>
-          <video
-            class="demo-player"
-            controls
-            preload="metadata"
-            playsinline
-            poster="demo-ja-poster.jpg"
-            data-local-poster="demo/build/demo-ja-poster.jpg"
-            width="1920"
-            height="1080"
-            aria-label="API Key Case 製品デモ（日本語テロップ、BGMあり）">
-            <source src="demo-ja.mp4" data-local-path="demo/build/demo-ja.mp4" type="video/mp4">
-            <track kind="captions" src="demo-ja.vtt" data-local-path="demo/build/demo-ja.vtt" srclang="ja" label="日本語" default>
-            <p>お使いのブラウザは動画を再生できません。<a href="demo-ja.mp4" data-local-path="demo/build/demo-ja.mp4">日本語版MP4を直接開く</a></p>
+        <figure class="ev-player">
+          <video controls playsinline preload="metadata" poster="launch-ja-poster.jpg" width="1080" height="1920" aria-label="操作イメージ動画。「GitHubにAPIキーを設定して。」という依頼を、Agentとあなたがどう進めるか。">
+            <source src="launch-ja.mp4" type="video/mp4">
+            <track kind="captions" src="launch-ja.vtt" srclang="ja" label="日本語">
           </video>
-          <figcaption class="demo-caption">
-            <span>公開済み0.9.0のデモ録画です。映像内の旧ブランド・旧URLは収録時のものです。現在のブランドはMelavernです。</span>
-            <span data-demo-meta>日本語テロップ · CLI出力は英語 · 1080p · BGMあり</span>
-            <span class="demo-direct-links">MP4を直接開く：
-              <a href="demo-ja.mp4" data-local-path="demo/build/demo-ja.mp4">日本語</a>
-              <a href="demo.mp4" data-local-path="demo/build/demo.mp4" lang="en">English</a>
-            </span>
-            <span class="demo-bgm-credit">日本語版BGM：<a href="https://incompetech.com/music/royalty-free/index.html?isrc=USUAN2300011" target="_blank" rel="noopener">“Mesmerizing Galaxy” — Kevin MacLeod</a>（<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>）</span>
-          </figcaption>
+          <figcaption>図解による操作イメージ（実機の録画ではありません）</figcaption>
         </figure>
-      </div>
-    </section>
 
-    <section class="section section--dark" id="features">
-      <div class="wrap">
-        <p class="section-kicker">What it does</p>
-        <h2 class="section-heading">秘密値ではなく、<br>安全に使える文脈を渡す。</h2>
-        <p class="section-lead">「APIキーを貼らないで」と気をつけるだけではなく、貼らなくても開発が進む流れをつくります。</p>
-
-        <div class="feature-grid">
-          <article class="feature-card">
-            <span class="feature-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none"><path d="M4 5.5h16M4 10h9M4 14.5h12M4 19h7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="m17 14 1.5 1.5L21 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </span>
-            <h3>ローカルスキャン</h3>
-            <p><code>.env</code>のignore・Git追跡・必要な環境変数名・漏洩候補を確認。スキャン中に実際の<code>.env</code>内容を読み取ったり、ネットワーク送信したりしません。</p>
-          </article>
-
-          <article class="feature-card">
-            <span class="feature-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none"><path d="M7 10V7a5 5 0 0 1 10 0v3M6 10h12a2 2 0 0 1 2 2v7H4v-7a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="14.5" r="1.3" fill="currentColor"/></svg>
-            </span>
-            <h3>OSシークレットストア</h3>
-            <p>値はmacOS Keychain、Windows Credential Manager、Linux Secret Serviceへ。CLIの引数・ログ・生成ファイルには載せません。</p>
-          </article>
-
-          <article class="feature-card">
-            <span class="feature-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none"><path d="M4 16.5V19h16v-2.5M12 4v11m0 0 4-4m-4 4-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </span>
-            <h3>公式CLIへdeploy</h3>
-            <p>保存済みの値をCloudflare Wrangler・Vercel CLI・GitHub CLIの標準入力へ一度だけ受け渡し。<code>deploy</code>はPro機能です。</p>
-          </article>
+        <div class="ev-body">
+          <p class="ev-note">GitHubへの配置はPro、Windows 11とWindows Helloの環境が前提です。</p>
         </div>
       </div>
     </section>
 
-    <section class="section" id="how">
-      <div class="wrap flow-grid">
-        <div class="sticky-copy">
-          <p class="section-kicker">How it works</p>
-          <h2 class="section-heading">人とAIの境界を、CLIでつくる。</h2>
-          <p class="section-lead">AIには実装に必要な情報だけ。秘密値の入力と本番確認は人間のターミナルで行います。</p>
+    <!-- SECURITY — 値の経路、承認の理由、限界、公開資料を一続きにする。 -->
+    <section id="security" aria-labelledby="security-title">
+      <div class="section section--dark">
+        <div class="wrap security-grid">
+          <div>
+            <p class="section-kicker">安全の仕組み</p>
+            <h2 class="section-heading section-heading--sm" id="security-title">操作はAgentに。<br>重要な判断は、あなたに。</h2>
+            <p class="section-lead">Coding Agentは、誤動作や、読み込んだ外部コンテンツの悪意ある指示によって、あなたの意図と異なる操作へ進むことがあります。操作はAgentに任せても、重要な判断までAgent自身には任せません。</p>
+          </div>
+          <ol class="security-flow" role="list">
+            <li>
+              <h3>Agentが扱うのは、キーの名前や操作結果。</h3>
+              <p>必要なキー名、登録の有無、値を伏せた検出結果、操作の成否を返します。APIキーの値そのものを返す機能はありません。普段のAgentがCLIから操作し、MCP接続は任意です。</p>
+            </li>
+            <li>
+              <h3>値はOSの保管庫から、選んだ配置先へ。</h3>
+              <p>専用画面に入力した値は、OS標準のシークレットストアに保存します。配置時はCloudflare / Vercel / GitHubの公式CLIへ渡します。Secretの配置先はこの3つに限定し、任意のURLへ送る機能はありません。</p>
+            </li>
+            <li>
+              <h3>重要な操作には、人間の確認を。</h3>
+              <p>本番環境やGitHubへの配置、上書き・削除などは、対象と送り先・操作内容を専用画面に示します。WindowsではチャットのYes / Noやボタン操作だけで承認せず、Windows Helloの本人確認が成功した場合だけ進めます。macOSでは同等のOS本人確認がまだ実機検証中で、Linuxではこの条件を満たすAgent-firstの配置経路を提供していません。</p>
+              <p>承認後も送り先や実行するCLIを再確認し、変更があれば停止します。対応外の環境でチャット承認に切り替えることはありません。</p>
+            </li>
+          </ol>
         </div>
+      </div>
 
-        <div class="steps">
-          <article class="step">
-            <span class="step-num">01</span>
-            <div>
-              <h3>プロジェクトをスキャン</h3>
-              <p><span class="inline-code">api-key-case scan . --agent-report</span> で、環境変数名と注意点だけのAI向けファイルを生成します。</p>
-            </div>
-          </article>
-
-          <article class="step">
-            <span class="step-num">02</span>
-            <div>
-              <h3>値は人間が非表示入力</h3>
-              <p><span class="inline-code">api-key-case save OPENAI_API_KEY</span> を実行。値を引数に渡さず、対話プロンプトからOSの保護領域へ保存します。</p>
-            </div>
-          </article>
-
-          <article class="step">
-            <span class="step-num">03</span>
-            <div>
-              <h3>AIは「名前」と「状態」だけ確認</h3>
-              <p>MCP連携でも値は流さず、登録済み／未登録などの状態だけを返します。通常のCLI利用だけでも完結します。</p>
-            </div>
-          </article>
-
-          <article class="step">
-            <span class="step-num">04</span>
-            <div>
-              <h3>Proで配置先へ受け渡し</h3>
-              <p><span class="inline-code">api-key-case deploy</span> が公式CLIへ値を直接渡します。本番環境とGitHubへの配置は、人間による明示確認が必須です。</p>
-            </div>
-          </article>
-
-          <div class="roles">
-            <p class="roles-title">どこまでAIに任せるか</p>
-            <dl class="roles-list">
-              <div>
-                <dt>値の入力（<code>save</code>）</dt>
-                <dd>人間だけ。非表示プロンプト専用で、引数やパイプからは受け付けません。AIが値を入力する経路はありません。</dd>
-              </div>
-              <div>
-                <dt>状態の確認（<code>check</code> / MCP）</dt>
-                <dd>AIに任せられます。返るのは「登録済み／未登録」だけで、値は返しません。</dd>
-              </div>
-              <div>
-                <dt>development / preview へのdeploy</dt>
-                <dd>Proライセンスがあれば、MCP経由でAIからも実行できます（Cloudflare / Vercel）。</dd>
-              </div>
-              <div>
-                <dt>production へのdeploy</dt>
-                <dd>人間がターミナルで計画を見て <code>yes</code> と入力します。これを省略するフラグはありません。</dd>
-              </div>
-              <div>
-                <dt>GitHub Secretへのdeploy</dt>
-                <dd>CIから参照できるため、環境を問わず常に人間の確認が必要です。</dd>
-              </div>
-            </dl>
+      <div class="wrap security-details">
+        <div class="security-scope">
+          <h3>この仕組みが守る範囲</h3>
+          <div>
+            <p>「AIに渡さない」のは、API Key Case自身の経路（CLI・MCP・入力/確認画面）についてです。他のソフトや既存の <code>.env</code>、同じOSアカウントの別プロセスによる読み取り・製品コードの改変、配置後の各サービスや公式CLIの内部動作までは保護しません。</p>
+            <p>完全な安全は保証しません。意図しない値の露出や操作による事故の確率と、日常のAPIキー運用の負担を減らすためのツールです。</p>
+            <details class="security-more">
+              <summary>自動操作の条件と、環境ごとの限界</summary>
+              <ul>
+                <li>自動で配置できるのは、確認済みの同じ送り先へのVercel previewで、projectスコープ・上書きなしなどの条件を満たす場合だけです。初回や送り先の変更時は人間の確認が必要です。</li>
+                <li>macOSは協力検証版です。実装とCIのKeychain連携は確認済みですが、確認画面の実GUI受入、Accessibility経由の自動操作への耐性、Intel実機、実Macからの配置は未確認です。Windowsと同等のOS本人確認があるとは扱いません。</li>
+                <li>Linuxは診断・状態確認・履歴と、利用できるOS保管庫への人間所有ターミナルからの保管を維持します。Agent-firstの専用入力・承認・配置は提供していません。dry-runもPro機能で、計画確認だけです。</li>
+                <li>スキャンですべての漏洩を検出できるわけではありません。漏洩済みのキーは、提供元で失効・再発行する必要があります。</li>
+                <li>すべてのAPIやホスティングには対応しません。本番操作の完全自動化や、企業のチーム向けSecret Managerの代替を目的とした製品ではありません。</li>
+              </ul>
+            </details>
           </div>
         </div>
+
+        <div class="security-proof" id="proof">
+          <div>
+            <h3>公開ソースから、仕組みを確かめられます。</h3>
+            <p>CLI・MCPのソース、テスト、設計の記録、既知の限界をGitHubで確認できます。製品コードはElastic License 2.0（ELv2）のsource available、生成instruction限定の0BSDです。</p>
+            <div class="proof-links">
+              <a data-lp-action="github" href="https://github.com/melavern/api-key-case" target="_blank" rel="noopener noreferrer">ソースコードを見る <span aria-hidden="true">↗</span></a>
+              <a href="https://github.com/melavern/api-key-case/blob/main/SECURITY.md" target="_blank" rel="noopener noreferrer">安全の境界と限界を読む <span aria-hidden="true">↗</span></a>
+              <a href="https://github.com/melavern/api-key-case/blob/main/CHANGELOG.md" target="_blank" rel="noopener noreferrer">変更履歴を見る <span aria-hidden="true">↗</span></a>
+              <a href="privacy.html">通信・匿名イベントを確認する</a>
+              <a href="os-support.html">OS対応状況を見る</a>
+            </div>
+          </div>
+          <aside class="security-review" aria-labelledby="review-title">
+            <h4 id="review-title">公開資料を、普段のAIと読み解く</h4>
+            <p>開発者の説明だけで判断したくないときに。ChatGPT / Claudeへ、値の経路や人間承認の条件、限界の確認を依頼できます。</p>
+            <div class="cta-slot">
+          <button
+            class="button button--quiet"
+            type="button"
+            data-prompt-target="prompt-review"
+            data-prompt-source="prompt-source-review"
+            data-prompt-status="cta-status-proof-review"
+            data-lp-action="review-prompt"
+            data-lp-location="proof"
+            data-prompt-done="コピーしました。ChatGPT / Claude などに貼り付けてください。"
+            aria-describedby="cta-micro-proof-review cta-status-proof-review">AIに安全性をレビューさせる</button>
+          <p class="cta-micro" id="cta-micro-proof-review">ChatGPT / Claudeに公開内容を確認してもらう</p>
+          <p class="cta-status" id="cta-status-proof-review" role="status" aria-live="polite"></p>
+        </div>
+            <p class="review-note">AIの回答も判断材料のひとつです。ソースの公開やこのレビューは、第三者による独立監査や安全の保証、実際の操作への承認を意味しません。</p>
+            <details class="prompt-source" id="prompt-source-review">
+              <summary>コピーされる内容を表示する</summary>
+              <textarea class="prompt-text" id="prompt-review" rows="16" readonly aria-label="Security Review用プロンプトの本文">API Key Caseの公開資料を確認し、利用を判断するための材料を整理してください。開発者の説明だけを判断材料にしたくありません。
+
+対象: API Key Case 0.9.1
+- 公開リポジトリ: https://github.com/melavern/api-key-case
+- Security Model: https://github.com/melavern/api-key-case/blob/main/SECURITY.md
+- プライバシー: https://apikeycase.melavern.com/privacy
+
+最初に、0.9.1に対応する公開ソースが取得できるか確認し、確認したバージョンとコミットを明示してください。取得できない内容を推測で補わず、未確認としてください。公開資料だけを読み、私のプロジェクト・.env・秘密値は読み取らないでください。
+
+確認してほしい点
+1. APIキーの値がどこを通るか。AIエージェント側へ値が渡る経路が本当に無いか。
+2. 値の保存先はどこか。平文で残る場所が無いか。
+3. MCPで公開されているツールが何を返すか。値そのものを返す関数が存在しないか。
+4. 外部への通信（telemetry、ライセンス確認、配置）が、何をどこへ送るか。
+5. 人間の確認が必要な操作と、自動で進む条件。チャットのYes / Noや画面の自動操作を承認として扱えるか。WindowsのOS本人確認と、macOSの未検証事項の違い。
+6. Agentの誤動作や外部コンテンツの悪意ある指示（prompt injection）に対して、このツール自身の経路で制限することと、防げないこと。同じOSアカウントのプロセスやコード改変、配置先CLIの挙動まで保護するという説明になっていないか。
+
+確認できた事実・未確認事項・利用時の注意点を、根拠のリンク付きで分けて教えてください。このレビューを安全の保証や、実際の操作への人間の承認として扱わないでください。</textarea>
+            </details>
+          </aside>
+        </div>
       </div>
     </section>
 
-    <section class="section" id="pricing">
+    <!-- PRICE — Pricing -->
+    <section class="section" id="price" aria-labelledby="price-title">
       <div class="wrap">
-        <p class="section-kicker">Simple pricing</p>
-        <h2 class="section-heading">基本機能は無料。<br>deployだけ、買い切り。</h2>
-        <p class="section-lead">現行の Free 機能は0円。Proは一度の購入で、プレリリース版とPro v1（1.x系）のアップデートを含みます。</p>
+        <p class="section-kicker">料金</p>
+        <h2 class="section-heading section-heading--sm" id="price-title">まず無料で試して、配置まで任せたくなったら。</h2>
+
+        <div class="os-pricing-summary" aria-labelledby="os-pricing-title">
+          <h3 id="os-pricing-title">お使いの環境を確認してください</h3>
+          <div class="os-pricing-grid">
+            <article class="os-pricing-item">
+              <h4>Windows — 通常対応</h4>
+              <p>Windows 11＋Windows Helloで、診断・保管・専用入力・重要操作の確認・Cloudflare / Vercel / GitHubへの配置を利用できます。</p>
+            </article>
+            <article class="os-pricing-item">
+              <h4>macOS — 協力検証版</h4>
+              <p>診断・Keychain保管・専用入力・承認・配置の実装があります。最新CIのKeychain連携は確認済みですが、実機GUI・承認耐性・Intel・実Macからの配置は確認中です。</p>
+            </article>
+            <article class="os-pricing-item">
+              <h4>Linux — 無料機能の範囲</h4>
+              <p>診断・状態確認・履歴と、利用できるOS保管庫への人間所有ターミナルからの保存・確認・一覧に対応。Agent-firstの専用入力・承認・配置は提供していません。</p>
+            </article>
+          </div>
+          <p class="os-pricing-detail">確認済み環境と未検証事項は<a href="os-support.html">OS対応状況の詳細</a>にまとめています。</p>
+          <aside class="macos-invite" aria-labelledby="macos-invite-title">
+            <h4 id="macos-invite-title">Macの実機検証にご協力いただける方へ</h4>
+            <p>macOS協力検証版の協力者を少人数募集しています。協力者向け価格は980円（通常Proは2,980円買い切り）。応募後にMac環境を確認し、対象の方へ個別にご案内します。macOS正式対応に向けた実機検証への協力をお願いします。</p>
+            <p><a class="button button--quiet" href="https://tally.so/r/RGAYLK">macOS協力検証に応募する <span aria-hidden="true">→</span></a></p>
+            <a href="os-support.html#macos-contributors">検証内容・参加条件を見る <span aria-hidden="true">→</span></a>
+          </aside>
+        </div>
 
         <div class="pricing-wrap">
           <article class="price-card">
             <p class="plan-label">Free</p>
             <p class="price">¥0</p>
-            <p class="price-note">AIとの安全な開発フローに必要な基本機能。</p>
+            <p class="price-note">保存・登録状況の確認・Agentによる案内まで。</p>
             <ul class="feature-list">
-              <li><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m4 10 3.4 3.4L16 5.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>scan / save / check / list / remove</li>
-              <li><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m4 10 3.4 3.4L16 5.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><code>.env.example</code>生成</li>
-              <li><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m4 10 3.4 3.4L16 5.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>AI向け安全レポート生成</li>
-              <li><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m4 10 3.4 3.4L16 5.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>OSシークレットストア連携</li>
-              <li><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m4 10 3.4 3.4L16 5.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>MCP（<code>deploy_secret</code>の実行を除く）</li>
+              <li><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m4 10 3.4 3.4L16 5.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>プロジェクトの点検と、必要なSecretの洗い出し</li>
+              <li><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m4 10 3.4 3.4L16 5.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>OS標準の保管庫への保存・確認・一覧・削除</li>
+              <li><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m4 10 3.4 3.4L16 5.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Agentからの状況確認（値は返しません）</li>
             </ul>
             <div class="plan-action">
-              <a class="button button--ghost" href="https://github.com/melavern/api-key-case" target="_blank" rel="noopener noreferrer">GitHubを見る <span aria-hidden="true">↗</span></a>
+              <a class="button button--quiet" href="#setup">無料セットアップへ <span aria-hidden="true">↑</span></a>
             </div>
           </article>
 
           <article class="price-card price-card--pro" id="purchase">
             <p class="plan-label">Pro · Buy once</p>
             <p class="price">¥2,980<small>買い切り</small></p>
-            <p class="price-note">キーを探して貼り付ける往復と、3社ぶんのSecret登録手順を覚える手間がなくなります。</p>
+            <p class="price-note">保存済みの値を、各サービスへ配置するところまで任せられます。</p>
             <ul class="feature-list">
               <li><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m4 10 3.4 3.4L16 5.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Freeのすべて</li>
-              <li><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m4 10 3.4 3.4L16 5.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><strong><code>api-key-case deploy</code></strong>：保存済みの値を公式CLIへ直接渡す</li>
-              <li><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m4 10 3.4 3.4L16 5.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Cloudflare / Vercel / GitHubを同じコマンドの形で</li>
-              <li><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m4 10 3.4 3.4L16 5.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>値のコピー＆ペーストが不要（api-key-caseは値を表示・記録しません）</li>
-              <li><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m4 10 3.4 3.4L16 5.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>MCP <code>deploy_secret</code>（development / preview）</li>
+              <li><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m4 10 3.4 3.4L16 5.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>対応済みの外部配置先: Cloudflare / Vercel / GitHub</li>
               <li><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m4 10 3.4 3.4L16 5.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Pro v1（1.x系）のアップデートを含む</li>
               <li><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m4 10 3.4 3.4L16 5.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>購入から14日間の返金保証</li>
             </ul>
             <div class="plan-action">
-              <a class="button" href="https://api-key-case.lemonsqueezy.com/checkout/buy/ce328419-7617-463d-941d-e62fb37d4b42" target="_blank" rel="noopener noreferrer">Proを購入する <span aria-hidden="true">↗</span></a>
-              <p class="availability">Lemon Squeezyでの一回払い · ¥2,980 · 1購入につき1名 · サブスクリプションではありません</p>
-              <p class="purchase-terms">購入により<a href="terms.html">利用規約</a>と<a href="refund.html">返金ポリシー</a>に同意したものとします。決済前に税を含む最終金額を確認できます。</p>
+              <p class="pro-eligibility">通常対応の配置は Windows 11 Build 22000以降＋Windows Hello が条件です。購入前に無料診断で利用条件をご確認ください。</p>
+              <a class="button button--onDark" id="pro-checkout" data-lp-action="checkout" href="https://api-key-case.lemonsqueezy.com/checkout/buy/ce328419-7617-463d-941d-e62fb37d4b42" target="_blank" rel="noopener noreferrer">Proを購入する <span aria-hidden="true">↗</span></a>
+              <p class="purchase-terms">Lemon Squeezyでの一回払い · サブスクリプションではありません。購入により<a href="terms.html">利用規約</a>と<a href="refund.html">返金ポリシー</a>に同意したものとします。</p>
             </div>
           </article>
         </div>
-
-        <div class="comparison" aria-label="FreeとProの機能比較">
-          <div class="comparison-row comparison-head"><div>機能</div><div>Free</div><div>Pro</div></div>
-          <div class="comparison-row"><div>ローカルスキャン / リダクション</div><div class="yes">✓</div><div class="yes">✓</div></div>
-          <div class="comparison-row"><div>OSシークレットストア</div><div class="yes">✓</div><div class="yes">✓</div></div>
-          <div class="comparison-row"><div>AI向け安全レポート / MCP</div><div class="yes">✓</div><div class="yes">✓</div></div>
-          <div class="comparison-row"><div>Cloudflare / Vercel / GitHubへdeploy</div><div>—</div><div class="pro-only">PRO</div></div>
-        </div>
-
+        <p class="purchase-note"><strong>購入前に確認：</strong>配置にはプロジェクト構成上の条件があります。購入前に、セットアップ用プロンプトから無料診断で確認してください。通常対応の配置はWindows 11 Build 22000以降＋Windows Helloが条件です。macOSは協力検証版で、実機GUI・承認耐性・Intel・実Macからの配置は未確認です。macOSではProの配置機能を実機検証中です。購入はできますが、現時点では正常な動作を保証していません。Linuxは診断・状態確認・利用可能なOS保管庫への人間所有ターミナルからの保管までで、Agent-firstの入力・承認・配置は提供していません。dry-runもPro機能で、計画確認だけです。</p>
       </div>
     </section>
 
-    <section class="section" id="faq">
-      <div class="wrap">
-        <p class="section-kicker">FAQ &amp; policies</p>
-        <h2 class="section-heading">よくある質問</h2>
-
-        <div class="details-grid">
-          <details>
-            <summary>購入後、どうやってProを使いますか？</summary>
-            <div class="detail-body">
-              <p>Lemon Squeezyが購入者固有の購入キーをメールと注文ページで案内します。人間のターミナルで <code>api-key-case license activate</code> を実行し、非表示プロンプトへ貼り付けてください。初回有効化のみインターネット接続が必要で、その後のPro判定はオフラインです。</p>
-            </div>
-          </details>
-
-          <details>
-            <summary>Free機能はあとから有料になりますか？</summary>
-            <div class="detail-body">
-              <p>現行版では、scan / save / check / list / remove / targets と、deploy以外のMCP機能は無料です。既に公開されたMITライセンスのソースを有料化することはありません。将来の別メジャーバージョンや別製品の料金体系までは約束していません。</p>
-            </div>
-          </details>
-
-          <details>
-            <summary>アップデートはどこまで含まれますか？</summary>
-            <div class="detail-body">
-              <p>Pro v1（1.x系）のアップデートが含まれ、1.x系の更新に追加費用はかかりません。将来メジャーバージョンを出す場合は、別ライセンスとなることがあります。提供時期や内容は保証しません（個人開発のため、開発が止まる可能性も含みます）。新規購入価格は今後変更する場合がありますが、購入済みのライセンスへ追加請求はしません。</p>
-            </div>
-          </details>
-
-          <details>
-            <summary>対応環境は？</summary>
-            <div class="detail-body">
-              <p>Node.js 20以上、Windows / macOS / Linuxを対象としています。Proの配置機能には、配置先に応じてCloudflare Wrangler、Vercel CLI、GitHub CLIのいずれかが必要です。現行版はプレリリース版のため、購入前に対象環境で動作をご確認ください。</p>
-            </div>
-          </details>
-
-          <details>
-            <summary>返金について教えてください。</summary>
-            <div class="detail-body">
-              <p>購入から14日以内は、原則として理由を問わず返金を申請できます。Lemon Squeezyの注文メールまたは注文ページ、または<a href="mailto:dev@melavern.com">dev@melavern.com</a>へご連絡ください。発行済みのオフラインライセンスは遠隔失効できないため、返金後は利用を停止し、<code>license deactivate</code>を実行してください。詳しくは<a href="refund.html">返金ポリシー</a>をご確認ください。</p>
-            </div>
-          </details>
-
-          <details>
-            <summary>APIキーの安全を完全に保証しますか？</summary>
-            <div class="detail-body">
-              <p>いいえ。本製品は事故の確率を下げるための補助ツールで、完全な秘密情報保護やすべての漏洩検出を保証しません。生成物と実行計画は、AIや外部サービスへ渡す前に必ずご自身で確認してください。</p>
-            </div>
-          </details>
-
-          <details>
-            <summary>データやキーは外部送信されますか？</summary>
-            <div class="detail-body">
-              <p>スキャンはネットワーク通信なしでローカル実行され、テレメトリもありません。初回ライセンス有効化時だけ購入キーを検証サービスへ送信します。deploy時は保存済みの値を指定したプラットフォームの公式CLIへ標準入力で渡します。</p>
-            </div>
-          </details>
-        </div>
-      </div>
-    </section>
-
-    <section class="section" aria-labelledby="cta-title">
+    <!-- CTA — Final -->
+    <section class="section section--tight" aria-labelledby="cta-title">
       <div class="wrap">
         <div class="cta-band">
-          <div>
-            <h2 id="cta-title">AIには文脈を。<br>秘密値は、あなたの手元に。</h2>
-            <p>Free版はnpmからすぐに始められます。Proは買い切りで、Cloudflare・Vercel・GitHubへのdeployを解放します。</p>
+          <h2 id="cta-title">まずは、あなたのプロジェクトで。</h2>
+          <p>無料診断から始めて、必要な準備をAgentに案内してもらいましょう。</p>
+
+          <div class="cta-pair">
+            <div class="cta-slot">
+              <button
+                class="button"
+                type="button"
+                data-prompt-target="prompt-agent"
+                data-prompt-source="prompt-source-agent"
+                data-prompt-status="cta-status-final-agent"
+                data-lp-action="setup-prompt"
+                data-lp-location="final"
+                data-prompt-done="コピーしました。Claude Code / Codex / Cursor などのCoding Agentに貼り付けてください。"
+                aria-describedby="cta-micro-final-agent cta-status-final-agent">セットアップ用プロンプトをコピー</button>
+              <p class="cta-micro" id="cta-micro-final-agent">Claude Code / Codex / Cursor に貼るだけ</p>
+              <p class="cta-status" id="cta-status-final-agent" role="status" aria-live="polite"></p>
+            </div>
+
           </div>
-          <a class="button button--dark" href="#pricing">プランを確認する <span aria-hidden="true">↑</span></a>
         </div>
       </div>
     </section>
@@ -1334,11 +1188,20 @@
         <div>
           <a class="brand" href="#top" aria-label="API Key Case トップへ">
             <span class="brand-mark" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none"><path d="M4.5 7.8A3.3 3.3 0 0 1 7.8 4.5h8.4a3.3 3.3 0 0 1 3.3 3.3v8.4a3.3 3.3 0 0 1-3.3 3.3H7.8a3.3 3.3 0 0 1-3.3-3.3V7.8Z" stroke="currentColor" stroke-width="1.8"/><path d="M9.1 11.5a2.9 2.9 0 1 1 4.6 2.35l2.2 2.15M15.9 16l1.2-1.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <svg viewBox="0 0 256 256">
+                <rect width="256" height="256" rx="52" fill="#c2fb60"/>
+                <g fill="none" stroke="#0d1714" stroke-linejoin="round">
+                  <path d="M91 86V69a12 12 0 0 1 12-12h50a12 12 0 0 1 12 12v17" stroke-width="14"/>
+                  <rect x="48" y="86" width="160" height="112" rx="22" stroke-width="14"/>
+                  <circle cx="98" cy="143" r="17.5" stroke-width="17"/>
+                  <path d="M124 144h49" stroke-width="19" stroke-linecap="round"/>
+                </g>
+                <path fill="#0d1714" d="M144 150h13v12a3 3 0 0 1-3 3h-7a3 3 0 0 1-3-3zM161.5 150h13v12a3 3 0 0 1-3 3h-7a3 3 0 0 1-3-3z"/>
+              </svg>
             </span>
             <span>API Key Case</span>
           </a>
-          <p class="footer-copy">APIキーをAIに見せずに、AIエージェントとの実装から配置までを支援するローカルCLI。Melavernによる個人開発プロダクトです。</p>
+          <p class="footer-copy">APIキーの値をAIに見せずに、AIエージェントとの実装から配置までを支援するローカルCLI。Melavernによる個人開発プロダクトです。</p>
         </div>
 
         <nav class="footer-links" aria-label="フッターナビゲーション">
@@ -1346,10 +1209,14 @@
           <a href="terms.html">利用規約</a>
           <a href="privacy.html">プライバシーポリシー</a>
           <a href="refund.html">返金ポリシー</a>
-          <a href="#faq">よくある質問</a>
           <a href="https://github.com/melavern/api-key-case/blob/main/README.ja.md" target="_blank" rel="noopener noreferrer">日本語ドキュメント</a>
-          <a href="https://github.com/melavern/api-key-case" target="_blank" rel="noopener noreferrer">GitHub</a>
-          <a href="https://github.com/melavern/api-key-case/issues" target="_blank" rel="noopener noreferrer">Support / Issues</a>
+          <a data-lp-action="github" href="https://github.com/melavern/api-key-case" target="_blank" rel="noopener noreferrer">GitHub</a>
+          <a href="https://www.npmjs.com/package/api-key-case" target="_blank" rel="noopener noreferrer">npm</a>
+          <a href="https://github.com/melavern/api-key-case/blob/main/CHANGELOG.md" target="_blank" rel="noopener noreferrer">変更履歴</a>
+          <a href="https://github.com/melavern/api-key-case/security/policy" target="_blank" rel="noopener noreferrer">セキュリティ方針</a>
+          <a href="https://github.com/melavern/api-key-case/blob/main/SUPPORT.md" target="_blank" rel="noopener noreferrer">サポート方針</a>
+          <a href="os-support.html">OS対応状況</a>
+          <a href="https://github.com/melavern/api-key-case/issues" target="_blank" rel="noopener noreferrer">不具合の報告・相談</a>
           <a href="mailto:dev@melavern.com">お問い合わせ</a>
         </nav>
       </div>
@@ -1361,61 +1228,313 @@
     </div>
   </footer>
 
+  <!-- API_KEY_CASE_POSTHOG_CONFIG -->
   <script>
-    if (window.location.protocol === "file:") {
-      document.querySelectorAll("[data-local-path]").forEach((element) => {
-        const attribute = element.hasAttribute("href") ? "href" : "src";
-        element.setAttribute(attribute, element.dataset.localPath);
-      });
-      document.querySelectorAll("[data-local-poster]").forEach((element) => {
-        element.setAttribute("poster", element.dataset.localPoster);
-      });
-      document.querySelector(".demo-player")?.load();
+    /*
+     * The site staging script may replace the marker immediately before this
+     * script with window.API_KEY_CASE_POSTHOG_CONFIG. The client-side project
+     * token is intentionally not committed to this repository.
+     *
+     * This uses PostHog's direct Capture API so there is no SDK autocapture,
+     * session replay, heatmap, form capture, identify call, or persistence.
+     * The event contract is docs/analytics/MEASUREMENT.md.
+     */
+    const POSTHOG_CAPTURE_HOSTS = new Set([
+      "https://us.i.posthog.com",
+      "https://eu.i.posthog.com"
+    ]);
+    const POSTHOG_PRIVATE_CREDENTIAL_PREFIXES = ["phx_", "phs_"];
+    const posthogConfig = window.API_KEY_CASE_POSTHOG_CONFIG ?? {};
+    const posthogApiHost = typeof posthogConfig.apiHost === "string"
+      ? posthogConfig.apiHost.replace(/\/+$/, "")
+      : "";
+    const posthogProjectToken = typeof posthogConfig.projectToken === "string"
+      ? posthogConfig.projectToken.trim()
+      : "";
+    const posthogProjectTokenIsSafe = /^[A-Za-z0-9._~+/-]{8,256}$/.test(posthogProjectToken)
+      && !POSTHOG_PRIVATE_CREDENTIAL_PREFIXES.some((prefix) => posthogProjectToken.startsWith(prefix));
+    const posthogEndpoint = POSTHOG_CAPTURE_HOSTS.has(posthogApiHost) && posthogProjectTokenIsSafe
+      ? `${posthogApiHost}/i/v0/e/`
+      : "";
+    const LP_PRODUCT = "api_key_case";
+    const LP_SURFACE = "lp";
+
+    const LP_EVENT_NAMES = new Set([
+      "lp_view",
+      "lp_pricing_view",
+      "lp_free_start",
+      "lp_review_prompt_copy",
+      "lp_github_click",
+      "lp_checkout_click",
+      "lp_os_support_click",
+      "lp_macos_apply_click",
+      "lp_video_start",
+      "lp_video_progress",
+      "lp_video_complete"
+    ]);
+
+    // Each prompt CTA
+    // maps to a source-controlled event name; the prompt body itself is never
+    // part of a payload.
+    const LP_PROMPT_EVENTS = {
+      "setup-prompt": "lp_free_start",
+      "review-prompt": "lp_review_prompt_copy"
+    };
+    const LP_CTA_LOCATIONS = ["hero", "two", "proof", "final"];
+
+    function createPageDistinctId() {
+      const webCrypto = window.crypto;
+      try {
+        if (webCrypto && typeof webCrypto.randomUUID === "function") {
+          return `lp-${webCrypto.randomUUID()}`;
+        }
+        if (webCrypto && typeof webCrypto.getRandomValues === "function") {
+          const bytes = new Uint8Array(16);
+          webCrypto.getRandomValues(bytes);
+          return `lp-${Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
+        }
+      } catch {
+        // Analytics must remain best-effort if this browser has no usable RNG.
+      }
+      return "";
     }
 
-    const demoPlayer = document.querySelector(".demo-player");
-    const demoSource = demoPlayer?.querySelector("source");
-    const demoTrack = demoPlayer?.querySelector("track");
-    const demoMeta = document.querySelector("[data-demo-meta]");
-    const demoButtons = document.querySelectorAll("[data-demo-locale]");
-    const demoPath = (button, name, localName) =>
-      window.location.protocol === "file:" ? button.dataset[localName] : button.dataset[name];
+    const pageDistinctId = posthogEndpoint ? createPageDistinctId() : "";
 
-    demoButtons.forEach((button) => {
-      button.addEventListener("click", () => {
-        if (!demoPlayer || !demoSource || !demoTrack || button.getAttribute("aria-pressed") === "true") return;
+    function buildEventProperties(eventName, input) {
+      const properties = {
+        product: LP_PRODUCT,
+        surface: LP_SURFACE,
+        "$process_person_profile": false
+      };
+      const source = input && typeof input === "object" ? input : {};
 
-        const resumeAt = demoPlayer.currentTime;
-        const wasPlaying = !demoPlayer.paused;
-        demoButtons.forEach((candidate) => candidate.setAttribute("aria-pressed", String(candidate === button)));
+      if (eventName === "lp_view") {
+        if (source.device_bucket === "mobile" || source.device_bucket === "desktop") {
+          properties.device_bucket = source.device_bucket;
+        }
+        if (["direct", "x", "github", "search", "other"].includes(source.source_bucket)) {
+          properties.source_bucket = source.source_bucket;
+        }
+      }
 
-        demoSource.setAttribute("src", demoPath(button, "video", "localVideo"));
-        demoTrack.setAttribute("src", demoPath(button, "captions", "localCaptions"));
-        demoTrack.setAttribute("srclang", button.dataset.demoLocale);
-        demoTrack.setAttribute("label", button.dataset.trackLabel);
-        demoPlayer.setAttribute("poster", demoPath(button, "poster", "localPosterSrc"));
-        demoPlayer.setAttribute("aria-label", button.dataset.playerLabel);
-        if (demoMeta) demoMeta.textContent = button.dataset.meta;
+      if (eventName === "lp_free_start" || eventName === "lp_review_prompt_copy") {
+        if (LP_CTA_LOCATIONS.includes(source.location)) properties.location = source.location;
+        if (source.copy_result === "success" || source.copy_result === "failure") {
+          properties.copy_result = source.copy_result;
+        }
+      }
 
-        demoPlayer.addEventListener("loadedmetadata", () => {
-          demoPlayer.currentTime = Math.min(resumeAt, demoPlayer.duration || resumeAt);
-          if (wasPlaying) demoPlayer.play().catch(() => {});
-        }, { once: true });
-        demoPlayer.load();
+      if (eventName === "lp_os_support_click" || eventName === "lp_macos_apply_click") {
+        if (["hero", "proof", "pricing", "footer"].includes(source.location)) properties.location = source.location;
+      }
+      if (["lp_video_start", "lp_video_progress", "lp_video_complete"].includes(eventName)) {
+        properties.video_id = "launch_ja";
+        if (eventName === "lp_video_progress" && [25, 50, 75].includes(source.percent)) {
+          properties.percent = source.percent;
+        }
+      }
+      return properties;
+    }
+
+    function buildEventPayload(eventName, input = {}) {
+      if (!LP_EVENT_NAMES.has(eventName) || !posthogEndpoint || !posthogProjectToken || !pageDistinctId) {
+        return null;
+      }
+
+      return {
+        api_key: posthogProjectToken,
+        event: eventName,
+        distinct_id: pageDistinctId,
+        properties: buildEventProperties(eventName, input)
+      };
+    }
+
+    function capture(eventName, input = {}) {
+      const payload = buildEventPayload(eventName, input);
+      if (!payload || typeof window.fetch !== "function") return;
+
+      const controller = typeof window.AbortController === "function"
+        ? new window.AbortController()
+        : null;
+      let timerId = null;
+      if (controller && typeof window.setTimeout === "function") {
+        timerId = window.setTimeout(() => controller.abort(), 1200);
+      }
+      const request = {
+        method: "POST",
+        mode: "cors",
+        credentials: "omit",
+        cache: "no-store",
+        keepalive: true,
+        referrerPolicy: "no-referrer",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      };
+      if (controller) request.signal = controller.signal;
+
+      const clearTimer = () => {
+        if (timerId !== null && typeof window.clearTimeout === "function") {
+          window.clearTimeout(timerId);
+          timerId = null;
+        }
+      };
+
+      try {
+        Promise.resolve(window.fetch(posthogEndpoint, request)).then(clearTimer, clearTimer);
+      } catch {
+        clearTimer();
+      }
+    }
+
+    function sourceBucket(referrer, currentHost) {
+      if (typeof referrer !== "string" || referrer.length === 0) return "direct";
+      try {
+        const parsed = new URL(referrer);
+        const host = parsed.hostname.toLowerCase();
+        const current = typeof currentHost === "string" ? currentHost.toLowerCase() : "";
+        const isHost = (root) => host === root || host.endsWith(`.${root}`);
+        if (current && host === current) return "direct";
+        if (isHost("x.com") || isHost("twitter.com") || isHost("t.co")) return "x";
+        if (isHost("github.com")) return "github";
+        if (isHost("google.com") || isHost("google.co.jp") || isHost("bing.com") ||
+            isHost("duckduckgo.com") || isHost("search.brave.com") || isHost("yahoo.co.jp") ||
+            isHost("search.yahoo.com")) return "search";
+      } catch {
+        // Never send an unclassified referrer.
+      }
+      return "other";
+    }
+
+    function deviceBucket() {
+      return Number(window.innerWidth) <= 720 ? "mobile" : "desktop";
+    }
+
+    // A small, constrained hook makes the exact payload testable without shipping an SDK.
+    window.API_KEY_CASE_LP_ANALYTICS = Object.freeze({
+      buildEventPayload,
+      capture,
+      deviceBucket,
+      sourceBucket
+    });
+
+    document.querySelectorAll("[data-prompt-target]").forEach((button) => {
+      const source = document.getElementById(button.dataset.promptTarget);
+      const disclosure = document.getElementById(button.dataset.promptSource);
+      const status = document.getElementById(button.dataset.promptStatus);
+      const eventName = LP_PROMPT_EVENTS[button.dataset.lpAction];
+
+      button.addEventListener("click", async () => {
+        const text = source ? source.value : "";
+        let copied = false;
+        try {
+          const clipboard = window.navigator && window.navigator.clipboard;
+          if (!text || !clipboard || typeof clipboard.writeText !== "function") {
+            throw new Error("clipboard unavailable");
+          }
+          await clipboard.writeText(text);
+          copied = true;
+        } catch {
+          // Fall through to the manual path below.
+        }
+
+        if (eventName) {
+          capture(eventName, {
+            location: button.dataset.lpLocation,
+            copy_result: copied ? "success" : "failure"
+          });
+        }
+
+        if (status) {
+          status.dataset.state = copied ? "success" : "failure";
+          status.textContent = copied
+            ? button.dataset.promptDone
+            : "コピーできませんでした。本文を開いたので、選択して手動でコピーしてください。";
+        }
+
+        if (!copied && disclosure && source) {
+          disclosure.open = true;
+          source.focus();
+          if (typeof source.select === "function") source.select();
+        }
       });
     });
 
-    document.querySelectorAll("[data-copy]").forEach((button) => {
-      button.addEventListener("click", async () => {
-        const original = button.textContent;
-        try {
-          await navigator.clipboard.writeText(button.dataset.copy);
-          button.textContent = "copied";
-        } catch {
-          button.textContent = "select";
-        }
-        window.setTimeout(() => { button.textContent = original; }, 1400);
+    document.querySelectorAll('[data-lp-action="github"]').forEach((link) => {
+      link.addEventListener("click", () => capture("lp_github_click"));
+    });
+    document.querySelectorAll('[data-lp-action="checkout"]').forEach((link) => {
+      link.addEventListener("click", () => capture("lp_checkout_click"));
+    });
+
+    // Fixed destinations and placements only; never capture link text or URLs.
+    for (const [selector, eventName] of [
+      ['a[href="os-support.html"], a[href="os-support.html#macos-contributors"]', "lp_os_support_click"],
+      ["a[href='https://tally.so/r/RGAYLK']", "lp_macos_apply_click"]
+    ]) {
+      document.querySelectorAll(selector).forEach((link) => {
+        const location = link.closest(".hero") ? "hero"
+          : link.closest("#security") ? "proof"
+          : link.closest("#price") ? "pricing" : "footer";
+        link.addEventListener("click", () => capture(eventName, { location }));
       });
+    }
+
+    document.querySelectorAll("video").forEach((video) => {
+      let started = false;
+      let completed = false;
+      const milestones = new Set();
+      video.addEventListener("playing", () => {
+        if (started) return;
+        started = true;
+        capture("lp_video_start");
+      });
+      video.addEventListener("timeupdate", () => {
+        if (!started || video.seeking || !Number.isFinite(video.duration) || video.duration <= 0) return;
+        // Native played ranges exclude skipped portions. Replays do not inflate reach.
+        let watched = 0;
+        for (let i = 0; i < video.played.length; i += 1) {
+          watched += video.played.end(i) - video.played.start(i);
+        }
+        for (const percent of [25, 50, 75]) {
+          if (watched / video.duration * 100 >= percent && !milestones.has(percent)) {
+            milestones.add(percent);
+            capture("lp_video_progress", { percent });
+          }
+        }
+      });
+      video.addEventListener("ended", () => {
+        if (!started || completed) return;
+        completed = true;
+        capture("lp_video_complete");
+      });
+    });
+
+    // Diagnostic-only: whether the pricing section was reached, not a CTA.
+    // No scroll-depth or other-section tracking is added alongside this.
+    // The section itself is much taller than the viewport on mobile, so a
+    // 50% ratio of #price could never be reached there; the small heading at
+    // its top is observed instead as a reliable "reached pricing" sentinel.
+    const priceSentinel = document.getElementById("price-title");
+    if (priceSentinel && typeof window.IntersectionObserver === "function") {
+      let pricingViewSent = false;
+      const pricingObserver = new window.IntersectionObserver((entries) => {
+        if (pricingViewSent) return;
+        for (const entry of entries) {
+          if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
+            pricingViewSent = true;
+            capture("lp_pricing_view");
+            pricingObserver.disconnect();
+            break;
+          }
+        }
+      }, { threshold: 0.5 });
+      pricingObserver.observe(priceSentinel);
+    }
+
+    capture("lp_view", {
+      device_bucket: deviceBucket(),
+      source_bucket: sourceBucket(document.referrer, window.location?.hostname)
     });
   </script>
 </body>

@@ -5,6 +5,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { ADAPTERS, isTargetId } from "../adapters/index.js";
 import { runDeploy } from "../core/deploy/engine.js";
+import { renderHistoryDiagnostic } from "../core/deploy/history.js";
 import { isDeployEnv, type DeployEnv, type DeployTarget, type TargetId } from "../core/deploy/types.js";
 import { assertProFeature, ProFeatureError, type LicenseOptions } from "../core/license.js";
 import { scanProject } from "../core/scanner.js";
@@ -30,6 +31,7 @@ export interface ToolDeps {
   createVault: () => Vault;
   adapters: ReadonlyMap<TargetId, DeployTarget>;
   pathOverride?: string; // test-only; threaded through to the deploy engine
+  historyBaseDir?: string; // test-only
   licenseOptions?: LicenseOptions; // test-only; threaded through to assertProFeature
 }
 
@@ -101,7 +103,9 @@ export function buildTools(deps: ToolDeps): ToolHandlers {
       const report = scanProject({ targetDir: resolved.dir });
       const names = report.requiredSecrets;
       const text =
-        names.length === 0 ? "No required secrets detected." : `Required secrets: ${names.join(", ")}`;
+        names.length === 0
+          ? "No required secrets detected by the current scanner. This does not prove that the project needs no secrets."
+          : `Required secrets: ${names.join(", ")}`;
       return statusResult(text, { requiredSecrets: names });
     }),
 
@@ -187,29 +191,49 @@ export function buildTools(deps: ToolDeps): ToolHandlers {
       const projectId = scope === "project" ? deriveProjectId(resolved.dir) : null;
       const printed: string[] = [];
 
-      const result = await runDeploy(
-        {
-          vault,
-          adapter,
-          print: (line) => printed.push(line),
-          // Fixed false regardless of branching above (section 2-18: multi-layer
-          // defense so a logic bug here still cannot complete a production deploy).
-          confirmProduction: async () => false,
-          pathOverride: deps.pathOverride
-        },
-        {
-          name,
-          scope,
-          projectId,
-          projectDir: resolved.dir,
-          env: env as DeployEnv,
-          dryRun,
-          force: false
+      let result: Awaited<ReturnType<typeof runDeploy>>;
+      try {
+        result = await runDeploy(
+          {
+            vault,
+            adapter,
+            print: (line) => printed.push(line),
+            // MCP has no Human Plane and therefore cannot complete any
+            // operation that requires approval. Production/GitHub also remain
+            // rejected above as an independent defense layer.
+            pathOverride: deps.pathOverride,
+            historyBaseDir: deps.historyBaseDir
+          },
+          {
+            name,
+            scope,
+            projectId,
+            projectDir: resolved.dir,
+            env: env as DeployEnv,
+            dryRun,
+            force: false
+          }
+        );
+      } catch {
+        // The engine records an unknown result and emits only fixed guidance
+        // when handoff itself throws. Preserve that status-only guidance for
+        // the Agent instead of reducing it to the generic guarded error.
+        const summary = printed.join("\n");
+        if (summary.includes("deployment result is unknown") || summary.includes("operation outcome is unknown")) {
+          return statusResult(
+            "NG: deployment result is unknown; provider changes may already exist.\n" + summary,
+            { status: "failed", name, target, env }
+          );
         }
-      );
+        throw new Error("deploy handoff failed");
+      }
 
       const summary = printed.join("\n");
       switch (result.kind) {
+        case "history-unavailable":
+          return statusResult("NG: deployment history could not be started; no provider write was attempted by this invocation.\n" + renderHistoryDiagnostic(result.historyDiagnostic), {
+            status: "history-unavailable", name, target, env, historyDiagnostic: result.historyDiagnostic
+          });
         case "dry-run":
           return statusResult(`OK: dry-run plan for ${name} -> ${target} (${env}).\n${summary}`, {
             status: "dry-run",
@@ -218,8 +242,11 @@ export function buildTools(deps: ToolDeps): ToolHandlers {
             env
           });
         case "missing-secret":
+          const saveCommand = scope === "user"
+            ? `npx api-key-case save ${name} --scope user`
+            : `npx api-key-case save ${name}`;
           return statusResult(
-            `NG: ${name} is not registered (${scope} scope). Ask the human to run: npx api-key-case save ${name}`,
+            `NG: ${name} is not registered (${scope} scope). Ask the human to run: ${saveCommand}`,
             { status: "missing-secret", name, target, env }
           );
         case "cli-unavailable":
@@ -231,13 +258,36 @@ export function buildTools(deps: ToolDeps): ToolHandlers {
           });
         case "declined":
           return statusResult("NG: deploy was not confirmed.", { status: "declined", name, target, env });
+        case "unavailable":
+          return statusResult(
+            "NG: this deploy needs the Agent-independent Human Plane: it is either high-risk or its destination has not been confirmed by a human yet.",
+            { status: "unavailable", name, target, env }
+          );
+        case "changed":
+          return statusResult("NG: the bound deploy operation changed and was stopped; this status does not establish provider effects." +
+            (result.historyDiagnostic ? `\n${renderHistoryDiagnostic(result.historyDiagnostic)}` : ""), {
+            status: "changed",
+            name,
+            target,
+            env,
+            ...(result.historyDiagnostic ? { historyDiagnostic: result.historyDiagnostic } : {})
+          });
         case "executed": {
-          const ok = result.handoff.exitCode === 0;
+          const ok = result.handoff.exitCode === 0 && !result.handoff.timedOut;
           const detail = result.handoff.stderrRedacted.trim() || result.handoff.stdoutRedacted.trim();
-          const text = ok
+          let text = ok
             ? `OK: ${name} deployed to ${target} (${env}).`
             : `NG: deploy to ${target} failed${result.handoff.timedOut ? " (timed out)" : ""}.${detail ? `\n${detail}` : ""}`;
-          return statusResult(text, { status: ok ? "executed" : "failed", name, target, env });
+          if (!ok) {
+            text += result.handoff.timedOut || result.handoff.exitCode === null
+              ? "\nThe deployment result is unknown; provider changes may already exist. Inspect history before deciding the next step with the human."
+              : "\nThe provider reported a deployment failure. Inspect history and agree the next step with the human; do not retry automatically.";
+          }
+          return statusResult(text + (result.historySaved ? "" : "\nWarning: the result was not saved to history; do not retry automatically.") +
+            (result.historyDiagnostic ? `\n${renderHistoryDiagnostic(result.historyDiagnostic)}` : ""), {
+            status: ok ? "executed" : "failed", name, target, env, historySaved: result.historySaved,
+            ...(result.historyDiagnostic ? { historyDiagnostic: result.historyDiagnostic } : {})
+          });
         }
       }
     }),
@@ -331,7 +381,7 @@ export function registerAllTools(server: McpServer, deps: ToolDeps): void {
     "save_secret",
     {
       description:
-        "Never accepts or stores a value. Returns an action_required response asking a human to run `api-key-case save` in their own terminal.",
+        "Never accepts or stores a value. Returns an action_required response for the Agent-independent `api-key-case save --ask` Human Plane.",
       inputSchema: { name: z.string(), ...SCOPE_SCHEMA }
     },
     tools.save_secret
@@ -341,7 +391,7 @@ export function registerAllTools(server: McpServer, deps: ToolDeps): void {
     "deploy_secret",
     {
       description:
-        "Send a registered secret to a deploy target via its official CLI. Production (and github, always CI-reachable) never completes here — returns an action_required response for a human to run in a terminal instead.",
+        "Send a registered secret to a deploy target via its official CLI. Production (and github, always CI-reachable) never completes here — returns an action_required response for a human to run the CLI and use its separate Human Plane. Terminal input cannot approve it.",
       inputSchema: {
         name: z.string(),
         target: z.enum(["cloudflare", "vercel", "github"]),

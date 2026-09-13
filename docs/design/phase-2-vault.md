@@ -1,5 +1,10 @@
 # Phase 2 Design — OS Secret Store Vault (save / check / list / remove)
 
+> **履歴文書（2026-09-08整理）:** 以下はPhase 2時点の設計記録であり、現行CLIの実装指示ではない。
+> 現行のAgent入力は`save --ask`、保存値の削除はHuman Plane必須で、`remove --yes`とstdin承認は廃止済み。
+> コマンドは[README](../../README.md#secret-storage-save--check--list--remove)、境界は[SECURITY](../../SECURITY.md)、
+> Agentの進行は[現行setup契約](agent-setup-readiness.md)を参照する。値の非公開・OS保管の原則は維持する。
+
 > 対象読者: 実装を担当する AI エージェント（Sonnet / Codex クラス）および人間レビュアー。
 > この文書は CLAUDE.md（リポジトリ直下）の下位文書である。**矛盾したら CLAUDE.md セクション3が常に勝つ。**
 > フェーズごとに設計書を 1 枚ずつ置く。本書は Phase 2。Phase 3 以降は着手時に同ディレクトリへ追加する。
@@ -162,7 +167,7 @@ export interface Vault {
   isAvailable(): Promise<boolean>;
   setSecret(ref: SecretRef, value: string): Promise<void>;
   hasSecret(ref: SecretRef): Promise<boolean>;
-  deleteSecret(ref: SecretRef): Promise<boolean>; // false = did not exist
+  deleteSecret(ref: SecretRef): Promise<boolean>; // true = deleted; false = absent
 }
 
 export class VaultUnavailableError extends Error {}
@@ -171,10 +176,10 @@ export class SecretNameError extends Error {}
 
 ### 4.3 KeyringVault（keyring.ts）
 
-- 依存: **`@napi-rs/keyring`**（napi-rs チームがメンテ。プラットフォーム別プリビルドが optionalDependencies で配布され node-gyp 不要 → 「npx 一発」の要件に適合）。実装前に `npm view @napi-rs/keyring` で最新版とサポートプラットフォームを確認し、メジャーバージョンを固定して dependencies に追加する。
+- 依存: **`@napi-rs/keyring` 2.0.0 以降**（napi-rs チームがメンテ。プラットフォーム別プリビルドが optionalDependencies で配布され node-gyp 不要 → 「npx 一発」の要件に適合）。メジャーバージョンを固定して dependencies に追加する。
 - macOS Keychain / Windows Credential Manager / Linux libsecret(Secret Service) を単一 API で吸収する。
 - 使い方: `new Entry(service, account)` に対し `setPassword(value)` / `getPassword()` / `deleteCredential()`。
-- **実機検証済みの挙動（当初の想定と異なる）**: 未登録エントリに対して `getPassword()` は例外を投げず **`null` を返し**、`deleteCredential()` は **`false` を返す**（Windows Credential Manager 実機で確認、2026-07）。例外ベースの存在判定は書かないこと。
+- **2.0.0 の戻り値契約**: 未登録エントリの `getPassword()` は `null`、`deleteCredential()` は `false`。credential store の read failure と、存在する credential の delete failure は例外を投げる。したがって `false` は absent の意味だけに使い、存在確認後の `false` を成功や stale index として扱わない。
 - `hasSecret` の実装: `entry.getPassword() !== null` を**一つの式で** boolean 化する（値を変数・オブジェクト・テンプレートリテラルに置かない。§2-6）。予期しない例外は、メッセージに値が含まれていないか確認してから re-throw（含まれる場合は差し替える）。
 - `isAvailable`: プローブ用エントリ（`account = "v1|probe"`）への set → delete を try し、失敗したら false。Linux で Secret Service（gnome-keyring 等）が無いヘッドレス環境では false になる想定。
 

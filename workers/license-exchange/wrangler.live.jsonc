@@ -4,9 +4,8 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-07-13",
   "compatibility_flags": ["nodejs_compat"],
-  // The exchange URL is compiled into every published CLI version, so old
-  // releases keep their embedded URL. Retain the legacy domain temporarily
-  // for npm 0.9.0; never redirect purchase-key POST bodies. A custom domain keeps the
+  // The exchange URL is compiled into every published CLI version, so buyers
+  // running an old release keep calling it forever. A custom domain keeps that
   // address portable; a workers.dev address would pin this service to this
   // Cloudflare account permanently and expose the account subdomain to every
   // buyer. workers_dev is therefore off: the custom domain is the only route.
@@ -16,6 +15,8 @@
   "preview_urls": false,
   "routes": [
     { "pattern": "apikeycase-license.melavern.com", "custom_domain": true },
+    // Temporary 0.9.0 compatibility. Remove after 0.9.1 external verification
+    // and the approved 0.9.0 unpublish; the old zone is not renewed long term.
     { "pattern": "apikeycase-license.leoneapps.com", "custom_domain": true }
   ],
   "vars": {

@@ -88,7 +88,7 @@ jobs:
         # every step below are POSIX shell.
         shell: bash
     env:
-      GH_OWNER: melavern-dev
+      GH_OWNER: melavern
       # The OS goes into the throwaway resource names, so the legs for one
       # platform cannot collide on a name and can all run at once.
       AKC_E2E_RUN_ID: ${{ github.run_id }}-${{ startsWith(matrix.os, 'macos') && 'mac' || (startsWith(matrix.os, 'windows') && 'win' || 'ubu') }}

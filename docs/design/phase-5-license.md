@@ -2,6 +2,12 @@
 
 > This document is subordinate to `CLAUDE.md`; its security boundary wins on conflict.
 > Phase 2 Vault, Phase 3 Deploy, and Phase 4 MCP invariants remain in force.
+>
+> Current license status: beginning with v0.9.1, the product code is source
+> available under the Elastic License 2.0 (`Elastic-2.0`). The v0.9.0 release
+> remains under the MIT license shipped with that version. This status note
+> supersedes the original v0.9.0 licensing characterization below without
+> changing this document's runtime design.
 
 ## 1. Decision and scope
 
@@ -18,7 +24,7 @@ The free/paid boundary is unchanged:
 - Free: scan, save, check, list, remove, env/example generation, leak scan, targets, and all MCP tools except the execution path of `deploy_secret`.
 - Pro: CLI `deploy` and MCP `deploy_secret`.
 
-This remains a public MIT codebase and a good-faith gate that funds development, not DRM.
+For v0.9.0, this was released as a public MIT codebase with a good-faith gate. Beginning with v0.9.1, the product source remains public under ELv2, whose standard limitations include the license-key restriction; the purchase entitlement, offline implementation, and Free/Pro runtime boundary are unchanged.
 
 ## 2. ADR: validate, authenticated order check, and no D1
 
@@ -125,7 +131,7 @@ MCP adds no tools or fields. It never receives a purchase key and continues to t
 
 ## 7. Selling and release
 
-The storefront is Lemon Squeezy. The current price is maintained on the storefront and landing page rather than hardcoded into runtime code; entitlement covers the current Pro v1 line, and `AKC1` carries no version field, so a later major version would gate by shipping a different check rather than by expiring an issued license. The checkout and live exchange URLs are configured in `packages/core/license.ts` and `packages/core/license-exchange.ts`; the publish workflow blocks if either file still contains its explicit placeholder marker.
+The storefront is Lemon Squeezy. The current price is maintained on the storefront and landing page rather than hardcoded into runtime code; entitlement covers the current Pro v1 line, and `AKC1` carries no version field, so a later major version would gate by shipping a different check rather than by expiring an issued license. The purchase link and live exchange URL are configured in `packages/core/license.ts` and `packages/core/license-exchange.ts`; the publish workflow blocks if either file still contains its explicit placeholder marker. The purchase link the CLI and MCP relay points at the site's purchase section (`https://apikeycase.melavern.com/#purchase`), not at the bare checkout, so a buyer sees the price, host conditions, Terms and refund policy before the Lemon Squeezy button; the checkout URL itself lives only on the site.
 
 `tools/issue-license.mjs` is retained only as an issuer-side recovery/testing tool. It is not the normal fulfillment flow and remains excluded from npm.
 

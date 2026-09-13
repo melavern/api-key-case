@@ -54,6 +54,9 @@ export async function activatePurchaseLicense(
         "Content-Type": "application/json"
       },
       body: JSON.stringify({ licenseKey: purchaseKey }),
+      // The reviewed exchange host must answer directly. Never forward a
+      // purchase key through a redirect to a different or retired domain.
+      redirect: "error",
       signal: controller.signal
     });
     if (!response.ok) throw new LicenseActivationError();

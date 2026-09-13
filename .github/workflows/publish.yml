@@ -22,6 +22,18 @@ jobs:
     environment: npm
     runs-on: ubuntu-latest
     steps:
+      - name: Require the reviewed public repository and publishing actor
+        if: github.ref_type == 'tag'
+        env:
+          RELEASE_REPOSITORY: ${{ github.repository }}
+          RELEASE_ACTOR_ID: ${{ github.actor_id }}
+          RELEASE_ACTOR: ${{ github.actor }}
+          RELEASE_TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+        run: |
+          if [ "$RELEASE_REPOSITORY" != "melavern/api-key-case" ] || [ "$RELEASE_ACTOR_ID" != "302734523" ] || [ "$RELEASE_ACTOR" != "melavern-dev" ] || [ "$RELEASE_TRIGGERING_ACTOR" != "melavern-dev" ]; then
+            echo "::error::Release must run from the reviewed organization under its dedicated public maintainer."
+            exit 1
+          fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
@@ -29,7 +41,7 @@ jobs:
       - name: Block publish while release URLs are placeholders
         run: |
           if grep -q "TODO-api-key-case-purchase-url" packages/core/license.ts; then
-            echo "::error::PURCHASE_URL is still a placeholder. Configure the live Lemon Squeezy checkout URL before publishing."
+            echo "::error::PURCHASE_URL is still a placeholder. Configure the live purchase page URL before publishing."
             exit 1
           fi
           if grep -q "TODO-api-key-case-license-exchange" packages/core/license-exchange.ts; then
@@ -43,6 +55,26 @@ jobs:
           PKG_VERSION="v$(node -p "require('./package.json').version")"
           if [ "$GITHUB_REF_NAME" != "$PKG_VERSION" ]; then
             echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $PKG_VERSION."
+            exit 1
+          fi
+
+      - name: Check annotated tag identity and target
+        if: github.ref_type == 'tag'
+        run: |
+          TAG_REF="refs/tags/$GITHUB_REF_NAME"
+          if [ "$(git cat-file -t "$TAG_REF")" != "tag" ]; then
+            echo "::error::Release tags must be annotated tags."
+            exit 1
+          fi
+          TAGGER_NAME="$(git for-each-ref --format='%(taggername)' "$TAG_REF")"
+          TAGGER_EMAIL="$(git for-each-ref --format='%(taggeremail)' "$TAG_REF")"
+          TAG_TARGET="$(git rev-parse "$TAG_REF^{}")"
+          if [ "$TAGGER_NAME" != "melavern-dev" ] || [ "$TAGGER_EMAIL" != "<302734523+melavern-dev@users.noreply.github.com>" ]; then
+            echo "::error::Release tagger must use the reviewed public Git identity."
+            exit 1
+          fi
+          if [ "$TAG_TARGET" != "$GITHUB_SHA" ]; then
+            echo "::error::Annotated tag target does not match the workflow release commit."
             exit 1
           fi
 

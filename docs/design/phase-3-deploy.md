@@ -1,5 +1,11 @@
 # Phase 3 Design — Deploy Adapters (Cloudflare / Vercel / GitHub)
 
+> **履歴文書（2026-09-08整理）:** 以下はPhase 3導入時の設計記録。現在はPhase 6のHuman Plane、
+> 実行snapshot、destination trustが加わっている。本書のTTY/`confirmProduction`例は現行の承認経路ではない。
+> production・GitHub以外もhigh-riskまたは初回/変化した配置先なら人間確認を要する。
+> 現行の条件は[README](../../README.md#deploying-secrets-deploy--targets--pro-feature)、
+> [SECURITY](../../SECURITY.md)、[setup契約](agent-setup-readiness.md)を参照する。
+
 > 対象読者: 実装を担当する AI エージェント（Sonnet / Codex クラス）および人間レビュアー。
 > この文書は CLAUDE.md（リポジトリ直下）の下位文書である。**矛盾したら CLAUDE.md セクション3が常に勝つ。**
 > 前提: [phase-2-vault.md](phase-2-vault.md) が実装済みであること（Vault / SecretRef / naming / registry / prompt を再利用する）。
@@ -213,10 +219,10 @@ export async function runWithSecret(
 |---|---|
 | detect | `.vercel/project.json`（リンク済み）または `vercel.json` の存在。リンク未済なら hint に `vercel link` を出す |
 | checkCli | `vercel --version` → installed、`vercel whoami` → loggedIn |
-| deploy argv | `vercel env add <NAME> <env>`（値は stdin。env は production/preview/development をそのまま渡せる） |
-| 上書き挙動 | 同名が既にあると CLI がエラー → その旨を NG 表示し `--force` を案内 |
-| --force | preSteps に `vercel env rm <NAME> <env> --yes` を積んでから add（rm は値を扱わないので stdin 不使用）。production ではこの削除も §3.2-8 の確認の対象に含める（要約に "removes existing value first" を明記） |
-| manualSteps | 1. `npm i -g vercel` 2. `vercel login` → `vercel link` 3. `vercel env add <NAME> <env>`（値は手で貼り付け） |
+| deploy argv | `vercel env add <NAME> <env>`（値は stdin。env は production/preview/development をそのまま渡せる）。`production` / `preview` には `--sensitive` を必ず付ける（Vercel側のdefaultに依存せず write-only storage を要求する）。`development` はVercel APIがsensitiveを許可せず `--sensitive` がerrorになるため付けない |
+| 上書き挙動 | 同名が既にあると CLI がエラー → その旨を NG 表示する。`--force` は provider が重複する既存 Secret を明示した場合に、人間が次の操作へ同意したときだけ検討する |
+| --force | preSteps に `vercel env rm <NAME> <env> --yes` を積んでから add（rm は値を扱わないので stdin 不使用）。production ではこの削除も §3.2-8 の確認の対象に含める（要約に "removes existing value first" を明記）。timeout・権限不足・結果不明・provider障害の一般的な再試行には使わない。 |
+| manualSteps | 1. `npm i -g vercel` 2. `vercel login` → `vercel link` 3. `vercel env add <NAME> <env>`（値は手で貼り付け）。**planDeploy と同じ env 分岐にすること**（`production`/`preview` は `--sensitive` 付き） |
 
 ### 6.3 github.ts（gh）
 

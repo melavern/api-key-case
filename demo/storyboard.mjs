@@ -243,7 +243,7 @@ export function buildTimeline(transcriptPath = TRANSCRIPT_PATH, locale = "en") {
     },
     price: { title: "API Key Case Pro", amount: "¥2,980", terms: "One-time purchase · no subscription" },
     url: "apikeycase.melavern.com",
-    footer: "MIT-licensed source · Node 20+ · Windows, macOS, Linux"
+    footer: "Source available under Elastic-2.0 · Node 20+ · Windows, macOS, Linux"
   });
   const durationMs = t + 10600;
 
@@ -372,7 +372,7 @@ function localizeJapanese(timeline) {
   outro.free.label = "Free（現行版）";
   outro.pro.label = "Pro";
   outro.price.terms = "買い切り · サブスクリプションではありません";
-  outro.footer = "MITライセンスのソース · Node 20+ · Windows / macOS / Linux";
+  outro.footer = "Elastic-2.0でソース公開 · Node 20+ · Windows / macOS / Linux";
 
   return localized;
 }
