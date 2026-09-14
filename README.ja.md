@@ -12,7 +12,7 @@ Cursor などのAIコーディングエージェントに渡せる伏字済み�
 シークレットストア。Pro機能の `deploy` は、保管済みの値を各社の公式CLI経由で Cloudflare / Vercel /
 GitHub へ配置します。**シークレットの値そのものが返される・表示される・ログに出ることはありません。**
 
-> **本書はv0.9.1プレスタブル版のAgent-first導線を説明します。** `@latest`はnpmの公開dist-tagに従うため、段階的な公開中は遅れて切り替わる場合があります。検証・購入前にexact versionの`0.9.1`がnpmで利用可能か確認し、受入証跡と公開gateは[リリースチェックリスト](docs/RELEASING.md)を参照してください。
+> **本書はv0.9.1プレスタブル版のAgent-first導線を説明します。** `api-key-case@0.9.1`はnpmで公開済みで、`@latest`も`0.9.1`を指します。以下のAgent導線ではexact version（`api-key-case@0.9.1`）をpinしてください。受入証跡と公開前に実施した確認は[リリースチェックリスト](docs/RELEASING.md)を参照してください。
 >
 > 完全な安全は保証しません。事故の確率を下げるためのツールです。
 > 生成物はAIや外部サービスへ渡す前に、必ずご自身で確認してください。
@@ -75,8 +75,8 @@ deployにはproviderとproject構成ごとの追加条件があります。特�
 
 ## Agent Control Plane / Human Plane（Phase A/B/C/D/E）
 
-以下はv0.9.1の機能です。利用前に`npx -y api-key-case@0.9.1 --version`が`0.9.1`を返すことを
-確認してください。npmにexact versionがまだ無い段階では、[公開前の検証手順](docs/RELEASING.md#testing-the-candidate-before-publication)に従って候補版tarballを使います。
+以下はnpmで公開済みのv0.9.1の機能です。利用前に`npx -y api-key-case@0.9.1 --version`が
+`0.9.1`を返すことを確認してください。
 
 ```sh
 api-key-case agent-init .          # 現sessionのprotocolを返し、既存host instructionを管理
@@ -381,7 +381,7 @@ Pro利用権とライセンスキー実装は変更せず、ソースコード�
 | セキュリティ境界の全体像 | [SECURITY.md](SECURITY.md) |
 | 開発・ビルド手順 | [Development checkout](README.md#development-checkout) |
 | Ubuntuでの配布物・実OSストア検証 | [検証記録](docs/VERIFICATION.md#ubuntu-artifact-and-real-store-verification--2026-09-08) |
-| 公開候補の受入手順と残作業 | [Release checklist](docs/RELEASING.md) |
+| リリースの受入記録と公開手順 | [Release checklist](docs/RELEASING.md) |
 | 今後の予定 | [Status and roadmap](README.md#status-and-roadmap) |
 
 ## ライセンス

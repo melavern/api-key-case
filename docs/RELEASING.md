@@ -1,8 +1,9 @@
 # Release checklist
 
-This checklist describes the human-controlled steps between the current
-private repository and a public npm release. It is deliberately documentation
-only: reading it or running the verification commands below must not make the
+This checklist describes the human-controlled steps between the private
+development repository and a public npm release, and records the acceptance
+that each published version passed. It is deliberately documentation only:
+reading it or running the verification commands below must not make the
 GitHub repository public, push a commit, create a tag, deploy a Worker, or
 publish to npm.
 
@@ -37,17 +38,23 @@ deployment support.
 source at annotated tag `v0.9.1` (commit `f0c2a93`). From a disposable
 directory, `npx --yes api-key-case@0.9.1 --version` and `scan .` behave as
 documented, and an anonymous clone resolves the tag to the same commit. The
-LP publish gate (`docs/landing-page/PAGE_SPEC.md` §8) was opened only after
-those external checks. Dated observations remain in [VERIFICATION](VERIFICATION.md).
+landing page's publish gate was opened only after those external checks. Dated
+observations remain in [VERIFICATION](VERIFICATION.md). The sections below
+this one, up to "Normal path", are the 0.9.1 acceptance record and the
+candidate-testing procedure; they are kept as history and as the template for
+the next version, not as open work for 0.9.1.
 
 ## Agent-first candidate status — 2026-09-08
+
+*Historical record; superseded by the 2026-09-14 release status above.*
 
 The working candidate was 0.9.1. On this date npm `latest` still resolved to
 0.9.0, and the public repository had not received the Agent-first changes.
 The local LP therefore described a candidate, not the experience available
 through a fresh registry download; its publish gate stayed closed until the
 exact-version prompt and its public review links resolved to the reviewed
-release (see the 2026-09-14 status above).
+release. That condition was met on 2026-09-14 (see the release status above);
+nothing in this section is still pending for 0.9.1.
 
 Read documents in this order:
 
@@ -61,7 +68,7 @@ Read documents in this order:
    Earlier Phase 2–4 designs and the Phase 6 investigation are history, not
    instructions to restore TTY approval or bypasses.
 
-### Remaining acceptance work, in order
+### 0.9.1 acceptance record (completed before publication)
 
 | Work | Current evidence | Exit condition |
 | --- | --- | --- |
@@ -70,19 +77,20 @@ Read documents in this order:
 | Windows Human Plane | On that Windows 11/Hello host, cancel/Verified/attack, installed synthetic input/resumption, real Secret/trust deletion and refusal, zero provider-fixture spawn after refusal, fresh-consumer dummy storage, and Vercel preview force refusal/approval passed | Hello-unconfigured account remains unverified because no appropriate environment was available; retain fail-closed requirements and finish only the still-advertised host coverage |
 | User's actual Coding Agent | Codex followed the LP exact-version prompt from a fresh disposable repository, ran `agent-init --host agents`, resumed in a new chat from generated AGENTS.md, and completed the selected Vercel preview flow without receiving Secret input. See [fresh-consumer acceptance](VERIFICATION.md#fresh-consumer-coding-agent-and-vercel-force-acceptance--2026-09-08) | Passed for Codex on this Windows host. Re-run after protocol/artifact changes; the sandbox/user-shell execution-context difference is a documented host constraint, not a product permission to bridge accounts |
 | Real provider compatibility | All three advertised providers now have one authorized real Windows write: GitHub `development` (gh 2.96.0), Cloudflare `production` (wrangler 4.104.0) and Vercel `preview` (vercel 59.11.7). The Vercel run exposed a silent success — the CLI exited 0 without creating the variable — which is fixed and re-verified. Vercel preview `--force` also passed both refusal-without-mutation and approved delete/re-add with independent provider/history checks. See [GitHub](VERIFICATION.md#authorized-real-github-provider-write--2026-09-08), [Cloudflare](VERIFICATION.md#authorized-real-cloudflare-provider-write--2026-09-08), [Vercel](VERIFICATION.md#authorized-real-vercel-write-and-a-silent-success-defect--2026-09-08) and [fresh-consumer force acceptance](VERIFICATION.md#fresh-consumer-coding-agent-and-vercel-force-acceptance--2026-09-08) | Other provider CLI versions, advertised OSes and force paths outside this Vercel preview combination remain coverage limits, not evidence for broader compatibility. Treat a provider CLI's exit code as insufficient evidence on its own: only a real write with an independent name/metadata read-back catches a silent no-op |
-| macOS contributor testing (not a Windows release blocker) | AppKit/Keychain implementation exists; current candidate's real GUI/architecture results remain unverified. Portable generated-script tests cover storage failure/refusal and decision control flow. [SECURITY](../SECURITY.md#known-limitations) records the button-only approval asymmetry; TCC protection against a same-user Accessibility caller remains unmeasured. See the [verification plan](design/macos-human-plane-verification.md) | Windows 11 + Hello is the normal release target. macOS remains a collaborative verification edition. Track native GUI, both removal kinds, architectures, provider discovery and Accessibility before any later promotion to regular support. CI cannot settle human/Accessibility acceptance |
-| Publication and sales | Done 2026-09-14: `0.9.1` published through the gates below with provenance, exact-version bootstrap verified externally, LP gate opened afterwards | Live checkout facts were re-read the same day without a purchase; the Lemon Squeezy license-key setting on the live variant and PostHog IP/GeoIP/retention remain dashboard reads for the owner |
+| macOS contributor testing (not a Windows release blocker) | AppKit/Keychain implementation exists; 0.9.1's real GUI/architecture results remain unverified. Portable generated-script tests cover storage failure/refusal and decision control flow. [SECURITY](../SECURITY.md#known-limitations) records the button-only approval asymmetry; TCC protection against a same-user Accessibility caller remains unmeasured. See the [verification plan](design/macos-human-plane-verification.md) | Windows 11 + Hello is the normal release target. macOS remains a collaborative verification edition. Track native GUI, both removal kinds, architectures, provider discovery and Accessibility before any later promotion to regular support. CI cannot settle human/Accessibility acceptance |
+| Publication and sales | Done 2026-09-14: `0.9.1` published through the gates below with provenance, exact-version bootstrap verified externally, LP gate opened afterwards | Live checkout facts were re-read the same day without a purchase |
 
 The supported Windows path and three provider writes are accepted as recorded
-above. Do not repeat that acceptance or reopen the macOS release-policy decision
-for this documentation finalization. macOS native work is a separate follow-up.
-Listing three adapters is not evidence that every provider/environment/OS
-combination has been tested. Record the tested combinations and limitations.
+above; that acceptance is not repeated for documentation-only changes, and the
+macOS release-policy decision is not reopened by them. macOS native work is a
+separate follow-up. Listing three adapters is not evidence that every
+provider/environment/OS combination has been tested; the tested combinations
+and their limitations are recorded in [VERIFICATION](VERIFICATION.md).
 Environment-specific local storage, runtime injection, team support and extra
-providers are outside this candidate's acceptance scope.
-The candidate also includes [advisory deployment history](design/deployment-history.md).
+providers are outside 0.9.1's acceptance scope.
+0.9.1 also includes [advisory deployment history](design/deployment-history.md).
 It adds no acceptance gate: it explains past operation results and leaves
-current remote values unverified. The remaining release work above is unchanged.
+current remote values unverified.
 
 Provider documentation must also be checked against the actual selected CLI.
 Vercel's current [Secret documentation](https://vercel.com/docs/environment-variables/sensitive-environment-variables)
@@ -90,13 +98,18 @@ now permits write-only Secrets in Development and retains `--sensitive` as a
 type-selection option. This was measured against vercel 59.11.7 on 2026-09-08:
 the flag is accepted in Development and stores a Secret, while omitting it
 stores a readable Config. Public wording in both READMEs, SECURITY.md and the
-adapter now states that measured behaviour. The candidate still omits
+adapter now states that measured behaviour. The released adapter still omits
 `--sensitive` on its Development path and requires human approval there, and
 that environment stays off the automatic-safe allowlist. Moving it is a reviewed
 change of the allowlist premise, not a flag edit, and must not be made from
 documentation alone.
 
 ### Testing the candidate before publication
+
+This procedure applies to an unpublished candidate of the next version. For
+the published `0.9.1`, the registry package is the artifact to test:
+`npx -y api-key-case@0.9.1 --version` resolves to `0.9.1` and no local
+tarball is needed.
 
 For repeatable Ubuntu verification, use `npm run test:package` and, when the
 required tools are present, `npm run test:keyring:linux`. The latter creates its
@@ -106,11 +119,11 @@ For a human/Agent session, build and pack the reviewed checkout into a
 temporary directory. Install that tarball in a **disposable consumer project**
 with `npm install --no-save --ignore-scripts <absolute-path-to-tarball>`.
 From that project's directory, check
-`npx -y api-key-case@0.9.1 --version` before using the LP prompt. The locally
-installed version must match the prompt exactly. Do not replace it with
-`@latest`, install it into a real user's project just for testing, or publish
-a package to make a test resolve. The artifact lane already verifies this
-local exact-version resolution.
+`npx -y api-key-case@<candidate-version> --version` before using the LP
+prompt. The locally installed version must match the prompt exactly. Do not
+replace it with `@latest`, install it into a real user's project just for
+testing, or publish a package to make a test resolve. The artifact lane
+already verifies this local exact-version resolution.
 
 Use this acceptance scenario on the intended Agent host:
 
@@ -157,10 +170,11 @@ Private development
   -> external clone and npx smoke checks
 ```
 
-The Private/Public repository boundary and exact export commands are owned by
-the unpublished `docs/PUBLISHING.md`. This public checklist owns package and
-release behavior. Initial repository creation, visibility change, first
-CodeQL/security enablement and bootstrap-token setup are not repeated.
+The Private/Public repository boundary and the exact export commands are
+owned by a private maintainer runbook that is not part of this repository.
+This public checklist owns package and release behavior. Initial repository
+creation, visibility change, first CodeQL/security enablement and
+bootstrap-token setup are not repeated.
 
 ## 1. Per-release candidate gate
 
@@ -210,36 +224,29 @@ Before the final review, also confirm:
 - The existing record for a controlled test-mode purchase → exchange →
   `license activate` → deploy dry-run flow is the evidence for this pre-stable
   gate; reuse it rather than repeating the purchase. Do not use a real card or
-  perform a live purchase/refund for v0.9.x release preparation. Before opening
-  sales, a human must separately confirm the live checkout, provider settings,
-  and final operating decision. An already issued offline `AKC1` cannot be
-  remotely revoked.
+  perform a live purchase/refund for v0.9.x release preparation. Before each
+  release, a human separately confirms the live checkout and provider settings.
+  An already issued offline `AKC1` cannot be remotely revoked.
 - `dev@melavern.com` receives support, privacy, security, and commercial
   disclosure requests. Do not use a public Issue for an order, purchase key,
   personal information, or a vulnerability.
-- A human has confirmed the sales facts the legal pages rely on. Read-only
-  status on 2026-09-11 (detail in the private legal review record, §7): the
-  live checkout shows the tax-inclusive ¥2,980 total with the JCT line for a
-  Japanese address, one-time, no trial, and links only to Lemon Squeezy's own
-  Buyer Terms, so the 14-day refund conditions and the route to the Terms
-  still depend on the Lemon Squeezy product description, which is empty — fill
-  it from the prepared text and re-read the checkout page data; PostHog's
-  public config shows the US region with session replay and heatmaps off and
-  no person profiles for the sent events, while client IP storage, GeoIP
-  enrichment and retention remain dashboard reads to record and the project's
-  autocapture flag is to be switched off; the sales-region decision is
-  recorded as "EU technically purchasable but not actively targeted", which
-  keeps the CRA Article 14 reporting runbook active.
-- Test both receipt at `dev@melavern.com` and sending/replying with that
-  address as the sender. The Melavern mailbox is a new delivery contract:
-  verify its MX, SPF, sending-provider DKIM and DMARC from current DNS and a
-  received reply. Previous checks on the retired brand do not establish these
-  facts. Introduce DMARC in a monitoring/gradual phase, verify SPF/DKIM
-  alignment and reports, then tighten the policy.
-- The maintainer has reviewed the four security boundaries in `AGENTS.md`,
-  `SECURITY.md`, the vault code, and the deploy handoff code. In particular,
-  `hasSecret` may reduce an OS-store read to a boolean, while only the deploy
-  handoff may retain a value long enough to pass it to an official CLI.
+- A human has confirmed, against the live checkout and analytics
+  configuration, the sales and privacy facts the public legal pages rely on:
+  the tax-inclusive one-time price, no trial, the 14-day refund conditions,
+  the route to the Terms, and the analytics region/settings described in the
+  Privacy Policy. Read them from the live services; do not infer them from
+  the prepared text.
+- `dev@melavern.com` can both receive and send/reply before release, so
+  support, privacy, security and commercial requests actually reach a person.
+- The maintainer has reviewed the four product security boundaries against
+  `SECURITY.md`, the vault code, and the deploy handoff code: no secret value
+  is ever returned to an Agent or printed; the only persistent storage for a
+  Secret is the OS secret store (never a plaintext file, private database or
+  log); production/GitHub and other high-risk operations require the
+  Agent-independent Human Plane; and the deploy target list is a closed
+  allowlist. In particular, `hasSecret` may reduce an OS-store read to a
+  boolean, while only the deploy handoff may hold a value in memory long
+  enough to pass it to an official CLI's stdin.
 - The Public export commit and every reachable release tag have been reviewed.
   Private branches are never pushed to the Public repository. Keep any local
   backup bundle under `.git/`; never push or publish it.
@@ -272,15 +279,15 @@ and npm Trusted Publisher settings are separate provider-side facts: before
 the next tag, inspect them rather than inferring them from the absent GitHub
 secret. Do not recreate `NPM_TOKEN` for an ordinary release.
 
-For `0.9.1` and later:
+`api-key-case@0.9.1` was the first release through this path (2026-09-14):
+the Trusted Publisher is Organization `melavern`, repository `api-key-case`,
+workflow `publish.yml`, Environment `npm`, and npm recorded
+`trustedPublisher: github` with SLSA provenance. Re-verify that configuration
+and the public maintainer identity before each later tag. `0.9.0` remains
+published; any unpublish requires a separate explicit approval, and removing
+every version would impose npm's 24-hour republish restriction.
 
-For the brand migration, verify the Trusted Publisher uses Organization
-`melavern`, repository `api-key-case`, workflow `publish.yml`, and Environment
-`npm`, with the direct publish action permitted. Recheck the public maintainer
-identity and required reviewer after the account rename/repository transfer.
-Publish and externally verify 0.9.1 before considering removal of the sole
-0.9.0 package version. Removing every version first imposes npm's 24-hour
-republish restriction. Any unpublish requires a separate explicit approval.
+For each release:
 
 1. Confirm the candidate version is not already present in the npm registry.
    Published versions are immutable and are never overwritten.
@@ -307,7 +314,7 @@ deletion/reattachment is not a normal retry mechanism.
 
 ## 4. Final public smoke check
 
-After the first publish, from a disposable directory run:
+After each publish, from a disposable directory run:
 
 ```sh
 npx --yes api-key-case@<published-version> --version

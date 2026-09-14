@@ -38,7 +38,7 @@ for (const [name, content] of pages) {
   assert.match(content, /<link rel="icon" href="favicon\.ico" sizes="48x48">/, `${name} must link the ICO favicon`);
   assert.match(content, /<link rel="icon" href="brand\/favicon\.svg" type="image\/svg\+xml">/, `${name} must link the SVG favicon`);
   assert.match(content, /<link rel="apple-touch-icon" href="brand\/apple-touch-icon\.png">/, `${name} must link the touch icon`);
-  assert.match(content, /<span class="brand-mark" aria-hidden="true">\s*<svg viewBox="0 0 256 256">\s*<rect width="256" height="256" rx="52" fill="#c2fb60"\/>/, `${name} header must use the inline SVG brand mark`);
+  assert.match(content, /<span class="brand-mark" aria-hidden="true">\s*<svg viewBox="0 0 256 256">\s*<rect width="256" height="256" rx="52" fill="#d5f6a3"\/>/, `${name} header must use the inline SVG brand mark`);
   assert.doesNotMatch(content, /<span class="brand-mark"[^>]*>\s*<img\b/, `${name} header must not embed a raster logo`);
   if (name !== "index.html") {
     assert.doesNotMatch(content, /<link rel="canonical" href="https:\/\/apikeycase\.melavern\.com\/[^\"]+\.html/, `${name} canonical URL must use the live extensionless route`);
@@ -267,7 +267,28 @@ assert.match(terms, /医療、生命維持、緊急対応/, "terms must define e
 const privacy = pages.get("privacy.html");
 assert.match(privacy, /license activate/, "privacy must describe license activation traffic");
 assert.match(privacy, /公式CLIへの配置/, "privacy must distinguish deploy traffic from activation traffic");
-assert.match(privacy, /購入キーの SHA-256 ダイジェスト/, "privacy must describe purchase-key rate limiting");
+// License activation data flow. The CLI's request body carries only the
+// purchase key (packages/core/license-exchange.ts); the Worker derives the
+// SHA-256 digest after receipt for per-key rate limiting and reads the client
+// IP from Cloudflare's connection header (workers/license-exchange/src/index.ts),
+// then forwards the key to Lemon Squeezy's License API. The policy must keep
+// each of those hops attributed to the party that actually performs it.
+const activationSection = privacy.match(/<h2>4\. ライセンス有効化時に処理する情報<\/h2>([\s\S]*?)<h2>5\./)?.[1];
+assert.ok(activationSection, "privacy must keep the license activation section");
+assert.match(activationSection, /固定送信先 <code>apikeycase-license\.melavern\.com<\/code>[^<]*へリクエストを送ります/, "privacy must name the fixed exchange endpoint the CLI talks to");
+assert.match(activationSection, /CLI がそのリクエスト本文に含める利用者由来の情報は、利用者が入力した Lemon Squeezy の購入キーだけです/, "privacy must scope the purchase-key-only claim to the request body, not the whole HTTPS exchange");
+assert.match(activationSection, /接続元 IP アドレスやダイジェストを本文に含めることはなく/, "privacy must state that the request body carries neither the IP nor a digest");
+assert.match(activationSection, /HTTPS 通信そのものに伴う接続情報（接続元 IP アドレスなど）は、[^<]*Cloudflare 側で発生します/, "privacy must acknowledge that connection metadata still arises on the Cloudflare side");
+assert.doesNotMatch(activationSection, /へ送信するのは、利用者が入力した Lemon Squeezy の購入キーだけです/, "privacy must not claim that the purchase key is the only thing the HTTPS exchange conveys");
+assert.match(activationSection, /接続元 IP アドレス（Cloudflare が通信時に取得）/, "privacy must attribute the client IP to Cloudflare's connection handling, not the CLI");
+assert.match(activationSection, /SHA-256 ダイジェスト（交換サービスが受信後に生成）/, "privacy must attribute the SHA-256 digest to the Worker after receipt");
+assert.match(activationSection, /受信した購入キーから SHA-256 ダイジェストを生成し、同一の購入キーによる大量交換を抑止する購入キー単位のレート制限に使用します/, "privacy must describe the digest as the per-purchase-key rate-limit input");
+assert.match(activationSection, /受信した購入キーを Lemon Squeezy の License API へ送信します/, "privacy must disclose the Worker-to-Lemon Squeezy purchase-key hop");
+assert.match(activationSection, /注文の支払・返金状態を Lemon Squeezy へ照会/, "privacy must disclose the order status lookup the Worker performs");
+assert.doesNotMatch(activationSection, /次の情報を HTTPS で固定送信先/, "privacy must not bundle the IP address and digest into what the CLI sends");
+assert.doesNotMatch(activationSection, /<li><strong>接続元 IP アドレス：<\/strong>/, "privacy must not list the IP address as an item the CLI sends");
+assert.doesNotMatch(activationSection, /<li><strong>購入キーの SHA-256 ダイジェスト：<\/strong>/, "privacy must not list the digest as an item the CLI sends");
+assert.match(privacy, /最終更新：2026-09-15/, "privacy must carry the date of its latest data-flow revision");
 assert.match(privacy, /PostHog/, "privacy must disclose the usage analytics provider");
 assert.match(privacy, /cli_command_result/, "privacy must disclose the CLI usage event");
 assert.match(privacy, /telemetry disable/, "privacy must disclose the CLI telemetry opt-out");

@@ -4,7 +4,11 @@ Notable user-facing changes to API Key Case are recorded here. The package
 remains pre-stable until 1.0; a listed version is not a promise of a future
 release date or support period.
 
-## [0.9.1] - 2026-09-09
+## [0.9.1] - 2026-09-14
+
+Published to npm on 2026-09-14 (JST) from public tag `v0.9.1`, with
+provenance through GitHub Trusted Publishing; `latest` resolves to this
+version.
 
 This pre-stable release adds the Agent-first Windows 11 + Hello workflow after
 recorded real-host acceptance. macOS is a collaborative verification edition,
@@ -33,8 +37,8 @@ verification continues toward regular support.
 
 - Aligned current documentation, legal product facts and MCP handoff wording
   with Free readiness, Human Plane approval and host conditions. Marked older
-  design/TTY approval examples as history and added a candidate acceptance
-  checklist; publication remains gated.
+  design/TTY approval examples as history and added the release acceptance
+  checklist that this version passed before publication.
 
 - The purchase link that `deploy` and MCP `deploy_secret` relay when Pro is
   missing now opens the site's purchase section, where the price, host
@@ -92,9 +96,11 @@ verification continues toward regular support.
 - Changed Vercel `deploy` to request write-only storage itself: `production` and
   `preview` are now planned as `vercel env add <NAME> <env> --sensitive` instead
   of relying on Vercel's own default, which is a per-variable setting the
-  environment does not imply. `development` is unchanged, since Vercel's API
-  rejects a sensitive variable there — which is why it stays off the
-  automatic-safe allowlist.
+  environment does not imply. `development` is unchanged and never receives
+  the flag, so a value placed there stays readable back, which is why it stays
+  off the automatic-safe allowlist. Older Vercel releases rejected the flag in
+  `development`; `vercel` 59.11.7 accepts it (measured 2026-09-08), so this is
+  now this tool's own conservative default rather than a provider restriction.
 - Added the Phase 6D Destination Boundary: every executing deploy is now bound
   to a Destination Identity, and a human confirming one records it in the OS
   secret store so the same destination does not ask again.
@@ -129,7 +135,7 @@ verification continues toward regular support.
 - Added the CLI's one-time pre-send notice, persistent opt-out controls,
   `DO_NOT_TRACK=1` and CI suppression, and a random anonymous installation ID.
 - Aligned the website, Privacy Policy, security documentation, and package
-  metadata with the v0.9.1 Free/Pro boundary and release preparation state.
+  metadata with the v0.9.1 Free/Pro boundary.
 - Hardened the reviewed public export, CodeQL checks, and npm release workflow.
 
 ## [0.9.0] - 2026-08-29

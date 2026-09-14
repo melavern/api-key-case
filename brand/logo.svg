@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 708 128" role="img" aria-label="API Key Case">
   <g transform="scale(0.5)">
-    <rect width="256" height="256" rx="52" fill="#c2fb60"/>
+    <rect width="256" height="256" rx="52" fill="#d5f6a3"/>
     <g fill="none" stroke="#0d1714" stroke-linejoin="round">
     <path d="M91 86V69a12 12 0 0 1 12-12h50a12 12 0 0 1 12 12v17" stroke-width="14"/>
     <rect x="48" y="86" width="160" height="112" rx="22" stroke-width="14"/>

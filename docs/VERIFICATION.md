@@ -1,8 +1,8 @@
 # Verification record
 
 What has actually been run against real systems, with the evidence to back it
-up. A separate, unpublished release checklist decides *whether we may ship*;
-this file records *what was proven, when, and how to reproduce it*.
+up. The separate [release checklist](RELEASING.md) decides *whether we may
+ship*; this file records *what was proven, when, and how to reproduce it*.
 
 A claim belongs here only if it was observed. "The code does X" is not
 verification; a run that shows X is. Where something is unverified, or rests
@@ -10,8 +10,8 @@ on a memory rather than an artifact, this file says so — an honest gap is more
 useful than a checkbox that nobody can trace back.
 
 Read the dated sections as observations of their stated revision, not as
-interchangeable results for the current candidate. The [release checklist](RELEASING.md#agent-first-candidate-status--2026-09-08)
-tracks remaining acceptance. In particular, the [later Windows v1 decision](design/windows-human-verification.md#7-elevated-broker-v1では採用しない)
+interchangeable results for the current release. The [release checklist](RELEASING.md)
+records the 0.9.1 acceptance and the current release status. In particular, the [later Windows v1 decision](design/windows-human-verification.md#7-elevated-broker-v1では採用しない)
 retains in-process verification and does not adopt the elevated-broker PoC;
 the older research stop below is not a requirement to finish that broker.
 

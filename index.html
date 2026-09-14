@@ -500,17 +500,18 @@
        below the heading on a phone; it is never stretched full-bleed. */
     .ev-grid {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 340px;
+      max-width: 960px;
+      grid-template-columns: minmax(0, 1fr) 260px;
       grid-template-areas:
         "head video"
         "body video";
-      gap: 28px 56px;
+      gap: 20px 40px;
       align-items: center;
     }
     .ev-head { grid-area: head; align-self: end; }
     .ev-head .section-lead { margin-bottom: 0; }
     .ev-body { grid-area: body; align-self: start; }
-    .ev-player { grid-area: video; width: 100%; max-width: 340px; margin: 0; }
+    .ev-player { grid-area: video; width: 100%; max-width: 260px; margin: 0; }
     .ev-player video {
       display: block;
       width: 100%;
@@ -526,6 +527,7 @@
       color: var(--ink-soft);
       font-size: 12px;
       text-align: center;
+      text-wrap: balance;
     }
     .ev-note {
       max-width: 34em;
@@ -732,7 +734,7 @@
       .security-grid, .security-scope { gap: 24px; }
       .security-grid .section-lead { margin-bottom: 0; }
       .ev-grid { grid-template-columns: 1fr; grid-template-areas: "head" "video" "body"; gap: 30px; }
-      .ev-player { justify-self: center; }
+      .ev-player { max-width: 340px; justify-self: center; }
       .hero::after { display: none; }
       .os-pricing-grid { grid-template-columns: 1fr; }
     }
@@ -773,7 +775,7 @@
       <a class="brand" href="#top" aria-label="API Key Case トップへ">
         <span class="brand-mark" aria-hidden="true">
           <svg viewBox="0 0 256 256">
-            <rect width="256" height="256" rx="52" fill="#c2fb60"/>
+            <rect width="256" height="256" rx="52" fill="#d5f6a3"/>
             <g fill="none" stroke="#0d1714" stroke-linejoin="round">
               <path d="M91 86V69a12 12 0 0 1 12-12h50a12 12 0 0 1 12 12v17" stroke-width="14"/>
               <rect x="48" y="86" width="160" height="112" rx="22" stroke-width="14"/>
@@ -1189,7 +1191,7 @@
           <a class="brand" href="#top" aria-label="API Key Case トップへ">
             <span class="brand-mark" aria-hidden="true">
               <svg viewBox="0 0 256 256">
-                <rect width="256" height="256" rx="52" fill="#c2fb60"/>
+                <rect width="256" height="256" rx="52" fill="#d5f6a3"/>
                 <g fill="none" stroke="#0d1714" stroke-linejoin="round">
                   <path d="M91 86V69a12 12 0 0 1 12-12h50a12 12 0 0 1 12 12v17" stroke-width="14"/>
                   <rect x="48" y="86" width="160" height="112" rx="22" stroke-width="14"/>

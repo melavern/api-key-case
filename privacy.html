@@ -131,7 +131,7 @@
       <a class="brand" href="index.html">
         <span class="brand-mark" aria-hidden="true">
           <svg viewBox="0 0 256 256">
-            <rect width="256" height="256" rx="52" fill="#c2fb60"/>
+            <rect width="256" height="256" rx="52" fill="#d5f6a3"/>
             <g fill="none" stroke="#0d1714" stroke-linejoin="round">
               <path d="M91 86V69a12 12 0 0 1 12-12h50a12 12 0 0 1 12 12v17" stroke-width="14"/>
               <rect x="48" y="86" width="160" height="112" rx="22" stroke-width="14"/>
@@ -150,7 +150,7 @@
   <main>
     <div class="wrap">
       <h1>プライバシーポリシー</h1>
-      <p class="updated">最終更新：2026-09-13</p>
+      <p class="updated">最終更新：2026-09-15</p>
 
       <div class="lead">
         <p><strong>API Key Case のスキャン、秘密値の保管および通常の Pro 判定はローカルで完結します。</strong> スキャンと匿名利用統計では、秘密値やスキャン内容を開発者またはPostHogへ送信しません。LPとCLIでは、明示した閉じた項目だけの匿名利用統計を扱います。</p>
@@ -183,12 +183,13 @@
       <p>イベントは PostHog の米国リージョンへ HTTPS で送信します。API Key Case は IP アドレスをイベントプロパティとして送信しませんが、送信時の接続元 IP アドレスは通信上 PostHog に到達します。その保存の有無、地域の推定、保持期間その他の処理は、開発者が設定する PostHog のプロジェクト設定と<a href="https://posthog.com/privacy">PostHogのプライバシーポリシー</a>に従います。CLIおよびLPで使用するのはイベント取り込み用の公開Project Tokenだけであり、Personal API KeyやProject Secret API Keyなどの秘密credentialは使用・配布しません。公開tokenによる偽イベントの可能性があるため、PostHogのイベントはセキュリティ判定、ライセンス判定、購入数の正本には使いません。</p>
 
       <h2>4. ライセンス有効化時に処理する情報</h2>
-      <p><code>api-key-case license activate</code> を利用した場合に限り、本ソフトウェアは次の情報を HTTPS で固定送信先 <code>apikeycase-license.melavern.com</code>（Cloudflare Workers）へ送ります。</p>
-      <ul>
-        <li><strong>Lemon Squeezy の購入キー：</strong>購入の有効性を確認するため Lemon Squeezy の License API へ送信します。開発者のデータベース、アプリケーションログまたは応答には保存・出力しません。</li>
-        <li><strong>接続元 IP アドレス：</strong>不正な大量アクセスを抑止するレート制限に使用します。アプリケーションログへ出力せず、Cloudflare のレート制限基盤および標準的なセキュリティ処理の範囲で取り扱われます。</li>
-        <li><strong>購入キーの SHA-256 ダイジェスト：</strong>同一キーによる大量交換を抑止するレート制限に使用します。購入キーを復元する目的では使用せず、アプリケーションログまたは応答へ出力しません。</li>
-      </ul>
+      <p><code>api-key-case license activate</code> を利用した場合に限り、購入キーは次の順で処理されます。各段階で扱う情報は、それぞれの段階でだけ発生します。</p>
+      <ol>
+        <li><strong>CLI から交換サービスへ：</strong>本ソフトウェアは HTTPS で固定送信先 <code>apikeycase-license.melavern.com</code>（Cloudflare Workers 上のライセンス交換サービス）へリクエストを送ります。CLI がそのリクエスト本文に含める利用者由来の情報は、利用者が入力した Lemon Squeezy の購入キーだけです。接続元 IP アドレスやダイジェストを本文に含めることはなく、リダイレクトには従わず、他の送信先へは送りません。HTTPS 通信そのものに伴う接続情報（接続元 IP アドレスなど）は、次項のとおり通信を受け付ける Cloudflare 側で発生します。</li>
+        <li><strong>接続元 IP アドレス（Cloudflare が通信時に取得）：</strong>この通信を受け付ける Cloudflare が、接続そのものから接続元 IP アドレスを取得します。交換サービスは、それを接続元単位のレート制限に使用し、不正な大量アクセスを抑止します。アプリケーションログへ出力せず、Cloudflare のレート制限基盤および標準的なセキュリティ処理の範囲で取り扱われます。</li>
+        <li><strong>購入キーの SHA-256 ダイジェスト（交換サービスが受信後に生成）：</strong>交換サービスは受信した購入キーから SHA-256 ダイジェストを生成し、同一の購入キーによる大量交換を抑止する購入キー単位のレート制限に使用します。購入キーを復元する目的では使用せず、アプリケーションログまたは応答へ出力しません。</li>
+        <li><strong>交換サービスから Lemon Squeezy へ：</strong>交換サービスは、購入の有効性と対象商品を確認するため、受信した購入キーを Lemon Squeezy の License API へ送信します。続けて、その応答に含まれる注文識別子を用い、開発者の API 認証で当該注文の支払・返金状態を Lemon Squeezy へ照会し、確認に必要な項目だけを検証します。購入キーおよび照会結果は、開発者のデータベース、アプリケーションログまたは応答には保存・出力しません。</li>
+      </ol>
       <p>交換サービスは永続データベースを持ちません。処理結果として返す署名済みライセンスには、ライセンス識別子、プラン、発行日時および形式バージョンが含まれますが、氏名、メールアドレス、購入キーまたは秘密値は含まれません。ライセンスは利用者の端末へ保存され、<code>license deactivate</code> で削除できます。</p>
       <p>有効化後の Pro 判定はオフラインです。ライセンスの定期的な再認証、端末固定または有効期限照会はありません。匿名利用統計はライセンス判定とは別系統で、前項の条件に従います。</p>
 

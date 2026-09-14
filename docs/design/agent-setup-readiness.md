@@ -1,9 +1,9 @@
 # Agent-mediated setup and Free readiness
 
-Status: implemented in the unreleased 0.9.1 candidate; portable and isolated
+Status: shipped in 0.9.1 (published 2026-09-14); portable and isolated
 Linux-store verification is recorded in [VERIFICATION](../VERIFICATION.md).
-Real Agent/Windows/macOS/provider acceptance and the publication sequence are
-tracked in [RELEASING](../RELEASING.md#agent-first-candidate-status--2026-09-08).
+Real Agent/Windows/macOS/provider acceptance and the publication record are
+in [RELEASING](../RELEASING.md).
 This is the current setup contract; older Phase designs retain their history.
 
 The user's existing Coding Agent is the conversational interface. API Key Case
@@ -206,7 +206,7 @@ included in `npm test` and can also run alone after building.
 These portable fixtures do not prove real Windows Hello, macOS GUI behavior,
 provider write permissions, or every Coding Agent host. A dated fresh-consumer
 Codex run is recorded separately in `docs/VERIFICATION.md`; it does not
-generalize to other execution contexts. The remaining release checks stay in
-that record and the LP publish gate remains closed. Environment-specific Secret
+generalize to other execution contexts. The release checks for 0.9.1 are
+recorded there and in `docs/RELEASING.md`. Environment-specific Secret
 storage and local application runtime injection are not implemented by this
 change.

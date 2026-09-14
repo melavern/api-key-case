@@ -8,7 +8,7 @@
 
 日本語版のREADMEは **[README.ja.md](https://github.com/melavern/api-key-case/blob/main/README.ja.md)** にあります。
 
-> **This README describes the v0.9.1 pre-stable Agent-first release.** `@latest` follows npm's published dist-tag, which can lag during staged publication. Confirm that the exact `0.9.1` package is available before testing or purchasing for this workflow; the [release checklist](docs/RELEASING.md) records its acceptance evidence and publication gates.
+> **This README describes the v0.9.1 pre-stable Agent-first release.** `api-key-case@0.9.1` is published on npm and `@latest` resolves to it. Pin the exact version (`api-key-case@0.9.1`) for the Agent workflow below; the [release checklist](docs/RELEASING.md) records the acceptance evidence and the checks that were run before publication.
 >
 > This pre-stable tool reduces accidental exposure risk. It does not guarantee complete secret protection. Always review generated files before sharing them.
 >
@@ -65,10 +65,8 @@ Deployment has additional provider/project constraints. In particular, Cloudflar
 
 ## Agent-first Control and Human Planes (Phase A/B/C/D/E)
 
-The following commands require v0.9.1. Confirm
-`npx -y api-key-case@0.9.1 --version` resolves to `0.9.1` before use. Until npm
-lists that exact version, use an installed candidate tarball as described in
-[candidate testing](docs/RELEASING.md#testing-the-candidate-before-publication).
+The following commands require v0.9.1, which is published on npm. Confirm
+`npx -y api-key-case@0.9.1 --version` resolves to `0.9.1` before use.
 
 ```sh
 api-key-case agent-init .          # print the session protocol and manage existing host instructions
@@ -446,7 +444,7 @@ The test Worker is `api-key-case-license-exchange-test`; live is `api-key-case-l
 
 ## Status and roadmap
 
-Current source version: **v0.9.1 (pre-stable)**. Security fixes are provided for the latest published pre-stable release only. Code completion and portable tests do not establish acceptance on real Agent hosts, Windows/macOS dialogs or provider accounts. See the [release checklist](docs/RELEASING.md), [verification record](docs/VERIFICATION.md) and [changelog](CHANGELOG.md). Version 1.0 remains reserved until external users have validated real projects.
+Current released version: **v0.9.1 (pre-stable)**, published on npm on 2026-09-14 (JST). Security fixes are provided for the latest published pre-stable release only. Code completion and portable tests do not establish acceptance on real Agent hosts, Windows/macOS dialogs or provider accounts. See the [release checklist](docs/RELEASING.md), [verification record](docs/VERIFICATION.md) and [changelog](CHANGELOG.md). Version 1.0 remains reserved until external users have validated real projects.
 
 - Phase 1: local scanning and safe file generation
 - Phase 2: OS secret store save / check / list / remove (`user` / `project` scope)
