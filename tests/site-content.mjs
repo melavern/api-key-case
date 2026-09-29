@@ -17,6 +17,12 @@ const repoDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const manifest = JSON.parse(readFileSync(resolve(repoDir, "package.json"), "utf8"));
 const readme = readFileSync(resolve(repoDir, "README.md"), "utf8");
 const readmeJa = readFileSync(resolve(repoDir, "README.ja.md"), "utf8");
+const changelog = readFileSync(resolve(repoDir, "CHANGELOG.md"), "utf8");
+const unreleasedCandidate = changelog.includes(`## [${manifest.version}] - Unreleased`);
+const publishedVersion = unreleasedCandidate
+  ? readme.match(/This README describes the v(\d+\.\d+\.\d+) pre-stable/)?.[1]
+  : manifest.version;
+assert.ok(publishedVersion, "an unreleased candidate must retain the documented published version");
 // Editorial source documents are deliberately withheld from the Public export.
 // Public HTML, purchase conditions and the executable publish gate are still
 // tested unconditionally below, including in a standalone Public clone.
@@ -57,7 +63,7 @@ for (const [name, content] of pages) {
       "demo-poster.jpg",
       "demo.vtt",
       "demo-ja.mp4",
-      "launch-ja-poster.jpg",
+      "launch-ja-lp-vertical-poster.jpg",
       "demo-ja.vtt"
     ].includes(localPath)) continue;
     assert.equal(existsSync(resolve(repoDir, localPath)), true, `${name} links to missing ${localPath}`);
@@ -73,7 +79,7 @@ for (const content of [landing, pages.get("os-support.html"), pages.get("tokusho
 assert.match(readme, /macOS is a collaborative verification edition/, "English entry must disclose macOS status");
 const setupPrompt = landing.match(/id="prompt-agent"[^>]*>([\s\S]*?)<\/textarea>/)?.[1];
 assert.ok(setupPrompt, "the primary CTA must have an Agent setup prompt");
-assert.ok(setupPrompt.includes(`npx -y api-key-case@${manifest.version} agent-init .`), "bootstrap must use the candidate's exact protocol version");
+assert.ok(setupPrompt.includes(`npx -y api-key-case@${publishedVersion} agent-init .`), "bootstrap must use the currently published exact protocol version");
 assert.match(setupPrompt, /next --json/);
 assert.match(setupPrompt, /無料診断/);
 assert.match(setupPrompt, /保存済みを配置済みと扱わず/);
@@ -150,7 +156,7 @@ assert.match(landing, /<meta property="og:image:width" content="1200">\s*<meta p
 assert.match(landing, /<meta name="twitter:card" content="summary_large_image">/, "landing must keep the Twitter card type");
 assert.doesNotMatch(landing, /<meta name="robots"/, "the committed landing page is the published page and must not ship a noindex tag");
 assert.match(landing, /<!-- API_KEY_CASE_POSTHOG_CONFIG -->/, "landing must keep the deployment-time analytics hook");
-assert.match(landing, new RegExp(`"softwareVersion": "${manifest.version.replaceAll(".", "\\.")}"`), "JSON-LD version must match package.json");
+assert.match(landing, new RegExp(`"softwareVersion": "${publishedVersion.replaceAll(".", "\\.")}"`), "JSON-LD version must match the published package");
 assert.match(landing, /"downloadUrl": "https:\/\/www\.npmjs\.com\/package\/api-key-case"/, "JSON-LD must link to npm");
 assert.match(landing, /"codeRepository": "https:\/\/github\.com\/melavern\/api-key-case"/, "JSON-LD must link to GitHub");
 assert.match(landing, /href="https:\/\/www\.npmjs\.com\/package\/api-key-case"/, "landing must link to npm");
@@ -165,7 +171,7 @@ assert.throws(
 
 const localConfigDir = mkdtempSync(join(tmpdir(), "api-key-case-publish-test-"));
 try {
-  const localConfigPath = join(localConfigDir, ".env.local");
+  const localConfigPath = join(localConfigDir, "posthog-config.fixture");
   writeFileSync(
     localConfigPath,
     [
@@ -338,16 +344,16 @@ for (const statusId of [...landing.matchAll(/data-prompt-status="([^"]+)"/g)].ma
 const promptButtons = [...landing.matchAll(/<button\b[^>]*>/g)]
   .map((match) => match[0])
   .filter((tag) => tag.includes("data-prompt-target="));
-assert.equal(promptButtons.length, 4, "every prompt CTA must be a measured button");
+assert.equal(promptButtons.length, 5, "every prompt CTA must be a measured button");
 for (const button of promptButtons) {
   assert.match(button, /data-lp-action="(?:setup-prompt|review-prompt)"/, "every prompt CTA must declare its measured action");
-  assert.match(button, /data-lp-location="(?:hero|two|proof|final)"/, "every prompt CTA must declare a closed location value");
+  assert.match(button, /data-lp-location="(?:hero|two|proof|final|video-end)"/, "every prompt CTA must declare a closed location value");
 }
 // Counted on the markup only: the inline script names the same attributes in
 // its selectors.
 const landingMarkup = landing.replace(/<script[\s\S]*?<\/script>/gi, "");
 const countInMarkup = (needle) => landingMarkup.split(needle).length - 1;
-assert.equal(countInMarkup('data-lp-action="setup-prompt"'), 3, "the setup prompt CTA must be measured in all three placements");
+assert.equal(countInMarkup('data-lp-action="setup-prompt"'), 4, "the setup prompt CTA must be measured in all four placements");
 assert.equal(countInMarkup('data-lp-action="review-prompt"'), 1, "the sole review prompt CTA must be measured");
 assert.equal(countInMarkup('data-lp-action="checkout"'), 1, "the checkout link must be measured exactly once");
 assert.equal(countInMarkup('id="pro-checkout"'), 1, "the checkout link must keep its stable id");
@@ -387,7 +393,7 @@ assert.doesNotMatch(landing, /hero-hook|AIに実装を任せる。|考えなく�
 const sectionOffset = (id) => landing.indexOf(`id="${id}"`);
 assert.ok(sectionOffset("three") < sectionOffset("ev") && sectionOffset("ev") < sectionOffset("security"), "the video must connect the three steps to security");
 assert.ok(sectionOffset("security") < sectionOffset("proof") && sectionOffset("proof") < sectionOffset("price"), "security must lead through public evidence into pricing");
-assert.match(landing, /id="ev-title">「GitHubにAPIキーを設定して。」<\/h2>/, "the video heading must introduce a concrete request");
+assert.equal(landing.match(/id="ev-title">([\s\S]*?)<\/h2>/)?.[1].replace(/<[^>]+>/g, ""), "「GitHubにAPIキーを設定して。」", "the video heading must introduce a concrete request");
 for (const id of ["bound", "two", "mech", "limit"]) {
   assert.equal(countOf(`id="${id}"`), 0, `${id} must no longer split the story into a separate section`);
 }
@@ -403,7 +409,7 @@ assert.match(securitySection, /Linuxは診断・状態確認・履歴と、利�
 assert.match(securitySection, /操作はAgentに任せても、重要な判断までAgent自身には任せません/);
 assert.match(securitySection, /自動で配置できるのは、確認済みの同じ送り先へのVercel preview/);
 const reviewPrompt = landing.match(/id="prompt-review"[^>]*>([\s\S]*?)<\/textarea>/)?.[1];
-assert.match(reviewPrompt, /0\.9\.1に対応する公開ソースが取得できるか確認/);
+assert.ok(reviewPrompt.includes(`${manifest.version}に対応する公開ソースが取得できるか確認`));
 assert.match(reviewPrompt, /未確認としてください/);
 assert.match(reviewPrompt, /公開資料だけを読み/);
 assert.match(reviewPrompt, /人間の承認として扱わないでください/);
@@ -413,27 +419,29 @@ assert.match(landing, /ローカルアプリへの値の注入は行いません
 for (const asset of ["favicon.ico", "brand/favicon.svg", "brand/mark.svg", "brand/logo.svg", "brand/apple-touch-icon.png", "brand/og-image.png"]) {
   assert.equal(existsSync(resolve(repoDir, asset)), true, `${asset} must be committed beside the pages`);
 }
-for (const media of ["launch-ja.mp4", "launch-ja-poster.jpg", "launch-ja.vtt"]) {
+for (const media of ["launch-ja-lp-vertical.mp4", "launch-ja-lp-vertical-poster.jpg", "launch-ja-lp-vertical.vtt", "launch-ja-landscape.mp4", "launch-ja-landscape-poster.jpg", "launch-ja-landscape.vtt"]) {
   assert.equal(countOf(`"${media}"`), 1, `the landing page must reference ${media} exactly once`);
   assert.equal(existsSync(resolve(repoDir, media)), true, `${media} must be committed beside the page`);
+  const exporter = resolve(repoDir, "tools/export-public.mjs");
+  if (existsSync(exporter)) assert.ok(readFileSync(exporter, "utf8").includes(`"${media}"`), `${media} must survive the Private/Public export`);
 }
 const announcementVideo = landing.match(/<video\b[^>]*>/)?.[0];
 assert.ok(announcementVideo, "the EV section must embed the announcement video");
-for (const attribute of ["controls", "playsinline", 'preload="metadata"', 'poster="launch-ja-poster.jpg"', 'width="1080"', 'height="1920"']) {
+for (const attribute of ["controls", "playsinline", 'preload="metadata"', 'poster="launch-ja-lp-vertical-poster.jpg"', 'width="1080"', 'height="1920"']) {
   assert.ok(announcementVideo.includes(attribute), `the announcement video must declare ${attribute}`);
 }
 assert.doesNotMatch(announcementVideo, /\b(?:autoplay|loop|muted)\b/, "the announcement must be played deliberately, not autoplayed or looped");
 assert.match(announcementVideo, /aria-label="[^"]*操作イメージ[^"]*"/, "the video's accessible name must say it is an illustration");
 assert.equal(countOf("<video"), 1, "the landing page must embed exactly one video");
-assert.match(landing, /<source src="launch-ja\.mp4" type="video\/mp4">/, "the video source must be the committed announcement");
-assert.match(landing, /<track kind="captions" src="launch-ja\.vtt" srclang="ja" label="日本語">/, "the video must offer its Japanese captions");
+assert.match(landing, /<source src="launch-ja-lp-vertical\.mp4" type="video\/mp4">/, "the video source must be the committed announcement");
+assert.match(landing, /<track kind="captions" src="launch-ja-lp-vertical\.vtt" srclang="ja" label="日本語">/, "the video must offer its Japanese captions");
 assert.equal(countOf("図解による操作イメージ（実機の録画ではありません）"), 1, "the EV copy must state once that the video is an illustration, not a recording");
 assert.match(landing, /GitHubへの配置はPro、Windows 11とWindows Helloの環境が前提です。/, "the EV copy must keep the video's Pro and Windows conditions");
 assert.doesNotMatch(landingMarkup.replace(/<!--[\s\S]*?-->/g, ""), />28 seconds<|28秒|動画の最後にある/, "EV must omit duration promotion and redundant CTA explanations");
 for (const forbidden of ["実機の録画です", "本当に進みます", "初の", "唯一の", "世界で最も"]) {
   assert.equal(landing.includes(forbidden), false, `the EV copy must not overclaim: ${forbidden}`);
 }
-assert.match(readFileSync(resolve(repoDir, "launch-ja.vtt"), "utf8"), /^WEBVTT\r?\n/, "the committed captions must be WebVTT");
+assert.match(readFileSync(resolve(repoDir, "launch-ja-lp-vertical.vtt"), "utf8"), /^WEBVTT\r?\n/, "the committed captions must be WebVTT");
 
 // PAGE_SPEC §8 publish gate. The page no longer protects itself by being a
 // separate file, so the gate lives in the publish script. It was opened for
@@ -450,6 +458,16 @@ assert.equal(typeof deploy, "function", "the production deploy lane must still e
 assert.equal(applyPublishGate(landing), landing, "an open gate must leave the published page untouched (no noindex)");
 {
   const stagedDir = stageSite();
+  for (const media of ["launch-ja-lp-vertical.mp4", "launch-ja-lp-vertical-poster.jpg", "launch-ja-lp-vertical.vtt", "launch-ja-landscape.mp4", "launch-ja-landscape-poster.jpg", "launch-ja-landscape.vtt"]) {
+    assert.deepEqual(readFileSync(join(stagedDir, media)), readFileSync(resolve(repoDir, media)), `${media} must reach the site bundle unchanged`);
+  }
+  // README links are production dependencies even though the LP uses its own variants.
+  for (const name of ["README.md", "README.ja.md"]) {
+    const readme = readFileSync(resolve(repoDir, name), "utf8");
+    const paths = [...readme.matchAll(/https:\/\/apikeycase\.melavern\.com\/(launch-ja(?:-poster)?\.(?:mp4|jpg))/g)].map(match => match[1]);
+    assert.ok(paths.includes("launch-ja.mp4") && paths.includes("launch-ja-poster.jpg"));
+    for (const media of paths) assert.deepEqual(readFileSync(join(stagedDir, media)), readFileSync(resolve(repoDir, media)), `${name}'s public media URL must survive production staging: ${media}`);
+  }
   assert.equal(readFileSync(join(stagedDir, "robots.txt"), "utf8"), readFileSync(resolve(repoDir, "robots.txt"), "utf8"), "an open gate must stage the committed robots.txt, not Disallow: /");
   assert.doesNotMatch(readFileSync(join(stagedDir, "index.html"), "utf8"), /name="robots"/, "the staged production page must be indexable");
 }
@@ -463,9 +481,9 @@ for (const source of editorialSources) {
 }
 
 assert.equal(existsSync(resolve(repoDir, "CHANGELOG.md")), true, "public release notes must exist");
-assert.match(readFileSync(resolve(repoDir, "CHANGELOG.md"), "utf8"), new RegExp(`## \\[${manifest.version.replaceAll(".", "\\.")}\\]`), "changelog must include the package version");
-assert.match(readme, new RegExp(`v${manifest.version.replaceAll(".", "\\.")}`), "English README must name the package version");
-assert.match(readmeJa, new RegExp(`v${manifest.version.replaceAll(".", "\\.")}`), "Japanese README must name the package version");
+assert.match(changelog, new RegExp(`## \\[${manifest.version.replaceAll(".", "\\.")}\\]`), "changelog must include the package version");
+assert.match(readme, new RegExp(`v${publishedVersion.replaceAll(".", "\\.")}`), "English README must name the published version");
+assert.match(readmeJa, new RegExp(`v${publishedVersion.replaceAll(".", "\\.")}`), "Japanese README must name the published version");
 assert.doesNotMatch(readme, /Alpha software/, "English README must not retain the old alpha label");
 assert.doesNotMatch(readmeJa, /アルファ版/, "Japanese README must not retain the old alpha label");
 assert.match(readme, /https:\/\/www\.npmjs\.com\/package\/api-key-case/, "English README must link to npm");

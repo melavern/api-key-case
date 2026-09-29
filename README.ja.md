@@ -12,7 +12,7 @@ Cursor などのAIコーディングエージェントに渡せる伏字済み�
 シークレットストア。Pro機能の `deploy` は、保管済みの値を各社の公式CLI経由で Cloudflare / Vercel /
 GitHub へ配置します。**シークレットの値そのものが返される・表示される・ログに出ることはありません。**
 
-> **本書はv0.9.1プレスタブル版のAgent-first導線を説明します。** `api-key-case@0.9.1`はnpmで公開済みで、`@latest`も`0.9.1`を指します。以下のAgent導線ではexact version（`api-key-case@0.9.1`）をpinしてください。受入証跡と公開前に実施した確認は[リリースチェックリスト](docs/RELEASING.md)を参照してください。
+> **本書はv0.9.2プレスタブル候補のAgent-first導線を説明します。** `@latest`はnpmの公開dist-tagに従うため、段階的な公開中は旧版を指す場合があります。0.9.2の機能を使う前に、そのexact versionがnpmで取得できることを確認してください。受入証跡と公開手順は[リリースチェックリスト](docs/RELEASING.md)を参照してください。
 >
 > 完全な安全は保証しません。事故の確率を下げるためのツールです。
 > 生成物はAIや外部サービスへ渡す前に、必ずご自身で確認してください。
@@ -75,8 +75,8 @@ deployにはproviderとproject構成ごとの追加条件があります。特�
 
 ## Agent Control Plane / Human Plane（Phase A/B/C/D/E）
 
-以下はnpmで公開済みのv0.9.1の機能です。利用前に`npx -y api-key-case@0.9.1 --version`が
-`0.9.1`を返すことを確認してください。
+以下はv0.9.2の機能です。利用前に`npx -y api-key-case@0.9.2 --version`が
+`0.9.2`を返すことを確認してください。npmで取得できるまでは、[公開前の検証手順](docs/RELEASING.md#testing-the-candidate-before-publication)に従って候補tarballを使います。
 
 ```sh
 api-key-case agent-init .          # 現sessionのprotocolを返し、既存host instructionを管理
@@ -89,7 +89,7 @@ api-key-case history --json .      # 無料: 過去の配置結果。現在の�
 
 `agent-init`はmanaged block外の既存内容を保ち、project内だけへ書き、symlink / junctionを拒否します。
 global設定やMCP設定は変更しません。persistent instructionは`@latest`やmajor系列へのfloating pinではなく、
-`agent-init`を実行したexact version（例: `api-key-case@0.9.1`）へpinします。これにより明示的に
+`agent-init`を実行したexact version（例: `api-key-case@0.9.2`）へpinします。これにより明示的に
 `agent-init`を再実行するまで、後続のpre-stable minor releaseが既存repositoryのAgent protocolを変更しません。
 
 `next --json`には自由な`command` / `argv`経路がなく、Secret値・部分値・値由来hash・lengthを返しません。

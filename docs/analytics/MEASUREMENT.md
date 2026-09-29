@@ -114,7 +114,7 @@ LP property values are closed values:
   `twitter.com`, and the `t.co` link shortener); the raw referrer, path,
   query, fragment, and arbitrary campaign value are not sent. No campaign
   parameter (e.g. UTM) is parsed or added by this change.
-- `location`: `hero`, `two`, `proof`, or `final` — the placement of the CTA that was
+- `location`: `hero`, `two`, `proof`, `final`, or `video-end` — the placement of the CTA that was
   used. Setup appears in Hero, below the three steps and in the final CTA;
   review appears only beside the public sources within Security (`proof`).
   `two` is retained as the historical identifier for the middle setup CTA;
@@ -206,38 +206,22 @@ The LP has a deployment-time hook immediately before its analytics script:
 </script>
 ```
 
-The repository's `demo/publish-demo.mjs` Preview path injects that hook from
-these deploy-only settings. It checks the process environment first, then the
-repository-root `.env.local`, and ignores other `.env` files:
+The checked maintainer Web publication flow preserves this public hook from
+verified Production HTML. It validates the public Project Token and the exact
+US (`https://us.i.posthog.com`) or EU (`https://eu.i.posthog.com`) host, then
+stages the same configuration for Preview and Production. The page appends
+`/i/v0/e/`. No `.env*` file or secret credential is read by this flow.
 
-```sh
-API_KEY_CASE_LP_POSTHOG_PROJECT_TOKEN=<API Key Case public Project Token>
-API_KEY_CASE_LP_POSTHOG_API_HOST=https://us.i.posthog.com
-node demo/publish-demo.mjs --preview
-```
+The Private repository owns the `web:plan → web:check → web:preview` commands
+and `docs/WEB_PUBLICATION.md`. `web:apply` is a separate human-approved
+Production operation. The old unchecked `publish-demo.mjs --preview` and
+`--deploy` upload aliases are disabled. Local staging with no public token
+remains a safe no-op; private PostHog tokens and unapproved hosts are rejected.
 
-For repeated local Preview updates, put the same two lines in the ignored
-repository-root `.env.local` once. Process environment variables still take
-precedence, so a one-off PowerShell override can be used without editing the
-file. The host must be exactly PostHog's US
-(`https://us.i.posthog.com`) or EU (`https://eu.i.posthog.com`) capture host;
-the page appends `/i/v0/e/`. If the token is absent, staging removes the marker
-and produces a safe no-op page. If a token is present but the host or token
-shape is invalid, staging fails before deployment. The hook is not a secret and
-must contain only the public Project Token; never substitute a Personal API Key
-or Project Secret API Key. The `--deploy` Production path remains separate and
-does not read `.env.local`.
-
-The public review build is deployed to the existing `api-key-case-lp` Pages
-project with the fixed `preview` branch alias. Run
-`node demo/publish-demo.mjs --preview` after setting the process variables or
-the ignored `.env.local`; the command refuses to deploy the Preview when the
-public token is missing. The Preview URL is obtained from the Wrangler
-deployment output and is not inferred or hard-coded here. The `--deploy`
-production path is separate and is not part of this review flow; while
-`LANDING_PAGE_PUBLISH_GATE_MET` is false it is refused outright, and the
-Preview build is staged with a noindex tag and a `Disallow: /` robots.txt
-(docs/landing-page/PAGE_SPEC.md §8).
+Browser publication smoke intercepts capture requests to test wiring without
+polluting analytics. It does not prove dashboard ingestion. Source config/data
+flow changes still require their targeted review; a deployment is not approval
+to change the analytics destination or add identifiers.
 
 ## Privacy and security guardrails
 
@@ -342,3 +326,9 @@ After an authorized site deployment, verify the injected public token/US host,
 then inspect Network and PostHog Live events for a deliberate test visit. A local
 payload test or HTTP acceptance alone does not prove dashboard ingestion. Blockers,
 network failure and page closure can lose events; analytics remain best effort.
+
+The LP uses dedicated vertical/landscape variants of the same 28-second story.
+The player-local end screen appears on `ended`; its setup button reuses the
+setup-prompt copy handler and `lp_free_start` with `location: video-end` and
+`copy_result`. Replay emits no new event; existing video milestones remain once
+per page. No new user content or identifiers are sent.

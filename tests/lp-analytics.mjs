@@ -139,9 +139,15 @@ const makePromptCta = (action, location) => {
 const heroSetup = makePromptCta("setup-prompt", "hero");
 const proofReview = makePromptCta("review-prompt", "proof");
 const finalSetup = makePromptCta("setup-prompt", "final");
-const promptCtas = [heroSetup, proofReview, finalSetup];
+const endSetup = makePromptCta("setup-prompt", "video-end");
+const promptCtas = [heroSetup, proofReview, finalSetup, endSetup];
 
+const endScreen = new FakeElement();
+endScreen.hidden = true;
+const replay = new FakeElement();
 const elementsById = new Map([
+  ["video-end", endScreen],
+  ["video-replay", replay],
   ["prompt-agent", setupPrompt],
   ["prompt-review", reviewPrompt],
   ["price-title", priceTitle],
@@ -153,7 +159,20 @@ const headerGithub = new FakeElement();
 const pricingGithub = new FakeElement();
 const footerGithub = new FakeElement();
 const checkout = new FakeElement();
-const video = new FakeElement();
+const video = new FakeElement({dataset: {landscapeSrc: "launch-ja-landscape.mp4", landscapePoster: "launch-ja-landscape-poster.jpg", landscapeCaptions: "launch-ja-landscape.vtt"}, attributes: {poster: "launch-ja-lp-vertical-poster.jpg"}});
+const videoSource = new FakeElement({attributes: {src: "launch-ja-lp-vertical.mp4"}});
+const videoTrack = new FakeElement({attributes: {src: "launch-ja-lp-vertical.vtt"}});
+videoTrack.track = {mode: "disabled"};
+video.querySelector = selector => selector === "source" ? videoSource : videoTrack;
+video.currentTime = 0;
+video.paused = true;
+video.playbackRate = 1;
+video.muted = false;
+video.volume = 1;
+video.load = () => { video.currentSrc = "https://apikeycase.melavern.com/" + video.src; video.currentTime = 0; video.paused = true; video.playbackRate = 1; video.muted = false; video.volume = 1; };
+video.play = async () => { video.paused = false; };
+const videoMedia = new FakeElement();
+videoMedia.matches = false;
 video.duration = 100;
 video.played = { length: 1, start: () => 0, end: () => 0 };
 const application = new FakeElement();
@@ -184,6 +203,10 @@ const fakeWindow = {
   },
   referrer: "https://github.com/melavern/api-key-case?secret=must-not-send",
   innerWidth: 1440,
+  matchMedia(query) {
+    assert.equal(query, "(max-width: 1000px)", "video must follow the one-column CSS boundary");
+    return videoMedia;
+  },
   crypto: {
     randomUUID: () => "00000000-0000-4000-8000-000000000001"
   },
@@ -216,6 +239,7 @@ const fakeDocument = {
 };
 
 const context = vm.createContext({
+  requestAnimationFrame: callback => callback(),
   window: fakeWindow,
   document: fakeDocument,
   URL,
@@ -230,6 +254,10 @@ const context = vm.createContext({
   clearTimeout
 });
 vm.runInContext(script, context);
+assert.equal(video.src, "launch-ja-landscape.mp4");
+assert.equal(video.poster, "launch-ja-landscape-poster.jpg");
+assert.equal(videoTrack.src, "launch-ja-landscape.vtt");
+await video.dispatch("loadedmetadata");
 
 const analytics = fakeWindow.API_KEY_CASE_LP_ANALYTICS;
 assert.ok(analytics, "LP analytics hook must be exposed for payload tests");
@@ -365,6 +393,9 @@ assert.equal(JSON.stringify(eventsNamed("lp_review_prompt_copy").at(-1)).include
 await finalSetup.button.dispatch("click");
 assert.equal(eventsNamed("lp_free_start").at(-1).properties.location, "final", "each placement must report its own location");
 
+await endSetup.button.dispatch("click");
+assert.equal(copiedTexts.at(-1), setupPromptText);
+assert.equal(eventsNamed("lp_free_start").at(-1).properties.location, "video-end");
 clipboardMode = "failure";
 await heroSetup.button.dispatch("click");
 assert.equal(heroSetup.status.dataset.state, "failure");
@@ -407,14 +438,61 @@ video.seeking = true;
 await video.dispatch("timeupdate");
 assert.equal(eventsNamed("lp_video_progress").length, 0);
 video.seeking = false;
+// A resize preserves playback position, preference and one logical analytics session.
+video.currentTime = 17;
+video.paused = false;
+video.playbackRate = 1.25;
+video.muted = true;
+video.volume = .3;
+videoTrack.track.mode = "showing";
+videoMedia.matches = true;
+await videoMedia.dispatch("change");
+assert.equal(video.src, "launch-ja-lp-vertical.mp4");
+assert.equal(video.poster, "launch-ja-lp-vertical-poster.jpg");
+assert.equal(videoTrack.src, "launch-ja-lp-vertical.vtt");
+await video.dispatch("playing");
+await video.dispatch("timeupdate");
+assert.equal(eventsNamed("lp_video_progress").length, 0, "source loading must not emit progress");
+// Change back before metadata arrives; the original snapshot must survive.
+videoMedia.matches = false;
+await videoMedia.dispatch("change");
+video.played = {length: 0};
+video.seeking = true;
+await video.dispatch("loadedmetadata");
+assert.equal(video.paused, true, "resume must wait for the restored position to finish seeking");
+video.seeking = false;
+await video.dispatch("seeked");
+assert.equal(video.currentTime, 17);
+assert.equal(video.paused, false);
+assert.equal(video.playbackRate, 1.25);
+assert.equal(video.muted, true);
+assert.equal(video.volume, .3);
+assert.equal(videoTrack.track.mode, "showing");
+await video.dispatch("playing");
+assert.equal(eventsNamed("lp_video_start").length, 1);
 await video.dispatch("timeupdate");
 await video.dispatch("timeupdate");
 assert.deepEqual(eventsNamed("lp_video_progress").map(p => p.properties.percent), [25, 50, 75]);
+assert.equal(endScreen.hidden, true);
 await video.dispatch("ended");
+assert.equal(endScreen.hidden, false);
+await replay.dispatch("click");
+assert.equal(endScreen.hidden, true);
+assert.equal(video.currentTime, 0);
+assert.equal(video.paused, false);
 await video.dispatch("playing");
 await video.dispatch("ended");
+assert.equal(endScreen.hidden, false);
 assert.equal(eventsNamed("lp_video_start").length, 1);
 assert.equal(eventsNamed("lp_video_complete").length, 1);
+video.paused = true;
+video.currentTime = video.duration;
+videoMedia.matches = true;
+await videoMedia.dispatch("change");
+await video.dispatch("loadedmetadata");
+assert.equal(endScreen.hidden, false, "rotation preserves the end screen");
+assert.equal(video.currentTime, video.duration, "ended playback must stay at the end after rotation");
+assert.equal(video.paused, true, "resize must not autoplay a paused or ended video");
 assert.equal(analytics.buildEventPayload("lp_video_progress", {percent: 99, video_id: "private-url"}).properties.percent, undefined);
 assert.equal(analytics.buildEventPayload("lp_video_start", {video_id: "private-url"}).properties.video_id, "launch_ja");
 assert.equal(analytics.buildEventPayload("lp_macos_apply_click", {location: "private-text"}).properties.location, undefined);

@@ -1,6 +1,7 @@
 {
   "name": "api-key-case",
-  "version": "0.9.1",
+  "version": "0.9.2",
+  "mcpName": "io.github.melavern/api-key-case",
   "description": "Keep API keys out of AI coding sessions with local scanning, OS secret storage, and guarded CLI deployment.",
   "type": "module",
   "bin": {
@@ -28,7 +29,13 @@
     "verify": "npm test",
     "test:package": "npm run build && node tests/package-smoke.mjs",
     "test:keyring:linux": "node tests/linux-keyring.mjs",
-    "prepack": "npm run verify"
+    "prepack": "npm run verify",
+    "test:web": "node tests/site-content.mjs && node tests/lp-analytics.mjs && node tests/serve-site.mjs",
+    "web:plan": "node tools/web-publication.mjs plan",
+    "web:check": "node tools/web-publication.mjs check",
+    "web:preview": "node tools/web-publication.mjs preview",
+    "web:apply": "node tools/web-publication.mjs apply",
+    "web:verify": "node tools/web-publication.mjs verify"
   },
   "keywords": [
     "api-key",
@@ -65,8 +72,9 @@
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260819.1",
     "@types/node": "^24.0.0",
+    "playwright": "1.63.0",
     "typescript": "^5.8.0",
-    "wrangler": "^4.124.0"
+    "wrangler": "4.131.2"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
@@ -80,6 +88,6 @@
     "@hono/node-server": "^1.19.17",
     "fast-uri": "^3.1.6",
     "hono": "^4.13.5",
-    "ip-address": "^10.5.0"
+    "ip-address": "^10.7.2"
   }
 }

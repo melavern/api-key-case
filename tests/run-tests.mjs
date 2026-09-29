@@ -1576,7 +1576,8 @@ function testAgentInitCli(root) {
   });
   assert.equal(init.status, 0, init.stderr);
   assert.match(init.stdout, /API Key Case agent protocol/);
-  assert.match(init.stdout, /api-key-case@0\.9\.1 next --json \./);
+  const currentVersion = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
+  assert.ok(init.stdout.includes(`api-key-case@${currentVersion} next --json .`));
   assert.equal(init.stdout.includes("@latest"), false);
 
   const beforeCheck = readFileSync(join(root, "AGENTS.md"), "utf8");
@@ -1606,7 +1607,7 @@ function testAgentInitCli(root) {
     encoding: "utf8"
   });
   assert.equal(refresh.status, 0, refresh.stderr);
-  assert.match(refresh.stdout, /api-key-case@0\.9\.1 next --json \./);
+  assert.ok(refresh.stdout.includes(`api-key-case@${currentVersion} next --json .`));
   assert.match(refresh.stdout, /updated: AGENTS\.md/);
 }
 

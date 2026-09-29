@@ -37,6 +37,12 @@ Start it with:
 npx api-key-case mcp [path]
 ```
 
+The repository's [Registry card](../../server.json) describes this same npm
+package and its existing `mcp` subcommand. It adds no MCP package, listener,
+or new execution path. The card is publishable only after the matching npm
+version is released with the `mcpName` ownership marker; see the
+[Registry publication steps](../../docs/RELEASING.md#mcp-registry-publication).
+
 Register it with a client:
 
 ```

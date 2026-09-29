@@ -9,6 +9,33 @@ permissions:
   contents: read
 
 jobs:
+  scope:
+    runs-on: ubuntu-latest
+    outputs:
+      product: ${{ steps.scope.outputs.product }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 22
+      - id: scope
+        run: node demo/web-ci-scope.mjs >> "$GITHUB_OUTPUT"
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 22
+      # Static contracts need only Node; no CLI build or dependency restoration.
+      - run: node tests/site-content.mjs && node tests/lp-analytics.mjs && node tests/serve-site.mjs
+      - name: Private publication regressions
+        if: hashFiles('tools/web-publication.test.mjs') != ''
+        run: node tools/web-publication.test.mjs
+
   # ---------------------------------------------------------------------------
   # Portable suite: everything that does NOT need a real OS secret store.
   #
@@ -19,6 +46,8 @@ jobs:
   # cross-platform.
   # ---------------------------------------------------------------------------
   test:
+    needs: scope
+    if: needs.scope.outputs.product == 'true'
     name: test (${{ matrix.os }}, node ${{ matrix.node-version }})
     runs-on: ${{ matrix.os }}
     strategy:
@@ -58,6 +87,8 @@ jobs:
   # does not change vault behaviour and adds no way to read a stored value.
   # ---------------------------------------------------------------------------
   keyring-e2e:
+    needs: scope
+    if: needs.scope.outputs.product == 'true'
     name: keyring e2e (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     # A keychain/credential prompt on a headless runner would hang forever
@@ -139,6 +170,8 @@ jobs:
         run: npm test
 
   package:
+    needs: scope
+    if: needs.scope.outputs.product == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

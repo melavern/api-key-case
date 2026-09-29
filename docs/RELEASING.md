@@ -7,6 +7,43 @@ reading it or running the verification commands below must not make the
 GitHub repository public, push a commit, create a tag, deploy a Worker, or
 publish to npm.
 
+## MCP Registry publication
+
+The official MCP Registry is in preview. The current Registry candidate is
+`server.json`: `io.github.melavern/api-key-case` version `0.9.2`, pointing at
+the existing public `api-key-case` npm package and its `mcp` stdio subcommand.
+The `melavern` namespace matches the public source repository and package
+publisher; the private development repository is not the Registry source.
+Registry discovery is metadata publication, not a new MCP distribution.
+
+The Registry verifies the **published npm artifact's** `package.json.mcpName`
+against the card's `name`. Published `0.9.1` cannot acquire this marker after
+the fact. Do not publish the Registry card while it names an npm version that
+has not passed the normal release gates and become available on npm.
+
+After the reviewed `0.9.2` npm release is public:
+
+1. Verify `npm view api-key-case@0.9.2 name version mcpName --json` reports
+   `mcpName: io.github.melavern/api-key-case`, and confirm the released artifact
+   still launches with `npx -y api-key-case@0.9.2 mcp` in a client.
+2. Install the current official `mcp-publisher` from the [Registry publishing
+   guide](https://github.com/modelcontextprotocol/registry/blob/main/docs/modelcontextprotocol-io/quickstart.mdx).
+   Run `mcp-publisher validate server.json` and resolve any current-schema
+   issues. Validation checks the card; the publish service separately checks
+   npm ownership and GitHub namespace permissions.
+3. Authenticate as a GitHub owner of the public `melavern` organization with
+   `mcp-publisher login github`. The human completes the device authorization.
+   Then run `mcp-publisher publish server.json` from the reviewed public
+   checkout. This publishes metadata only.
+4. Confirm the exact name and version in the [official Registry API](https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.melavern%2Fapi-key-case)
+   and verify the listed package, stdio transport and `mcp` argument. Only then
+   describe the server as discoverable in public instructions.
+
+For later npm releases, update the card's top-level and package versions to
+the newly published exact version before publishing new Registry metadata.
+Keep `mcpName` aligned with `name`. Registry preview behavior and schema must
+be checked again at publication time.
+
 ## Current OS support status — 2026-09-13
 
 The public baseline is **Windows 11 with Windows Hello**. On that condition,

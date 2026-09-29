@@ -4,6 +4,13 @@ Notable user-facing changes to API Key Case are recorded here. The package
 remains pre-stable until 1.0; a listed version is not a promise of a future
 release date or support period.
 
+## [0.9.2] - 2026-09-29
+
+- Prepared the existing optional MCP stdio server for official MCP Registry
+  discovery using the same `api-key-case` npm package and `mcp` command. The
+  Registry card and npm ownership marker require this version to be released
+  before metadata can be published.
+
 ## [0.9.1] - 2026-09-14
 
 Published to npm on 2026-09-14 (JST) from public tag `v0.9.1`, with

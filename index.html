@@ -32,7 +32,7 @@
     "name": "API Key Case",
     "applicationCategory": "DeveloperApplication",
     "operatingSystem": "Windows 11 with Windows Hello; macOS collaborative verification; Linux diagnosis and manual storage",
-    "softwareVersion": "0.9.1",
+    "softwareVersion": "0.9.2",
     "description": "APIキーをAIに見せずに実装を進めるためのローカルCLI。",
     "url": "https://apikeycase.melavern.com/",
     "downloadUrl": "https://www.npmjs.com/package/api-key-case",
@@ -496,12 +496,11 @@
     }
 
     /* EV — the announcement between THREE and SECURITY (PAGE_SPEC §7).
-       The video is vertical, so it stands beside the copy on a laptop and
-       below the heading on a phone; it is never stretched full-bleed. */
+       The canvas follows the same 1000px boundary as the one-column layout. */
     .ev-grid {
       display: grid;
-      max-width: 960px;
-      grid-template-columns: minmax(0, 1fr) 260px;
+      max-width: 1160px;
+      grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr);
       grid-template-areas:
         "head video"
         "body video";
@@ -509,19 +508,34 @@
       align-items: center;
     }
     .ev-head { grid-area: head; align-self: end; }
+    .ev-head .section-heading { text-wrap: balance; }
+    .ev-head .section-heading span { display: inline-block; }
     .ev-head .section-lead { margin-bottom: 0; }
     .ev-body { grid-area: body; align-self: start; }
-    .ev-player { grid-area: video; width: 100%; max-width: 260px; margin: 0; }
+    .ev-player { grid-area: video; width: 100%; margin: 0; }
     .ev-player video {
       display: block;
       width: 100%;
       height: auto;
-      aspect-ratio: 9 / 16;
+      aspect-ratio: 16 / 9;
       border: 1.5px solid var(--ink);
       border-radius: var(--radius-md);
       background: var(--ink);
       box-shadow: 8px 8px 0 var(--mint);
     }
+    .ev-stage { position: relative; }
+    .ev-end[hidden] { display: none; }
+    .ev-end {
+      position: absolute; inset: 0; padding: 24px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: #0d1714; color: #f5f4ed; border-radius: var(--radius-md);
+      text-align: center; overflow: auto;
+    }
+    .ev-end-brand { margin: 0 0 12px; color: var(--mint); font-size: 20px; font-weight: 800; }
+    .ev-end-message { margin: 0 0 24px; font-size: clamp(24px, 2.5vw, 36px); line-height: 1.5; font-weight: 800; }
+    .ev-end .button { min-height: 44px; flex-shrink: 0; background: var(--mint); color: #0d1714; }
+    .ev-end .button--secondary { background: transparent; color: #f5f4ed; border-color: #a9c0ae; }
+    .ev-end .cta-status { color: var(--mint); max-width: 30em; margin: 8px 0; }
     .ev-player figcaption {
       margin-top: 16px;
       color: var(--ink-soft);
@@ -735,6 +749,7 @@
       .security-grid .section-lead { margin-bottom: 0; }
       .ev-grid { grid-template-columns: 1fr; grid-template-areas: "head" "video" "body"; gap: 30px; }
       .ev-player { max-width: 340px; justify-self: center; }
+      .ev-player video { aspect-ratio: 9 / 16; }
       .hero::after { display: none; }
       .os-pricing-grid { grid-template-columns: 1fr; }
     }
@@ -954,7 +969,7 @@
 - 本番環境（production）への配置やGitHubへの登録などの重要な操作はAPI Key Caseの確認画面で行わせてください。チャットでのYes / Noを承認の代わりに使ったり、画面を自動操作したりしないでください。
 
 進め方
-1. npx -y api-key-case@0.9.1 agent-init . を実行してください。新規プロジェクトで指示を残せない場合は、あなたが使用する指示形式に合わせて --host agents / --host claude / --host cursor のいずれかを明示してください。返された固定バージョンのprotocolに従ってください。
+1. npx -y api-key-case@0.9.2 agent-init . を実行してください。新規プロジェクトで指示を残せない場合は、あなたが使用する指示形式に合わせて --host agents / --host claude / --host cursor のいずれかを明示してください。返された固定バージョンのprotocolに従ってください。
 2. next --json の無料診断から、保存と配置の利用条件、必要な準備、未確認事項を先に説明してください。環境の問題とPro購入の必要性を分け、購入すれば対応外の環境でも使えるとは案内しないでください。
 3. 必要なキーの名前と不足分をまとめて説明し、不足分だけ専用の入力画面を順に開いてください。既存の .env にあるキーも登録できますが、本文は読まず、私自身が値だけを専用画面へ入力します。登録だけで終了しても構いません。キーの発行・ログインなど私が行う準備は順に案内してください。
 4. 私が希望する配置先と環境を確認して、既存のdeployを使って進めてください。検出されたすべてのサービスへ勝手に配置せず、キャンセルや失敗があれば止めてください。
@@ -968,15 +983,28 @@
     <section class="section section--tight" id="ev" aria-labelledby="ev-title">
       <div class="wrap ev-grid">
         <div class="ev-head">
-          <h2 class="section-heading section-heading--sm" id="ev-title">「GitHubにAPIキーを設定して。」</h2>
-          <p class="section-lead">セットアップを済ませたあとは、いつもの言葉で依頼できます。値の入力と送り先の確認を挟んで、Agentが設定を進めるひと場面です。</p>
+          <h2 class="section-heading section-heading--sm" id="ev-title"><span>「GitHubに</span><span>APIキーを</span><span>設定して。」</span></h2>
+          <p class="section-lead">セットアップを済ませたあとは、ひと言指示するだけで、Agentが設定を進めます。途中であなたが値を入力し、送り先を確認するひと場面です。</p>
         </div>
 
         <figure class="ev-player">
-          <video controls playsinline preload="metadata" poster="launch-ja-poster.jpg" width="1080" height="1920" aria-label="操作イメージ動画。「GitHubにAPIキーを設定して。」という依頼を、Agentとあなたがどう進めるか。">
-            <source src="launch-ja.mp4" type="video/mp4">
-            <track kind="captions" src="launch-ja.vtt" srclang="ja" label="日本語">
+          <div class="ev-stage">
+          <video controls playsinline preload="metadata" poster="launch-ja-lp-vertical-poster.jpg" width="1080" height="1920" data-landscape-src="launch-ja-landscape.mp4" data-landscape-poster="launch-ja-landscape-poster.jpg" data-landscape-captions="launch-ja-landscape.vtt" aria-label="操作イメージ動画。「GitHubにAPIキーを設定して。」という依頼を、Agentとあなたがどう進めるか。">
+            <source src="launch-ja-lp-vertical.mp4" type="video/mp4">
+            <track kind="captions" src="launch-ja-lp-vertical.vtt" srclang="ja" label="日本語">
           </video>
+          <div class="ev-end" id="video-end" hidden aria-label="動画の次のステップ">
+            <p class="ev-end-brand">API Key Case</p>
+            <p class="ev-end-message">APIキーの設定も、<br>Agentに。</p>
+            <button class="button" type="button" data-prompt-target="prompt-agent"
+              data-prompt-source="prompt-source-agent" data-prompt-status="cta-status-video-end"
+              data-lp-action="setup-prompt" data-lp-location="video-end"
+              data-prompt-done="コピーしました。普段のCoding Agentに貼り付けてください。"
+              aria-describedby="cta-status-video-end">プロンプトをコピーして始める</button>
+            <p class="cta-status" id="cta-status-video-end" role="status" aria-live="polite">コピーしたら、Claude Code / Codex / Cursor に貼るだけ</p>
+            <button class="button button--secondary" type="button" id="video-replay">もう一度見る</button>
+          </div>
+          </div>
           <figcaption>図解による操作イメージ（実機の録画ではありません）</figcaption>
         </figure>
 
@@ -1066,12 +1094,12 @@
               <summary>コピーされる内容を表示する</summary>
               <textarea class="prompt-text" id="prompt-review" rows="16" readonly aria-label="Security Review用プロンプトの本文">API Key Caseの公開資料を確認し、利用を判断するための材料を整理してください。開発者の説明だけを判断材料にしたくありません。
 
-対象: API Key Case 0.9.1
+対象: API Key Case 0.9.2
 - 公開リポジトリ: https://github.com/melavern/api-key-case
 - Security Model: https://github.com/melavern/api-key-case/blob/main/SECURITY.md
 - プライバシー: https://apikeycase.melavern.com/privacy
 
-最初に、0.9.1に対応する公開ソースが取得できるか確認し、確認したバージョンとコミットを明示してください。取得できない内容を推測で補わず、未確認としてください。公開資料だけを読み、私のプロジェクト・.env・秘密値は読み取らないでください。
+最初に、0.9.2に対応する公開ソースが取得できるか確認し、確認したバージョンとコミットを明示してください。取得できない内容を推測で補わず、未確認としてください。公開資料だけを読み、私のプロジェクト・.env・秘密値は読み取らないでください。
 
 確認してほしい点
 1. APIキーの値がどこを通るか。AIエージェント側へ値が渡る経路が本当に無いか。
@@ -1282,7 +1310,7 @@
       "setup-prompt": "lp_free_start",
       "review-prompt": "lp_review_prompt_copy"
     };
-    const LP_CTA_LOCATIONS = ["hero", "two", "proof", "final"];
+    const LP_CTA_LOCATIONS = ["hero", "two", "proof", "final", "video-end"];
 
     function createPageDistinctId() {
       const webCrypto = window.crypto;
@@ -1483,21 +1511,115 @@
     }
 
     document.querySelectorAll("video").forEach((video) => {
+      const endScreen = document.getElementById("video-end");
+      const replay = document.getElementById("video-replay");
+      const endStatus = document.getElementById("cta-status-video-end");
+      const endHint = endStatus?.textContent ?? "";
+      const hideEndScreen = () => {
+        if (endScreen) endScreen.hidden = true;
+        if (endStatus) {
+          endStatus.textContent = endHint;
+          delete endStatus.dataset.state;
+        }
+      };
+      video.addEventListener("play", hideEndScreen);
+      replay?.addEventListener("click", () => {
+        hideEndScreen();
+        video.currentTime = 0;
+        video.focus();
+        video.play().catch(() => {});
+      });
       let started = false;
       let completed = false;
       const milestones = new Set();
+      let watchedRanges = [];
+      let switching = false;
+      video.addEventListener("seeked", () => {
+        if (!switching && video.currentTime < video.duration) hideEndScreen();
+      });
+      const rememberPlayed = () => {
+        const ranges = [...watchedRanges];
+        for (let i = 0; i < video.played.length; i += 1) {
+          ranges.push([video.played.start(i), video.played.end(i)]);
+        }
+        ranges.sort((a, b) => a[0] - b[0]);
+        watchedRanges = [];
+        for (const range of ranges) {
+          const last = watchedRanges[watchedRanges.length - 1];
+          if (last && range[0] <= last[1]) last[1] = Math.max(last[1], range[1]);
+          else watchedRanges.push([...range]);
+        }
+        return watchedRanges.reduce((total, range) => total + range[1] - range[0], 0);
+      };
+      if (video.dataset.landscapeSrc && window.matchMedia) {
+        // Read narrow assets from the fallback markup. Keep one native player,
+        // its focus, captions preference and the same point in the 28s story.
+        const source = video.querySelector("source");
+        const track = video.querySelector("track");
+        const narrow = {src: source.getAttribute("src"), poster: video.getAttribute("poster"), captions: track.getAttribute("src")};
+        const wide = {src: video.dataset.landscapeSrc, poster: video.dataset.landscapePoster, captions: video.dataset.landscapeCaptions};
+        const media = window.matchMedia("(max-width: 1000px)");
+        let current = null;
+        let pending = null;
+        const finishSwitch = () => {
+          if (!switching || video.seeking || !video.currentSrc.endsWith("/" + current.src)) return;
+          const restore = pending;
+          if (restore) {
+            video.playbackRate = restore.rate;
+            video.volume = restore.volume;
+            video.muted = restore.muted;
+            track.track.mode = restore.captionMode;
+          }
+          pending = null;
+          switching = false;
+          if (replay) replay.disabled = false;
+          if (restore?.resume) {
+            const resumedSource = current;
+            video.play().then(() => requestAnimationFrame(() => {
+              // WebKit initializes audio after playing and may reset mute then.
+              // Apply the saved setting once after that native startup completes.
+              if (!switching && current === resumedSource) video.muted = restore.muted;
+            })).catch(() => {}); // Native play remains available if the browser blocks resume.
+          }
+        };
+        const selectVideo = () => {
+          const next = media.matches ? narrow : wide;
+          if (current === next) return;
+          if (current) {
+            if (!pending) pending = {time: video.currentTime, resume: !video.paused && !video.ended, rate: video.playbackRate, muted: video.muted, volume: video.volume, captionMode: track.track.mode};
+            rememberPlayed();
+          }
+          switching = true;
+          if (replay) replay.disabled = true;
+          current = next;
+          video.poster = next.poster;
+          video.width = media.matches ? 1080 : 1920;
+          video.height = media.matches ? 1920 : 1080;
+          track.src = next.captions;
+          video.src = next.src;
+          video.load();
+        };
+        video.addEventListener("loadedmetadata", () => {
+          if (!switching || !video.currentSrc.endsWith("/" + current.src)) return;
+          const restore = pending;
+          if (restore) {
+            video.currentTime = Math.min(restore.time, video.duration);
+          }
+          finishSwitch();
+        });
+        video.addEventListener("seeked", finishSwitch);
+        media.addEventListener("change", selectVideo);
+        selectVideo();
+      }
       video.addEventListener("playing", () => {
-        if (started) return;
+        if (switching || started) return;
         started = true;
         capture("lp_video_start");
       });
       video.addEventListener("timeupdate", () => {
-        if (!started || video.seeking || !Number.isFinite(video.duration) || video.duration <= 0) return;
+        if (switching || !started || video.seeking || !Number.isFinite(video.duration) || video.duration <= 0) return;
         // Native played ranges exclude skipped portions. Replays do not inflate reach.
-        let watched = 0;
-        for (let i = 0; i < video.played.length; i += 1) {
-          watched += video.played.end(i) - video.played.start(i);
-        }
+        const watched = rememberPlayed();
         for (const percent of [25, 50, 75]) {
           if (watched / video.duration * 100 >= percent && !milestones.has(percent)) {
             milestones.add(percent);
@@ -1506,6 +1628,8 @@
         }
       });
       video.addEventListener("ended", () => {
+        if (switching) return;
+        if (endScreen) endScreen.hidden = false;
         if (!started || completed) return;
         completed = true;
         capture("lp_video_complete");

@@ -8,7 +8,7 @@
 
 日本語版のREADMEは **[README.ja.md](https://github.com/melavern/api-key-case/blob/main/README.ja.md)** にあります。
 
-> **This README describes the v0.9.1 pre-stable Agent-first release.** `api-key-case@0.9.1` is published on npm and `@latest` resolves to it. Pin the exact version (`api-key-case@0.9.1`) for the Agent workflow below; the [release checklist](docs/RELEASING.md) records the acceptance evidence and the checks that were run before publication.
+> **This README describes the v0.9.2 pre-stable release candidate.** `@latest` follows npm's published dist-tag, which can lag during staged publication. Confirm that the exact `0.9.2` package is available before using its Agent workflow; the [release checklist](docs/RELEASING.md) records the gates and acceptance evidence.
 >
 > This pre-stable tool reduces accidental exposure risk. It does not guarantee complete secret protection. Always review generated files before sharing them.
 >
@@ -65,8 +65,10 @@ Deployment has additional provider/project constraints. In particular, Cloudflar
 
 ## Agent-first Control and Human Planes (Phase A/B/C/D/E)
 
-The following commands require v0.9.1, which is published on npm. Confirm
-`npx -y api-key-case@0.9.1 --version` resolves to `0.9.1` before use.
+The following commands require v0.9.2. Confirm
+`npx -y api-key-case@0.9.2 --version` resolves to `0.9.2` before use. Until
+npm lists that exact version, use an installed candidate tarball as described
+in [candidate testing](docs/RELEASING.md#testing-the-candidate-before-publication).
 
 ```sh
 api-key-case agent-init .          # print the session protocol and manage existing host instructions
@@ -77,7 +79,7 @@ api-key-case save OPENAI_API_KEY --ask # separate Windows/macOS Human Plane
 api-key-case history --json .      # Free: past deploy results, never current values
 ```
 
-`agent-init` preserves content outside its managed block, writes only inside the project, rejects symlinks/junctions, and does not edit global or MCP configuration. Persistent instructions pin the exact version that runs `agent-init` (for example, `api-key-case@0.9.1`), never `@latest` or a floating major line; this prevents a later pre-stable minor release from changing an existing repository's Agent protocol without an explicit `agent-init` rerun.
+`agent-init` preserves content outside its managed block, writes only inside the project, rejects symlinks/junctions, and does not edit global or MCP configuration. Persistent instructions pin the exact version that runs `agent-init` (for example, `api-key-case@0.9.2`), never `@latest` or a floating major line; this prevents a later pre-stable minor release from changing an existing repository's Agent protocol without an explicit `agent-init` rerun.
 
 `next --json` returns closed enums and names/status only. It has no `command`, `argv`, or free-form execution field, and never includes a secret value, partial value, value-derived hash, or value length. For `actor: "human"`, `kind: "register-secret"`, the exact-version Agent protocol requests `save <NAME> --ask`; the value is entered only in the separate Human Plane and only status returns to the Agent side.
 
@@ -444,7 +446,7 @@ The test Worker is `api-key-case-license-exchange-test`; live is `api-key-case-l
 
 ## Status and roadmap
 
-Current released version: **v0.9.1 (pre-stable)**, published on npm on 2026-09-14 (JST). Security fixes are provided for the latest published pre-stable release only. Code completion and portable tests do not establish acceptance on real Agent hosts, Windows/macOS dialogs or provider accounts. See the [release checklist](docs/RELEASING.md), [verification record](docs/VERIFICATION.md) and [changelog](CHANGELOG.md). Version 1.0 remains reserved until external users have validated real projects.
+Current source candidate: **v0.9.2 (pre-stable)**. The preceding v0.9.1 release was published on npm on 2026-09-14 (JST). Security fixes are provided for the latest published pre-stable release only. Code completion and portable tests do not establish acceptance on real Agent hosts, Windows/macOS dialogs or provider accounts. See the [release checklist](docs/RELEASING.md), [verification record](docs/VERIFICATION.md) and [changelog](CHANGELOG.md). Version 1.0 remains reserved until external users have validated real projects.
 
 - Phase 1: local scanning and safe file generation
 - Phase 2: OS secret store save / check / list / remove (`user` / `project` scope)

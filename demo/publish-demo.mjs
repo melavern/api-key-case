@@ -1,15 +1,13 @@
 // Assembles the public site bundle (landing page, policy pages, demo video)
-// and, only when explicitly asked, deploys it to the existing Cloudflare Pages
-// project.
+// for local review. Provider uploads use the checked Web publication plan.
 //
 //   node publish-demo.mjs            # stage build/site/ and print the command
-//   node publish-demo.mjs --deploy   # stage, then deploy to production
-//   node publish-demo.mjs --preview  # deploy index.html to the fixed preview branch
+//   npm run web:apply   # stage, then deploy to production
+//   npm run web:preview  # deploy index.html to the fixed preview branch
 //
 // The Pages project holds only the files listed in ASSETS, so a deployment
 // replaces the whole site and removes nothing else in the account.
 
-import { spawnSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { isMain } from "./lib/main.mjs";
@@ -19,8 +17,6 @@ import {
 } from "./config.mjs";
 
 const SITE_DIR = join(BUILD_DIR, "site");
-const PROJECT = "api-key-case-lp";
-const PREVIEW_BRANCH = "preview";
 
 // index.html is now the Agent-first landing page, so the publish gate can no
 // longer be a separate file name that no deploy lane reaches. While
@@ -31,7 +27,7 @@ const PREVIEW_BRANCH = "preview";
 // 11 + Hello host, and the exact-version package plus its public source were
 // verified from an external path before this flag changed (PAGE_SPEC §9).
 // Flip it back to false only as a deliberate withdrawal of the page's claims.
-const LANDING_PAGE_PUBLISH_GATE_MET = true;
+export const LANDING_PAGE_PUBLISH_GATE_MET = true;
 const LP_POSTHOG_PROJECT_TOKEN_ENV = "API_KEY_CASE_LP_POSTHOG_PROJECT_TOKEN";
 const LP_POSTHOG_API_HOST_ENV = "API_KEY_CASE_LP_POSTHOG_API_HOST";
 const DEFAULT_POSTHOG_API_HOST = "https://us.i.posthog.com";
@@ -47,11 +43,13 @@ const LOCAL_POSTHOG_CONFIG_PATH = join(REPO_DIR, ".env.local");
 
 const PAGES = ["index.html", "os-support.html", "tokushoho.html", "terms.html", "privacy.html", "refund.html"];
 
-// The 28-second announcement embedded in the landing page's EV section. It is
-// rendered by the private marketing-video harness from the pinned product
-// source and committed here as a finished file, so the site bundle needs no
-// second build tool. Provenance is recorded in docs/landing-page/PAGE_SPEC.md §7.
-const LAUNCH_MEDIA = ["launch-ja.mp4", "launch-ja-poster.jpg", "launch-ja.vtt"];
+// Three 28-second announcements rendered by the private marketing-video harness
+// from the pinned product source and committed as finished assets. The bundle
+// needs no second build tool. Provenance: docs/landing-page/PAGE_SPEC.md §7.
+// SNS media (3): README movie/poster public URLs and companion captions.
+const SNS_MEDIA = ["launch-ja.mp4", "launch-ja-poster.jpg", "launch-ja.vtt"];
+// LP media (6): vertical/landscape video, poster and captions embedded by the LP.
+const LP_MEDIA = ["launch-ja-lp-vertical.mp4", "launch-ja-lp-vertical-poster.jpg", "launch-ja-lp-vertical.vtt", "launch-ja-landscape.mp4", "launch-ja-landscape-poster.jpg", "launch-ja-landscape.vtt"];
 
 // Brand assets: the favicon set linked from every page head, the SVG marks the
 // inline header logo is reconstructed from, and the social preview image the
@@ -72,9 +70,11 @@ const ASSETS = [
   { from: join(REPO_DIR, "sitemap.xml"), to: "sitemap.xml" },
   // The legacy recordings contain the retired brand and pre-0.9.1 behavior.
   // Never silently pick them up from an existing local demo/build directory.
-  ...LAUNCH_MEDIA.map((name) => ({ from: join(REPO_DIR, name), to: name })),
+  ...[...SNS_MEDIA, ...LP_MEDIA].map((name) => ({ from: join(REPO_DIR, name), to: name })),
   ...BRAND_ASSETS.map((name) => ({ from: join(REPO_DIR, name), to: name }))
 ];
+
+export const SITE_ASSET_PATHS = Object.freeze(ASSETS.map((asset) => asset.to));
 
 // Legal pages must never regress to an unfinished template. This refuses any
 // reintroduced 【要記入】 marker rather than publishing a half-filled disclosure.
@@ -150,12 +150,11 @@ export function renderLandingPage(page, environment = process.env) {
   return page.replace(POSTHOG_CONFIG_MARKER, configScript);
 }
 
-export function stageSite({ requirePostHog = false, environment = process.env } = {}) {
-  const page = checkLandingPage(readFileSync(join(REPO_DIR, "index.html"), "utf8"));
-  // The page's media dependencies: the social preview image and the embedded
-  // announcement video with its poster and captions. Refuse to publish a page
-  // that has lost any of those references.
-  for (const required of LAUNCH_MEDIA) {
+export function stageSite({ requirePostHog = false, environment = process.env, sourceDir = REPO_DIR, siteDir = SITE_DIR, quiet = false } = {}) {
+  const page = checkLandingPage(readFileSync(join(sourceDir, "index.html"), "utf8"));
+  // Require all six LP media references. SNS assets are staged for the README
+  // public URLs; they are not embedded in the LP.
+  for (const required of LP_MEDIA) {
     if (!page.includes(required)) {
       throw new Error(`index.html does not reference ${required}; refusing to publish a broken page.`);
     }
@@ -172,20 +171,20 @@ export function stageSite({ requirePostHog = false, environment = process.env } 
   }
 
   for (const name of ["index.html", "tokushoho.html", "terms.html"]) {
-    const content = readFileSync(join(REPO_DIR, name), "utf8");
+    const content = readFileSync(join(sourceDir, name), "utf8");
     if (!content.includes("2,980")) {
       throw new Error(`${name} does not contain the current 2,980 price.`);
     }
   }
   for (const name of ["index.html", "tokushoho.html", "terms.html", "refund.html"]) {
-    const content = readFileSync(join(REPO_DIR, name), "utf8");
+    const content = readFileSync(join(sourceDir, name), "utf8");
     if (!content.includes("14日")) {
       throw new Error(`${name} does not contain the current 14-day refund term.`);
     }
   }
 
   const unfilled = PAGES.map((name) => {
-    const count = readFileSync(join(REPO_DIR, name), "utf8").split(PLACEHOLDER).length - 1;
+    const count = readFileSync(join(sourceDir, name), "utf8").split(PLACEHOLDER).length - 1;
     return count > 0 ? `${name} (${count})` : null;
   }).filter(Boolean);
   if (unfilled.length > 0) {
@@ -206,16 +205,16 @@ export function stageSite({ requirePostHog = false, environment = process.env } 
   // Validate configuration before requiring generated video assets. This keeps
   // configuration checks usable in a clean clone, with no staging side effect.
   for (const asset of ASSETS) {
-    if (!existsSync(asset.from)) {
-      throw new Error(`missing ${asset.from} — run \`npm run demo:all\` first.`);
+    if (!existsSync(join(sourceDir, asset.to))) {
+      throw new Error(`missing ${join(sourceDir, asset.to)} — run \`npm run demo:all\` first.`);
     }
   }
 
-  rmSync(SITE_DIR, { recursive: true, force: true });
-  mkdirSync(SITE_DIR, { recursive: true });
+  rmSync(siteDir, { recursive: true, force: true });
+  mkdirSync(siteDir, { recursive: true });
 
   for (const asset of ASSETS) {
-    const destination = join(SITE_DIR, asset.to);
+    const destination = join(siteDir, asset.to);
     mkdirSync(dirname(destination), { recursive: true });
     if (asset.to === "index.html") {
       writeFileSync(destination, renderedLandingPage, "utf8");
@@ -224,13 +223,13 @@ export function stageSite({ requirePostHog = false, environment = process.env } 
       // crawler does with the meta tag.
       writeFileSync(destination, "User-agent: *\nDisallow: /\n", "utf8");
     } else {
-      copyFileSync(asset.from, destination);
+      copyFileSync(join(sourceDir, asset.to), destination);
     }
     const size = statSync(destination).size;
-    console.log(`  ${asset.to.padEnd(18)} ${(size / 1024).toFixed(0)} KB`);
+    if (!quiet) console.log(`  ${asset.to.padEnd(18)} ${(size / 1024).toFixed(0)} KB`);
   }
-  console.log(`staged: ${SITE_DIR}`);
-  return SITE_DIR;
+  if (!quiet) console.log(`staged: ${siteDir}`);
+  return siteDir;
 }
 
 // Command shapes that must not appear in the landing page body. The page
@@ -273,40 +272,14 @@ export function applyPublishGate(page) {
   );
 }
 
+// Production and provider Preview uploads must use the checked publication plan.
+// This compatibility entry deliberately cannot upload an unchecked working tree.
 export function deploy() {
-  if (!LANDING_PAGE_PUBLISH_GATE_MET) {
-    throw new Error(
-      "index.html is the Agent-first landing page and docs/landing-page/PAGE_SPEC.md §8 (AC-1..AC-4) is not met.\n" +
-        "Refusing to publish it to production. Review it with `node demo/publish-demo.mjs --preview`, and set\n" +
-        "LANDING_PAGE_PUBLISH_GATE_MET to true only once the page's claims are implemented."
-    );
-  }
-  const dir = stageSite({ requirePostHog: true });
-  console.log(`deploying to Cloudflare Pages project "${PROJECT}" (production)`);
-  const result = spawnSync(
-    "npx",
-    ["wrangler", "pages", "deploy", dir, "--project-name", PROJECT, "--branch", "main", "--commit-dirty=true"],
-    { cwd: REPO_DIR, stdio: "inherit", shell: process.platform === "win32" }
-  );
-  if (result.status !== 0) {
-    throw new Error(`wrangler pages deploy failed with exit code ${result.status}`);
-  }
+  throw new Error("Use npm run web:plan, web:check, then web:apply after explicit Production approval (docs/WEB_PUBLICATION.md).");
 }
 
 export function deployPreview() {
-  const dir = stageSite({
-    requirePostHog: true,
-    environment: resolvePreviewPostHogEnvironment()
-  });
-  console.log(`deploying to Cloudflare Pages project "${PROJECT}" (preview branch: ${PREVIEW_BRANCH})`);
-  const result = spawnSync(
-    "npx",
-    ["wrangler", "pages", "deploy", dir, "--project-name", PROJECT, "--branch", PREVIEW_BRANCH, "--commit-dirty=true"],
-    { cwd: REPO_DIR, stdio: "inherit", shell: process.platform === "win32" }
-  );
-  if (result.status !== 0) {
-    throw new Error(`wrangler pages deploy failed with exit code ${result.status}`);
-  }
+  throw new Error("Use npm run web:preview after web:plan and web:check (docs/WEB_PUBLICATION.md).");
 }
 
 if (isMain(import.meta.url)) {
@@ -323,10 +296,10 @@ if (isMain(import.meta.url)) {
     } else {
       stageSite();
       console.log("\nNot deployed. To update the fixed Preview branch, run:");
-      console.log("  node publish-demo.mjs --preview");
+      console.log("  npm run web:preview");
       if (LANDING_PAGE_PUBLISH_GATE_MET) {
         console.log("\nTo publish this to https://apikeycase.melavern.com run:");
-        console.log("  node publish-demo.mjs --deploy");
+        console.log("  npm run web:apply");
       } else {
         console.log("\nProduction deployment is gated by docs/landing-page/PAGE_SPEC.md §8 (AC-1..AC-4).");
       }

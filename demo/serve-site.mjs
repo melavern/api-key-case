@@ -25,10 +25,17 @@ const PREVIEW_ROUTES = new Map([
   ["/refund.html", { source: "refund.html", contentType: "text/html; charset=utf-8" }],
   ["/robots.txt", { source: "robots.txt", contentType: "text/plain; charset=utf-8" }],
   ["/sitemap.xml", { source: "sitemap.xml", contentType: "application/xml; charset=utf-8" }],
-  // The committed 28-second announcement embedded in index.html (EV section).
+  // SNS media (3): preserve the README movie/poster URLs and companion captions.
   ["/launch-ja.mp4", { source: "launch-ja.mp4", contentType: "video/mp4" }],
   ["/launch-ja-poster.jpg", { source: "launch-ja-poster.jpg", contentType: "image/jpeg" }],
   ["/launch-ja.vtt", { source: "launch-ja.vtt", contentType: "text/vtt; charset=utf-8" }],
+  // LP media (6): vertical/landscape video, poster and captions used by index.html.
+  ["/launch-ja-lp-vertical.mp4", { source: "launch-ja-lp-vertical.mp4", contentType: "video/mp4" }],
+  ["/launch-ja-lp-vertical-poster.jpg", { source: "launch-ja-lp-vertical-poster.jpg", contentType: "image/jpeg" }],
+  ["/launch-ja-lp-vertical.vtt", { source: "launch-ja-lp-vertical.vtt", contentType: "text/vtt; charset=utf-8" }],
+  ["/launch-ja-landscape.mp4", { source: "launch-ja-landscape.mp4", contentType: "video/mp4" }],
+  ["/launch-ja-landscape-poster.jpg", { source: "launch-ja-landscape-poster.jpg", contentType: "image/jpeg" }],
+  ["/launch-ja-landscape.vtt", { source: "launch-ja-landscape.vtt", contentType: "text/vtt; charset=utf-8" }],
   // Brand assets referenced from every page head (icons) and the landing
   // page Open Graph / Twitter Card metadata (og-image).
   ["/favicon.ico", { source: "favicon.ico", contentType: "image/x-icon" }],

@@ -15,6 +15,46 @@ records the 0.9.1 acceptance and the current release status. In particular, the 
 retains in-process verification and does not adopt the elevated-broker PoC;
 the older research stop below is not a requirement to finish that broker.
 
+## MCP Registry candidate — 2026-09-29
+
+- Official `mcp-publisher validate server.json` contacted
+  `registry.modelcontextprotocol.io` and returned `server.json is valid` for
+  the `io.github.melavern/api-key-case` 0.9.2 card. The first attempt exposed
+  the Registry's 100-character description limit; the corrected card passed.
+- `npm run test:package` passed against the packed, installed 0.9.2 candidate,
+  including the fresh-consumer runtime audit. Its new checks confirm that the shipped `package.json`
+  contains the card's `mcpName`, version and npm package name, and that the
+  card invokes the existing `mcp` stdio command. `npm test`, `npm audit
+  --omit=dev` (0 findings) and `npm run test:keyring:linux` also passed after
+  updating the transitive `ip-address` override from 10.5.0 to patched 10.7.2.
+  No Registry publication was attempted.
+- The 0.9.2 candidate README and LP source now pin 0.9.2 while explicitly
+  requiring the exact npm version to exist before use. The currently deployed
+  LP is a separate publication. The tag workflow refuses an `Unreleased`
+  changelog entry; this candidate has a dated entry without claiming npm
+  publication.
+- Read-only npm registry requests confirmed published 0.9.1 has no `mcpName`
+  and 0.9.2 is not yet published (HTTP 404). A direct Registry listing API
+  request timed out in this environment; the official validation endpoint was
+  reachable through `mcp-publisher`. No discoverability claim is made.
+- Compared `npm pack api-key-case@0.9.1 --ignore-scripts` with a local
+  `npm pack --ignore-scripts` of the built 0.9.2 candidate, file by file.
+  Both contain the same 129 paths; 125 files are byte-identical, including
+  every `dist/` CLI, core and MCP file. Only `package.json`, `CHANGELOG.md`,
+  `README.md` and `README.ja.md` differ. The package manifest changes are the
+  version and `mcpName` plus web-publication scripts, Playwright and Wrangler
+  development dependencies already present in Private main since 0.9.1, and
+  the patched `ip-address` override. README and changelog differences include
+  the 0.9.2 candidate wording and Registry note. `server.json`, tests, workflow and design
+  documentation are repository changes outside the npm `files` allowlist.
+  This is the candidate snapshot, not the final immutable release tarball.
+- The existing Public export tool staged 156 allowlisted paths in a fresh
+  Public clone. It reported zero unclassified files, zero secret-shaped or
+  Private-identity findings, and passed `npm ci`, `npm test` and `npm pack
+  --dry-run` there. A Private cross-product design note overlapping the broad
+  `docs/design/**` allowlist was explicitly withheld before this pass. The
+  result is a local candidate; Public main has not been pushed for 0.9.2.
+
 ## 0.9.1 published and verified from the outside — 2026-09-14
 
 Base: Public `main` `f0c2a931cf1eeb7e0e6bddb351ee220bba77da2e`, exported from

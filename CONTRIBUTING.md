@@ -32,6 +32,11 @@ for current behavior. Phase 2–4 designs and the initial Phase 6 investigation
 retain historical proposals; their old TTY approval and `remove --yes` examples
 are not implementation instructions for the current candidate.
 
+The [shared Secret Execution boundary](docs/design/secret-execution-boundary.md)
+keeps the common operation executor outside this product. Do not turn the Vault
+interface or deployment handoff into a getter/callback backend for Hub or agents.
+The document does not change the current API, Free/Pro, or Human Plane contract.
+
 ## Pull request checklist
 
 - [ ] The change is focused and documented.

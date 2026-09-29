@@ -77,6 +77,14 @@ try {
   assert.equal(realpathSync(installed), join(realpathSync(consumer), "node_modules/api-key-case"), "the artifact must be installed, not linked to the development checkout");
   assert.equal(existsSync(join(consumer, "node_modules/typescript")), false);
   const installedManifest = JSON.parse(readFileSync(join(installed, "package.json"), "utf8"));
+  const registryCard = JSON.parse(readFileSync(join(repo, "server.json"), "utf8"));
+  assert.equal(installedManifest.mcpName, registryCard.name, "Registry ownership name must ship in the npm artifact");
+  assert.equal(registryCard.version, installedManifest.version);
+  assert.equal(registryCard.packages.length, 1);
+  assert.equal(registryCard.packages[0].identifier, installedManifest.name);
+  assert.equal(registryCard.packages[0].version, installedManifest.version);
+  assert.equal(registryCard.packages[0].transport.type, "stdio");
+  assert.deepEqual(registryCard.packages[0].packageArguments, [{ type: "positional", value: "mcp" }]);
   assert.equal(installedManifest.license, "Elastic-2.0");
   assert.match(readFileSync(join(installed, "LICENSE"), "utf8"), /^Elastic License 2\.0\n/);
   assert.doesNotMatch(readFileSync(join(installed, "LICENSE"), "utf8"), /^MIT License/m);
@@ -89,6 +97,7 @@ try {
     return result;
   };
   assert.equal(cli(["--version"], consumer).stdout.trim(), manifest.version);
+  observations.push("Registry card matches the installed npm package and existing mcp command");
 
   // Consumer-facing executable resolution, not just importing a source module.
   assert.equal(npm(["exec", "--offline", "--", "api-key-case", "--version"], { cwd: consumer }).trim(), manifest.version);

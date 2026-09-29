@@ -117,7 +117,7 @@ reads the stored value.
 | `verify-demo.mjs` | artifact leak checks |
 | `cleanup-demo.mjs` | removes the sandbox and the demo secret |
 | `preview.mjs` | renders selected timestamps to `build/preview/` for layout work |
-| `publish-demo.mjs` | stages the site bundle and deploys it to Cloudflare Pages |
+| `publish-demo.mjs` | stages the allowlisted site bundle; provider uploads use the checked Web publication plan |
 | `lib/pty.mjs` | real pty with scripted keystrokes |
 | `lib/screen.mjs` | ANSI/ConPTY screen emulator |
 | `lib/cdp.mjs` | dependency-free Chrome DevTools Protocol client |
@@ -126,62 +126,51 @@ reads the stored value.
 
 The Development Hub's `keycase:api` service runs `serve-site.mjs` on the
 working tree so the latest LP can be checked before publication. It serves the
-same allowlisted bundle shape as the publishing script: the five HTML pages,
-`robots.txt`, `sitemap.xml`, the three committed announcement files
-(`launch-ja.mp4`, `launch-ja-poster.jpg`, `launch-ja.vtt`), the brand assets
-(`favicon.ico` and `brand/`: SVG mark/logo/favicon, touch icon, OG image), and the six
-generated demo media files under `demo/build/` (when present). Repository source, tests, docs, configuration,
+same allowlisted bundle shape as the publishing script: the six HTML pages,
+`robots.txt`, `sitemap.xml`, the nine committed announcement assets listed below,
+and the brand assets (`favicon.ico` and `brand/`: SVG mark/logo/favicon, touch
+icon, OG image). Legacy generated demo media under `demo/build/` are not served.
+Repository source, tests, docs, configuration,
 and other build artifacts are not HTTP routes. The server binds to loopback;
 mobile publication and `remoteAccess.services` are managed separately by the
 Development Hub.
 
 ## Publishing
 
-`publish-demo.mjs` copies the repository's pages, the committed 28-second
-announcement embedded in the landing page (`launch-ja.mp4`,
-`launch-ja-poster.jpg`, `launch-ja.vtt` at the repository root — rendered by the
-private marketing-video harness, not by this directory; provenance in
-`docs/landing-page/PAGE_SPEC.md` §7), the brand assets (`favicon.ico`, `brand/`),
-plus both language editions of the demo
-(`demo*.mp4`, posters, and WebVTT captions) into `build/site/`, checks the page
-actually references every asset, and can deploy that directory to the existing
-`api-key-case-lp` Cloudflare Pages project:
+`publish-demo.mjs` copies the repository's pages, `robots.txt`, `sitemap.xml`,
+the brand assets (`favicon.ico`, `brand/`), and these nine committed media assets
+into `build/site/`:
+
+| Use | Assets at the repository root |
+|---|---|
+| SNS (3) | `launch-ja.mp4`, `launch-ja-poster.jpg`, `launch-ja.vtt` |
+| LP vertical (3) | `launch-ja-lp-vertical.mp4`, `launch-ja-lp-vertical-poster.jpg`, `launch-ja-lp-vertical.vtt` |
+| LP landscape (3) | `launch-ja-landscape.mp4`, `launch-ja-landscape-poster.jpg`, `launch-ja-landscape.vtt` |
+
+The SNS set preserves the public movie/poster URLs used by `README.md` and
+`README.ja.md`, with its captions. The LP embeds only the LP variants: vertical
+at widths up to 1000px and landscape above 1000px. All three 28-second videos
+are rendered by the private marketing-video harness, not this directory;
+provenance is in `docs/landing-page/PAGE_SPEC.md` §7.
+
+Production staging includes both SNS and LP sets, checks that the page references
+all six LP assets, and excludes the legacy `demo*.mp4`, posters and captions from
+`demo/build/`.
 
 ```sh
-node publish-demo.mjs            # stage only, print the deploy command
-node publish-demo.mjs --deploy   # stage, then deploy to production
-node publish-demo.mjs --preview  # stage, then update the fixed preview branch
+node publish-demo.mjs  # local staging only
 ```
 
-For the LP analytics hook used by the review Preview and later production,
-set the public PostHog Project Token and region explicitly in the process
-environment before staging, or put them in the ignored repository-root
-`.env.local` for repeated Preview updates. Preview settings use process
-environment variables first, then `.env.local`; other `.env` files are not
-read. The script only accepts the US or EU PostHog capture host:
+Maintainer uploads use the Private repository's `npm run web:plan`, `web:check`,
+`web:preview`, then `web:apply -- --approve <plan-id>` after human Production
+approval. The current runbook is `docs/WEB_PUBLICATION.md` in the Private
+repository. The old `--deploy` / `--preview` shortcuts refuse unchecked uploads.
 
-```sh
-API_KEY_CASE_LP_POSTHOG_PROJECT_TOKEN=<API Key Case public Project Token> \
-API_KEY_CASE_LP_POSTHOG_API_HOST=https://us.i.posthog.com \
-node publish-demo.mjs --preview
-```
-
-For local setup, create `.env.local` once with the two settings above. On
-PowerShell, process variables can still be set with `$env:` for a one-off
-override. If the token is absent, staging intentionally publishes a safe
-no-op analytics page; an invalid token or host fails before deployment. Use
-only the public Project Token, never a Personal API Key or Project Secret API
-Key. The `--deploy` Production path remains separate and does not read
-`.env.local`.
-
-The `--preview` command deploys the same staged site to the existing
-`api-key-case-lp` Pages project with the fixed `preview` branch name. It refuses
-to deploy if the public PostHog token is missing, so the review Preview stays
-connected to the shared project. Wrangler prints the actual branch alias after
-deployment; do not infer or hard-code that URL from the project name.
-
-The project holds only these files, so a deployment replaces the landing page
-and the video together and removes nothing else.
+The checked flow copies the existing public PostHog Project Token and approved
+US/EU host from the verified Production HTML. It never reads `.env*` or replaces
+OS keyring authentication with plaintext. A configuration change needs its own
+review. Local staging without a token is a safe no-op analytics page.
+Only staged, allowlisted assets and the publication manifest are uploaded.
 
 ## Editing the video
 

@@ -57,6 +57,10 @@ jobs:
             echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $PKG_VERSION."
             exit 1
           fi
+          if grep -Fq "## [${PKG_VERSION#v}] - Unreleased" CHANGELOG.md; then
+            echo "::error::Finish the release notes and published-version copy before publishing."
+            exit 1
+          fi
 
       - name: Check annotated tag identity and target
         if: github.ref_type == 'tag'
