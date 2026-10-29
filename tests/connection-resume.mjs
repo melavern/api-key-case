@@ -26,7 +26,7 @@ const environments = ['development', 'preview', 'production'];
 const profiles = ['resend', 'clerk-native', 'clerk-managed'];
 const names = { resend: 'state.json', 'clerk-native': 'clerk-native.json', 'clerk-managed': 'clerk-managed.json' };
 const canary = 'synthetic-resume-no-secret-QZ73';
-const root = fs.mkdtempSync(join(tmpdir(), 'akc-intent-memory-'));
+const root = fs.realpathSync.native(fs.mkdtempSync(join(tmpdir(), 'akc-intent-memory-')));
 let checks = 0;
 function snapshot(path) {
   if (!fs.existsSync(path)) return null;
