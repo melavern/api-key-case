@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import {
   readdirSync,
+  lstatSync, openSync, closeSync, fstatSync, readSync, constants,
   readFileSync,
   realpathSync,
   statSync
@@ -24,6 +25,9 @@ import {
 } from "./which.js";
 import { resolveTrustedHomeDirectory } from "./which.js";
 import type { SecretScope } from "../vault/types.js";
+import { cloudflareTargetPlan, cloudflareTargetEnvironment, resolveCloudflareTarget, resolveGenericCloudflareTarget, type CloudflareConfigBinding, type CloudflareConfigDestination } from "./cloudflare-targets.js";
+import type { HostedDeployService } from "./provider-hosted.js";
+import { resolveHostedTarget, hostedDeploymentPlan, type HostedDestination } from "./hosted-targets.js";
 
 /**
  * A value-free description of the exact deploy operation. This object is
@@ -31,6 +35,9 @@ import type { SecretScope } from "../vault/types.js";
  * caller, written to disk, or sent to the Human Plane helper.
  */
 export interface ExecutionSnapshot {
+  readonly genericHostedDestination?: Readonly<HostedDestination>;
+  readonly genericCloudflareDestination?: Readonly<CloudflareConfigDestination>;
+  readonly cloudflareDestination?: Readonly<{ id: string; service: HostedDeployService }>;
   readonly projectDir: string;
   readonly processCwd: string;
   readonly homeDir: string;
@@ -62,6 +69,8 @@ export interface TrustedExecution {
 }
 
 export interface FileFingerprint {
+  /** vNext config identities retain exact NTFS inode and nanosecond timestamps. */
+  readonly exactIdentity?: string;
   readonly path: string;
   readonly exists: boolean;
   readonly kind: "file" | "directory" | "other" | null;
@@ -88,6 +97,9 @@ export type TrustedExecutionResult =
   | { ok: false; reason: TrustedExecutionFailure };
 
 export interface SnapshotRequest {
+  readonly genericHostedDestination?: Readonly<HostedDestination>;
+  readonly genericCloudflareDestination?: Readonly<CloudflareConfigDestination>;
+  readonly cloudflareDestination?: Readonly<{ id: string; service: HostedDeployService }>;
   readonly name: string;
   readonly scope: SecretScope;
   readonly projectId: string | null;
@@ -139,6 +151,70 @@ export const DESTINATION_REQUIREMENT: Readonly<Record<TargetId, string>> = Objec
     'a readable .git/config with exactly one remote, "origin", whose url is on github.com, ' +
     "and no .git/config.worktree"
 });
+
+/** Local metadata only; no git process, provider probe, or credential access. */
+export function resolveClerkWorkerDestination(projectDir: string, env: DeployEnv): {accountId:string;name:string} | null {
+  let fd: number | undefined;
+  try {
+    const root = realpathSync.native(projectDir), rootState=lstatSync(root);
+    if(!rootState.isDirectory()||rootState.isSymbolicLink())return null;
+    const existing = DESTINATION_CONFIGS.cloudflare.filter(name => {
+      try { lstatSync(join(root,name)); return true; }
+      catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return false; throw error; }
+    });
+    if (existing.length !== 1) return null;
+    const path = join(root,existing[0]), file = lstatSync(path);
+    const same = (a: import("node:fs").Stats,b: import("node:fs").Stats) =>
+      a.dev===b.dev && a.ino===b.ino && a.mode===b.mode && a.nlink===b.nlink &&
+      a.size===b.size && a.mtimeMs===b.mtimeMs && a.ctimeMs===b.ctimeMs;
+    if (!file.isFile() || file.isSymbolicLink() || file.nlink!==1 || file.size>64*1024) return null;
+    if(!same(rootState,lstatSync(root))||realpathSync.native(projectDir)!==root)return null;
+    fd=openSync(path,constants.O_RDONLY|(constants.O_NOFOLLOW??0)|(constants.O_NONBLOCK??0));
+    if (!same(file,fstatSync(fd))) return null;
+    const bytes=Buffer.alloc(64*1024+1);let length=0,read=0;
+    while(length<bytes.length&&(read=readSync(fd,bytes,length,bytes.length-length,length))>0) length+=read;
+    if(length!==file.size||length>64*1024||!same(file,fstatSync(fd))||!same(file,lstatSync(path))||!same(rootState,lstatSync(root))||realpathSync.native(projectDir)!==root)return null;
+    const parsed=parseCloudflareConfig(new TextDecoder("utf-8",{fatal:true}).decode(bytes.subarray(0,length)),path);
+    const selected=env==="production"?parsed:parsed&&isRecord(parsed.env)&&isRecord(parsed.env[env])?parsed.env[env]:null;
+    if(!selected||typeof selected.name!=="string"||!/^[a-z0-9][a-z0-9_-]{0,62}$/.test(selected.name)||
+      typeof selected.account_id!=="string"||!/^[a-f0-9]{32}$/.test(selected.account_id))return null;
+    return {accountId:selected.account_id,name:selected.name};
+  } catch { return null; }
+  finally { if(fd!==undefined)try{closeSync(fd);}catch{/* closed metadata result only */} }
+}
+
+/** Local metadata only; no git process, provider probe, or credential access. */
+export function resolveConnectionGitHubRepository(projectDir: string): string | null {
+  let fd: number | undefined;
+  try {
+    const root = realpathSync.native(projectDir);
+    const git = join(root, ".git"), config = join(git, "config"), worktree = join(git, "config.worktree");
+    const absent = () => { try { lstatSync(worktree); return false; } catch (error) { return (error as NodeJS.ErrnoException).code === "ENOENT"; } };
+    const directory = lstatSync(git), file = lstatSync(config);
+    const same = (a: import("node:fs").Stats, b: import("node:fs").Stats) =>
+      a.dev === b.dev && a.ino === b.ino && a.mode === b.mode && a.nlink === b.nlink &&
+      a.size === b.size && a.mtimeMs === b.mtimeMs && a.ctimeMs === b.ctimeMs;
+    if (!directory.isDirectory() || directory.isSymbolicLink() || !file.isFile() || file.isSymbolicLink() || file.nlink !== 1 || file.size > 64 * 1024 || !absent()) return null;
+    fd = openSync(config, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0));
+    if (!same(file, fstatSync(fd))) return null;
+    const bytes = Buffer.alloc(64 * 1024 + 1);
+    let length = 0, read = 0;
+    while (length < bytes.length && (read = readSync(fd, bytes, length, bytes.length - length, length)) > 0) length += read;
+    if (length !== file.size || length > 64 * 1024 || !same(file, fstatSync(fd)) ||
+        !same(file, lstatSync(config)) || !same(directory, lstatSync(git)) || !absent()) return null;
+    const content = bytes.subarray(0, length).toString("utf8");
+    if (!destinationLabelFromContent(content, config, "github", "development")) return null;
+    // Validate raw syntax before URL normalization can discard unsafe parts.
+    const urls = [...content.matchAll(/^\s*url\s*=\s*(.*?)\s*$/gm)];
+    if (urls.length !== 1) return null;
+    const raw = unquoteConfigText(urls[0][1]);
+    const match = /^(?:https:\/\/github\.com\/|ssh:\/\/git@github\.com\/|git@github\.com:)([A-Za-z0-9](?:[A-Za-z0-9-]{0,38})\/[A-Za-z0-9_][A-Za-z0-9_.-]{0,99})$/.exec(raw);
+    if (!match) return null;
+    const repository = match[1].replace(/\.git$/, "");
+    return repository.split("/")[1] && ![".", ".."].includes(repository.split("/")[1]) ? repository : null;
+  } catch { return null; }
+  finally { if (fd !== undefined) try { closeSync(fd); } catch { /* no secret read */ } }
+}
 
 const AUTH_FILE_RELATIVE_PATHS: Record<TargetId, readonly string[]> = {
   cloudflare: [
@@ -197,20 +273,27 @@ export function buildTrustedExecution(
     return { ok: false, reason: "unsafe-environment" };
   }
 
-  const projectEnvFiles = fingerprintProjectEnvFiles(projectDir, request.adapterId);
+  const cloudflareTarget = explicitCloudflareBinding(request, plan, projectDir);
+  const explicitTarget = cloudflareTarget ?? explicitHostedBinding(request, plan, projectDir);
+  if (request.genericHostedDestination && !explicitTarget) return { ok: false, reason: "unsafe-environment" };
+  if ((request.cloudflareDestination || request.genericCloudflareDestination) && !explicitTarget) return { ok: false, reason: "unsafe-environment" };
+  if (request.adapterId === "cloudflare" && plan.argv.includes("--config") && !explicitTarget) return { ok: false, reason: "unsafe-environment" };
+  const projectEnvFiles = explicitTarget
+    ? explicitTarget.envDirectories.flatMap(directory => fingerprintProjectEnvFiles(directory, request.adapterId))
+    : fingerprintProjectEnvFiles(projectDir, request.adapterId);
   // Wrangler explicitly loads project .env variants. Do not guess which value
   // wins; require a human-owned handoff whenever one exists.
   if (projectEnvFiles.some((file) => file.exists)) {
     return { ok: false, reason: "unsafe-environment" };
   }
 
-  const destinationConfig = DESTINATION_CONFIGS[request.adapterId].map((relativePath) =>
+  const destinationConfig = explicitTarget ? [...explicitTarget.files] : DESTINATION_CONFIGS[request.adapterId].map((relativePath) =>
     fingerprintFile(join(projectDir, ...relativePath.split("/")), request.adapterId, request.env)
   );
   if (destinationConfig.some((file) => file.exists && !file.readable)) {
     return { ok: false, reason: "unsafe-environment" };
   }
-  if (!hasConcreteDestination(request.adapterId, destinationConfig)) {
+  if (!explicitTarget && !hasConcreteDestination(request.adapterId, destinationConfig)) {
     return { ok: false, reason: "unsafe-environment" };
   }
 
@@ -245,7 +328,8 @@ export function buildTrustedExecution(
   const execution: TrustedExecution = Object.freeze({
     cwd: projectDir,
     processCwd,
-    env: Object.freeze(buildTrustedExecutionEnvironment(resolvedCli, options.pathOverride, homeDir)),
+    env: Object.freeze(cloudflareTarget ? cloudflareTargetEnvironment(buildTrustedExecutionEnvironment(resolvedCli, options.pathOverride, homeDir), cloudflareTarget.target)
+      : buildTrustedExecutionEnvironment(resolvedCli, options.pathOverride, homeDir)),
     resolvedCli,
     snapshot
   });
@@ -307,14 +391,20 @@ export function matchesTrustedExecution(
   const currentCli = currentResolvedCli(execution.resolvedCli);
   if (!currentCli || !isSameResolvedCli(currentCli, execution.snapshot.cli)) return false;
 
-  const currentEnvFiles = fingerprintProjectEnvFiles(currentProjectDir, request.adapterId);
+  const explicitTarget = explicitCloudflareBinding(request, plan, currentProjectDir) ?? explicitHostedBinding(request, plan, currentProjectDir);
+  if (request.genericHostedDestination && !explicitTarget) return false;
+  if ((request.cloudflareDestination || request.genericCloudflareDestination) && !explicitTarget) return false;
+  if (request.adapterId === "cloudflare" && plan.argv.includes("--config") && !explicitTarget) return false;
+  const currentEnvFiles = explicitTarget
+    ? explicitTarget.envDirectories.flatMap(directory => fingerprintProjectEnvFiles(directory, request.adapterId))
+    : fingerprintProjectEnvFiles(currentProjectDir, request.adapterId);
   if (currentEnvFiles.some((file) => file.exists)) return false;
 
-  const currentDestinationConfig = DESTINATION_CONFIGS[request.adapterId].map((relativePath) =>
+  const currentDestinationConfig = explicitTarget ? [...explicitTarget.files] : DESTINATION_CONFIGS[request.adapterId].map((relativePath) =>
     fingerprintFile(join(currentProjectDir, ...relativePath.split("/")), request.adapterId, request.env)
   );
   if (currentDestinationConfig.some((file) => file.exists && !file.readable)) return false;
-  if (!hasConcreteDestination(request.adapterId, currentDestinationConfig)) return false;
+  if (!explicitTarget && !hasConcreteDestination(request.adapterId, currentDestinationConfig)) return false;
 
   const current = createSnapshot(
     request,
@@ -343,6 +433,9 @@ function createSnapshot(
   destinationConfig: readonly FileFingerprint[]
 ): ExecutionSnapshot {
   return Object.freeze({
+    ...(request.genericHostedDestination ? { genericHostedDestination: Object.freeze({ ...request.genericHostedDestination }) } : {}),
+    ...(request.genericCloudflareDestination ? { genericCloudflareDestination: Object.freeze({ ...request.genericCloudflareDestination }) } : {}),
+    ...(request.cloudflareDestination ? { cloudflareDestination: Object.freeze({ ...request.cloudflareDestination }) } : {}),
     projectDir,
     processCwd,
     homeDir,
@@ -372,6 +465,36 @@ function createSnapshot(
     providerEnvNames: Object.freeze([...providerEnvNames]),
     providerIdentity: request.providerIdentity
   });
+}
+
+function explicitCloudflareBinding(request: SnapshotRequest, plan: DeployPlan, projectDir: string): CloudflareConfigBinding | null {
+  if (request.genericHostedDestination) return null;
+  if (request.genericCloudflareDestination) {
+    if (request.cloudflareDestination || request.adapterId !== "cloudflare" || request.cliCommand !== "wrangler" ||
+        request.scope !== "project" || request.force || !/^[A-Za-z_][A-Za-z0-9_]{0,127}$/.test(request.name)) return null;
+    const binding = resolveGenericCloudflareTarget(projectDir, request.genericCloudflareDestination);
+    return binding && JSON.stringify(plan.argv) === JSON.stringify(cloudflareTargetPlan(binding.target, request.name).argv) &&
+      !(plan.preSteps?.length) && plan.overwriteWarning && plan.valueVia === "stdin" ? binding : null;
+  }
+  const selected = request.cloudflareDestination;
+  if (!selected || Object.keys(selected).sort().join(",") !== "id,service" || request.adapterId !== "cloudflare" ||
+      request.cliCommand !== "wrangler" || request.scope !== "project" || request.force ||
+      request.name !== ({ resend: "RESEND_API_KEY", openai: "OPENAI_API_KEY", "stripe-test": "STRIPE_API_KEY" } as const)[selected.service]) return null;
+  const binding = resolveCloudflareTarget(projectDir, selected.id, selected.service, request.env);
+  if (!binding || JSON.stringify(plan.argv) !== JSON.stringify(cloudflareTargetPlan(binding.target, request.name).argv) ||
+      (plan.preSteps?.length ?? 0) !== 0 || !plan.overwriteWarning || plan.valueVia !== "stdin") return null;
+  return binding;
+}
+
+function explicitHostedBinding(request: SnapshotRequest, plan: DeployPlan, projectDir: string): { files: readonly FileFingerprint[]; envDirectories: string[] } | null {
+  try {
+    const destination = request.genericHostedDestination;
+    if (!destination || request.cloudflareDestination || request.genericCloudflareDestination || request.scope !== "project" || request.force || request.projectId !== destination.projectId ||
+        (destination.kind === "vercel" ? request.adapterId !== "vercel" || request.cliCommand !== "vercel" || request.env !== destination.applicationEnvironment : request.adapterId !== "github" || request.cliCommand !== "gh")) return null;
+    const selection = resolveHostedTarget(projectDir, destination), expected = hostedDeploymentPlan(destination, request.name);
+    return JSON.stringify(plan.argv) === JSON.stringify(expected.argv) && !plan.preSteps?.length && plan.overwriteWarning && plan.valueVia === "stdin" ?
+      { files: selection.files, envDirectories: [projectDir] } : null;
+  } catch { return null; }
 }
 
 function trustedHomeDirectory(allowUnsupportedTestFixture = false): string | null {
@@ -705,10 +828,10 @@ function safeDestinationIdentifier(value: unknown): string | null {
 
 function isGitHubDestination(value: string): boolean {
   try {
-    return new URL(value).hostname.toLowerCase() === "github.com";
-  } catch {
-    return /^github\.com:[A-Za-z0-9_./-]+$/i.test(value);
-  }
+    const hostname = new URL(value).hostname;
+    if (hostname) return hostname.toLowerCase() === "github.com";
+  } catch { /* Git SCP-like remote below. */ }
+  return /^github\.com:[A-Za-z0-9_./-]+$/i.test(value);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -903,7 +1026,7 @@ function projectRemoteUrl(value: string): string {
   }
 }
 
-function buildTrustedExecutionEnvironment(
+export function buildTrustedExecutionEnvironment(
   resolvedCli: ResolvedCli,
   pathOverride: string | undefined,
   home: string

@@ -1,18 +1,40 @@
+# Pushes and PR updates are hand-offs between agents, not requests for evidence. In the
+# Private repository only a manual dispatch starts a runner (pick the narrowest breadth
+# that answers the question); the Public repository keeps its automatic main/PR gate.
+# Private candidates are verified locally when they are integrated.
 name: CI
 
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      breadth:
+        description: representative = Ubuntu Node 22 + package; keyring = adds strict OS stores; full = 5 Node/OS + 3 OS stores
+        type: choice
+        default: representative
+        options: [representative, keyring, full]
+
+# One stable group per PR or ref: a newer read-only run replaces the older one.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
   scope:
+    # Every other job needs this one, so a skipped scope means zero runners.
+    if: github.event_name == 'workflow_dispatch' || github.event.repository.private == false
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       product: ${{ steps.scope.outputs.product }}
+      test: ${{ steps.scope.outputs.test }}
+      keyring: ${{ steps.scope.outputs.keyring }}
+      package: ${{ steps.scope.outputs.package }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -24,12 +46,17 @@ jobs:
         run: node demo/web-ci-scope.mjs >> "$GITHUB_OUTPUT"
 
   web:
+    needs: scope
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: 22
+      - name: Validate CI trigger and concurrency contract
+        run: node tests/ci-workflow-structure.mjs
+      - run: node --test tests/ci-scope.mjs
       # Static contracts need only Node; no CLI build or dependency restoration.
       - run: node tests/site-content.mjs && node tests/lp-analytics.mjs && node tests/serve-site.mjs
       - name: Private publication regressions
@@ -39,31 +66,22 @@ jobs:
   # ---------------------------------------------------------------------------
   # Portable suite: everything that does NOT need a real OS secret store.
   #
-  # Shape: full Node range on Linux (cheapest runner), one current Node on
-  # macOS and Windows. Written with `include` only, so this is 5 jobs and not
-  # a 3 x 3 cross-product. macOS/Windows exist here to catch path, casing and
-  # shell-quoting regressions, which is what actually breaks a CLI we ship as
-  # cross-platform.
+  # The scope job supplies the include list (demo/web-ci-scope.mjs). Full
+  # shape: Node 20/22/24 on Linux (cheapest runner), one current Node on macOS
+  # and Windows - 5 jobs, not a 3 x 3 cross-product. macOS/Windows catch path,
+  # casing and shell-quoting regressions. A `representative` dispatch runs only
+  # Ubuntu Node 22; ask for `full` when an OS or Node difference is the question.
   # ---------------------------------------------------------------------------
   test:
     needs: scope
-    if: needs.scope.outputs.product == 'true'
+    if: needs.scope.outputs.test != '[]'
     name: test (${{ matrix.os }}, node ${{ matrix.node-version }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - os: ubuntu-latest
-            node-version: 20
-          - os: ubuntu-latest
-            node-version: 22
-          - os: ubuntu-latest
-            node-version: 24
-          - os: macos-latest
-            node-version: 24
-          - os: windows-latest
-            node-version: 24
+        include: ${{ fromJSON(needs.scope.outputs.test) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -74,7 +92,8 @@ jobs:
       - run: npm test
 
   # ---------------------------------------------------------------------------
-  # Real OS secret store end-to-end, on all three platforms we advertise.
+  # Real OS secret store end-to-end, on all three platforms we advertise, when
+  # the scope job selects it (`keyring`/`full` dispatch, or a Public product change).
   #
   # Why this is a separate job: the `test` job above never touches the real
   # keyring. Every e2e block is gated behind AGENT_KEY_CASE_E2E=1 and is
@@ -88,7 +107,7 @@ jobs:
   # ---------------------------------------------------------------------------
   keyring-e2e:
     needs: scope
-    if: needs.scope.outputs.product == 'true'
+    if: needs.scope.outputs.keyring != '[]'
     name: keyring e2e (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     # A keychain/credential prompt on a headless runner would hang forever
@@ -97,7 +116,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: ${{ fromJSON(needs.scope.outputs.keyring) }}
     env:
       AGENT_KEY_CASE_E2E: "1"
       AGENT_KEY_CASE_E2E_STRICT: "1"
@@ -108,6 +127,7 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - run: npm run build
 
       # macOS: the runner's login keychain is usable by the `runner` user as
       # is - no `security unlock-keychain` and no dedicated temporary keychain
@@ -161,18 +181,19 @@ jobs:
               exit 1
             fi
 
-            npm test
+            node tests/run-tests.mjs --keyring-only
           '
 
       # Windows Credential Manager and the macOS Keychain need no bootstrap.
       - name: Run e2e (macOS / Windows)
         if: runner.os != 'Linux'
-        run: npm test
+        run: node tests/run-tests.mjs --keyring-only
 
   package:
-    needs: scope
-    if: needs.scope.outputs.product == 'true'
+    needs: [scope, test]
+    if: needs.scope.outputs.package == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -180,6 +201,7 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      # `prepack` runs the full suite, so this also validates the published
-      # file list against a clean tree.
-      - run: npm pack --dry-run
+      # The portable matrix already passed on this SHA. Build this clean tree
+      # and check the file list without repeating the full prepack test suite.
+      - run: npm run build
+      - run: npm pack --dry-run --ignore-scripts

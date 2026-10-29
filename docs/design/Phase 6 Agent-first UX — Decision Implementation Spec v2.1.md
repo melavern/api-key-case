@@ -4,7 +4,7 @@
 状態: **Design Baseline / Independent Security Review Applied / Phase A-E Implemented**
 
 2026-09-08補足: Phase A–Eは未公開の0.9.1候補に実装済み。実装済みと実機・実Agentでの受入完了を区別する。
-現行の`next`はschema 2で、[setup/readiness契約](agent-setup-readiness.md)とコードの型を正本とする。
+公開済み0.9.2の`next`はschema 2、setup-stateの開発candidateはschema 4で、[setup/readiness契約](agent-setup-readiness.md)とコードの型を正本とする。
 Windows承認は[Windows本人確認の決定](windows-human-verification.md)に従い、v1にelevated brokerは導入しない。
 公開までの確認は[RELEASING](../RELEASING.md)、観測結果は[VERIFICATION](../VERIFICATION.md)を参照する。
 

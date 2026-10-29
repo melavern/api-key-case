@@ -4,6 +4,34 @@ Notable user-facing changes to API Key Case are recorded here. The package
 remains pre-stable until 1.0; a listed version is not a promise of a future
 release date or support period.
 
+## [0.10.0] - 2026-10-29
+
+Release preparation; publication is a separate maintainer-controlled step.
+
+The 0.10.0 source includes the changes below. A source tag or this changelog
+alone does not establish npm availability or a production-site update. Windows synthetic native acceptance does
+not establish real provider operation, Ubuntu support or cloud-chat connectivity.
+
+- Simplify secure input to key name and masked entry; keep classification and
+  context in initially closed Details. Use Agent-supplied names in one common frame.
+- Add generic OS-store registration, managed generations, value-free discovery,
+  independently confirmed Binding/relink/unlink and interrupted-operation recovery.
+- Add registered Cloudflare, Vercel team/project and GitHub Actions destinations
+  through fixed official CLIs with Pro, fresh Windows verification and no automatic
+  replay of unknown effects.
+- Add confirmed, bounded ordinary Node/npm/Python development sessions. Approved
+  apps and dependencies can read their environment; output streams stay disconnected.
+- Add opt-in read-only fixed-project `mcp --vnext`; retain default/guidance profiles.
+- Correct Windows build capability reporting and tighten public-source preparation.
+- Fix Vercel project verification against its official stderr table, legacy v2
+  reuse after relink, project-scoped LaunchProfile discovery and duplicate
+  registration, and interrupted registration recovery without a received ID.
+- Treat delivery approval expiry as a start deadline while retaining completion
+  integrity checks and refusal to replay unknown effects.
+- Update the MCP SDK, Zod and related runtime dependencies to patched versions.
+- Start new Agent instructions with capability and project registration checks,
+  keeping existing keys reusable before legacy setup asks for input.
+
 ## [0.9.2] - 2026-09-29
 
 - Prepared the existing optional MCP stdio server for official MCP Registry

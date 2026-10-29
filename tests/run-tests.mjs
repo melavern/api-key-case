@@ -1,3 +1,30 @@
+import { runGuidedAcquisitionLifecycleTests } from "./guided-acquisition-lifecycle.mjs";
+import { runGuidedAcquisitionTests } from "./guided-acquisition.mjs";
+import { runLocalObservationTests } from "./local-observations.mjs";
+import { runLocalNextTests } from "./local-next.mjs";
+import { runLocalPreparationTests } from "./local-preparation.mjs";
+import { runLocalSessionCompletionTests } from "./local-session-completion.mjs";
+import { runNextOfflineTests } from "./next-offline.mjs";
+import { runClerkManagedReportTests } from "./clerk-managed-report.mjs";
+import { runClerkWindowsAcceptanceTests } from "./clerk-windows-acceptance.mjs";
+import { runWindowsHelperCommandTests, decodeWindowsHelperScript } from "./windows-helper-command.mjs";
+import { runClerkPrepareTests } from "./clerk-prepare.mjs";
+import { runClerkCredentialTests } from "./clerk-credentials.mjs";
+import { runClerkNativeTests } from "./clerk-native.mjs";
+import { runProviderNativeCheckTests } from "./provider-native-check.mjs";
+import {runClerkWorkerObservationTests} from "./clerk-worker-observations.mjs";
+import { runNativeObservationTests } from "./native-observations.mjs";
+import { runConnectionJourneyTests } from "./connection-journey.mjs";
+import { runGitHubEnvironmentTests } from "./github-environment.mjs";
+import { runLocalNodeBuildTests } from './local-node-build.mjs';
+import { runResendAcceptanceTests } from './resend-acceptance.mjs';
+import { runLocalSnapshotTests } from './local-snapshot.mjs';
+import { runLocalApplicationTests } from "./local-application-session.mjs";
+import { runConnectionDeployTests } from "./connection-deploy.mjs";
+import { runConnectionRecoveryTests } from "./connection-recovery.mjs";
+import { runConnectionPlanTests } from "./connection-plan.mjs";
+import { runEnvironmentCredentialTests } from "./environment-credentials.mjs";
+import { runEnvironmentHumanPlaneTests } from "./environment-human-plane.mjs";
 ﻿import assert from "node:assert/strict";
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { createHash, createPublicKey, generateKeyPairSync, sign as signEd25519 } from "node:crypto";
@@ -35,7 +62,7 @@ import { createVault } from "../dist/core/vault/index.js";
 import { runDeploy as runDeployActual } from "../dist/core/deploy/engine.js";
 import { DeploymentHistory } from "../dist/core/deploy/history.js";
 import { runWithSecret } from "../dist/core/deploy/handoff.js";
-import { buildTrustedExecution, makeApprovalPlan, matchesTrustedExecution } from "../dist/core/deploy/snapshot.js";
+import { buildTrustedExecution, makeApprovalPlan, matchesTrustedExecution, resolveClerkWorkerDestination } from "../dist/core/deploy/snapshot.js";
 import {
   AUTOMATIC_SAFE_ENVS,
   destinationIdentity,
@@ -62,6 +89,8 @@ import { isGitHubRemoteUrl } from "../dist/adapters/github.js";
 import { buildTools } from "../dist/mcp/tools.js";
 import { buildNextReport } from "../dist/core/agent/next.js";
 import { runAgentSetupTests } from "./agent-setup.mjs";
+import { runAgentCurrentCliTests } from "./agent-current-cli.mjs";
+import { runConnectionCheckTests } from "./connection-check.mjs";
 import { runDeploymentHistoryTests } from "./deployment-history.mjs";
 import { runWindowsVerificationHarnessTests } from "./windows-verification-harness.mjs";
 import { runMacOSHumanPlaneScriptTests } from "./macos-human-plane-script.mjs";
@@ -357,12 +386,53 @@ function assertWindowsUserVerificationGate(script, label) {
 
 try {
   assertE2EFlagsCoherent();
+  if (process.argv.includes('--keyring-only')) {
+    assert.ok(E2E_ENABLED && E2E_STRICT, '--keyring-only requires both E2E and E2E_STRICT; no skipped-store success');
+    await testRealKeyringE2E();
+    const lifecycleRoot = join(testRoot, 'phase-e-lifecycle');
+    const homeDir = join(lifecycleRoot, 'home');
+    mkdirSync(homeDir, { recursive: true });
+    await testPhaseELifecycleRealStore(lifecycleRoot, homeDir);
+    await testDeployE2E(join(testRoot, 'deploy-e2e'));
+    assertE2EActuallyRanInStrictMode();
+    assert.equal(e2eBlocksRun, 3, 'all three real-store blocks must run');
+    console.log('keyring tests passed');
+  } else {
   testRedactionAndSafeGeneration(join(testRoot, "safe-generation"));
   testNestedGitState(join(testRoot, "nested-git"));
   testCliExitCodes(join(testRoot, "cli"));
   await testCliTelemetry(join(testRoot, "telemetry"));
   await testNextActionSchema(join(testRoot, "next-actions"));
   await runAgentSetupTests();
+  await runAgentCurrentCliTests();
+  await runConnectionCheckTests();
+  await runEnvironmentHumanPlaneTests();
+  await runGuidedAcquisitionTests();
+  await runGuidedAcquisitionLifecycleTests();
+  await runConnectionPlanTests();
+  await runConnectionRecoveryTests();
+  await runClerkManagedReportTests();
+  await runNextOfflineTests();
+  await runLocalNextTests();
+  await runLocalPreparationTests();
+  await runLocalSessionCompletionTests();
+  await runClerkNativeTests();
+  await runClerkCredentialTests();
+  await runClerkPrepareTests();
+  await runClerkWindowsAcceptanceTests();
+  await runWindowsHelperCommandTests();
+  await runProviderNativeCheckTests();
+  await runNativeObservationTests();
+  await runClerkWorkerObservationTests();
+  await runConnectionJourneyTests();
+  await runGitHubEnvironmentTests();
+  await runConnectionDeployTests();
+  runLocalSnapshotTests();
+  await runLocalApplicationTests();
+  await runLocalObservationTests();
+  await runResendAcceptanceTests();
+  await runLocalNodeBuildTests();
+  await runEnvironmentCredentialTests();
   await runDeploymentHistoryTests();
   await runWindowsVerificationHarnessTests();
   await runMacOSHumanPlaneScriptTests();
@@ -414,6 +484,7 @@ try {
   testPackagingExcludesToolsAndLicenseMaterial();
   assertE2EActuallyRanInStrictMode();
   console.log("tests passed");
+  }
 } finally {
   rmSync(testRoot, { recursive: true, force: true });
 }
@@ -1105,9 +1176,15 @@ async function testNextActionSchema(root) {
   assert.deepEqual(reportA, reportB, "next output must not vary with Secret values or lengths");
 
   assert.deepEqual(Object.keys(reportA).sort(), [
+    "clerkManaged",
+    "clerkNative",
+    "connection",
+    "guidedSetup",
     "host",
     "hygiene",
     "license",
+    "localDevelopment",
+    "localSession",
     "nextActions",
     "schemaVersion",
     "secrets",
@@ -1115,6 +1192,10 @@ async function testNextActionSchema(root) {
     "targets",
     "vault"
   ]);
+  assert.deepEqual(Object.keys(reportA.clerkManaged).sort(), ["application", "applicationObservation", "configuration", "destination", "environment", "issue", "nextStep", "permission", "preparation", "registration", "route", "service", "status", "summary"]);
+  assert.deepEqual(Object.keys(reportA.clerkNative).sort(), ["application", "applicationObservation", "configuration", "destination", "environment", "expectedInstance", "issue", "permission", "requiredSettings", "route", "service", "status"]);
+  assert.equal(reportA.clerkNative.applicationObservation.currentHealth, "unverified");
+  assert.equal(reportA.clerkNative.applicationObservation.permission, "none");
   assert.deepEqual(Object.keys(reportA.vault), ["status"]);
   assert.deepEqual(Object.keys(reportA.license), ["plan"]);
   assert.deepEqual(Object.keys(reportA.hygiene).sort(), ["gitignoreOk", "possibleExposure"]);
@@ -1134,7 +1215,9 @@ async function testNextActionSchema(root) {
       ["development", "preview", "production"]
     );
   }
-  assert.equal(reportA.schemaVersion, 2);
+  assert.equal(reportA.schemaVersion, 13);
+  assert.equal(reportA.guidedSetup, null);
+  assert.deepEqual(reportA.connection, { status: "inactive", issue: null, report: null });
   assert.equal(reportA.vault.status, "available");
   assert.equal(reportA.license.plan, "pro");
   assert.deepEqual(
@@ -1273,6 +1356,21 @@ function assertClosedNextSchema(report) {
     }
     if (!value || typeof value !== "object") return;
     for (const [key, nested] of Object.entries(value)) {
+      if (key === "applicationObservation" || key === "nativeApplicationObservation") {
+        if(nested.destination === "cloudflare") {
+          assert.deepEqual(Object.keys(nested).sort(), ["activation","application","binding","currentHealth","destination","permission","preparation","reason","remaining","route","selected","service","status"]);
+          assert.ok(["inactive","selection-unavailable","selection-changed","configuration-unresolved","preparation-unavailable","preparation-missing","preparation-unknown","prepared-target-unrecorded","prepared-target-changed","registration-unverified","registration-changed","application-unavailable","application-missing","application-interrupted","application-time-invalid","application-expired","preparation-changed","application-reported"].includes(nested.reason));
+          assert.equal(nested.activation,"not-inspected");
+        } else {
+          assert.deepEqual(Object.keys(nested).sort(), ["application", "binding", "configuration", "currentHealth", "destination", "destinationSelectionFingerprint", "environment", "permission", "reason", "remaining", "service", "status"]);
+          assert.ok(["inactive", "inspection-missing", "observation-unavailable", "scope-unresolved", "scope-changed", "inspection-unverified", "application-missing", "observation-interrupted", "observation-time-invalid", "observation-expired", "inspection-changed", "application-reported"].includes(nested.reason));
+        }
+        assert.equal(nested.currentHealth, "unverified");
+        assert.equal(nested.permission, "none");
+        const { reason, ...closedFields } = nested;
+        visit(closedFields);
+        continue;
+      }
       assert.equal(forbiddenKeys.has(key), false, `next schema exposed forbidden key: ${key}`);
       visit(nested);
     }
@@ -1290,7 +1388,12 @@ function assertClosedNextSchema(report) {
     "authenticate-target-cli": ["actor", "kind", "target"],
     "approve-deploy-destination": ["actor", "kind", "target", "env"],
     "remove-secret": ["actor", "kind", "name", "scope"],
-    "forget-deploy-destination": ["actor", "kind", "target", "env"]
+    "forget-deploy-destination": ["actor", "kind", "target", "env"],
+    "review-connection-route": ["actor", "kind"],
+    "complete-provider-native-setup": ["actor", "kind"],
+    "review-destination-setup": ["actor", "kind"],
+    "review-local-development": ["actor", "kind", "step"],
+    "resolve-unknown-connection": ["actor", "cause", "kind"]
   };
   const actionActors = {
     "fix-gitignore": "agent",
@@ -1304,12 +1407,38 @@ function assertClosedNextSchema(report) {
     "approve-deploy-destination": "human",
     // Deleting a Secret and forgetting a destination are never actor: agent.
     "remove-secret": "human",
-    "forget-deploy-destination": "human"
+    "forget-deploy-destination": "human",
+    "review-connection-route": "agent",
+    "complete-provider-native-setup": "human",
+    "review-destination-setup": "agent",
+    "review-local-development": "agent",
+    "resolve-unknown-connection": "human"
   };
   for (const action of report.nextActions) {
     assert.ok(action.actor === "agent" || action.actor === "human");
     assert.deepEqual(Object.keys(action).sort(), actionKeys[action.kind].slice().sort());
     assert.equal(action.actor, actionActors[action.kind]);
+  }
+
+  assert.deepEqual(Object.keys(report.connection).sort(), ["issue", "report", "status"]);
+  assert.ok(["inactive", "not-selected", "unavailable", "selected"].includes(report.connection.status));
+  assert.ok(report.connection.issue === null || ["metadata-unavailable", "history-unavailable"].includes(report.connection.issue));
+  if (report.connection.status === "selected") {
+    const connection = report.connection.report;
+    assert.deepEqual(Object.keys(connection).sort(), ["applicationCheck", "credential", "destination", "environment", ...(connection.nativeApplicationObservation ? ["nativeApplicationObservation"] : []), "providerCheck", "route", "service", "stage"]);
+    assert.deepEqual(Object.keys(connection.credential).sort(), ["source", "status"]);
+    assert.deepEqual(Object.keys(connection.destination).sort(), ["kind", "status"]);
+    assert.deepEqual(Object.keys(connection.providerCheck).sort(), ["authority", "status"]);
+    assert.deepEqual(Object.keys(connection.applicationCheck).sort(), ["authority", "status"]);
+    assert.equal(connection.service, "resend");
+    assert.ok(["development", "preview", "production"].includes(connection.environment));
+    assert.ok(["provider-native", "api-key-case-managed", "manual"].includes(connection.route));
+    assert.ok(["local", "vercel", "cloudflare", "manual"].includes(connection.destination.kind));
+    assert.ok(["missing", "registered", "external-unverified", "unavailable"].includes(connection.credential.status));
+    assert.ok(["not-selected", "prerequisites-checked", "configured", "changed", "unknown"].includes(connection.destination.status));
+    assert.ok(["not-run", "passed", "failed", "unknown", "stale", "not-applicable"].includes(connection.providerCheck.status));
+    assert.ok(["not-run", "passed", "failed", "unknown", "stale"].includes(connection.applicationCheck.status));
+    assert.ok(["choose-route", "acquire-credential", "configure-destination", "verify-provider", "verify-application", "ready", "blocked", "unknown"].includes(connection.stage));
   }
 
   const envs = new Set(["production", "preview", "development"]);
@@ -1357,7 +1486,7 @@ function testNextCliJson(root) {
   });
   assert.equal(result.status, 0, result.stderr);
   const parsed = JSON.parse(result.stdout);
-  assert.equal(parsed.schemaVersion, 2);
+  assert.equal(parsed.schemaVersion, 13);
   assertClosedNextSchema(parsed);
   assertNoCanary("next CLI stdout", result.stdout);
   assertNoCanary("next CLI stderr", result.stderr);
@@ -1747,7 +1876,7 @@ async function testHumanPlaneSecretBoundary(root) {
 
   const encodedIndex = helperRequest.args.indexOf("-EncodedCommand") + 1;
   assert.ok(encodedIndex > 0);
-  const helperScript = Buffer.from(helperRequest.args[encodedIndex], "base64").toString("utf16le");
+  const helperScript = decodeWindowsHelperScript(helperRequest.args[encodedIndex]);
   assert.equal(helperScript, buildWindowsSecretInputScript(ref));
   assert.match(helperScript, /UseSystemPasswordChar = \$true/);
   assert.match(helperScript, /CredWrite/);
@@ -2155,9 +2284,12 @@ function testDestinationTrustWritesConfinedToEngine() {
   assert.ok(engine);
   assert.match(
     engine.text,
-    /if \(requiresHuman && automaticClass\) \{\s*try \{\s*await recordDestinationTrust/,
+    /if \(!connection && requiresHuman && automaticClass\) \{\s*try \{\s*await recordDestinationTrust/,
     "trust is recorded only after a Human Plane approval for an automatic-safe class"
   );
+  assert.match(engine.text,
+    /if \(connection && requiresHuman && automaticClass && !handoff\.blocked\) \{\s*try \{ await recordDestinationTrust/,
+    "v2 trust writes also require actual human approval and an automatic-safe class");
   // The catch here is the only place this warning is printed. Its wording
   // promises that a failed save leaves the destination unconfirmed, which is
   // exactly what the slot-before-exact write order in destination.ts's
@@ -3190,6 +3322,99 @@ async function testPhaseCApprovalBoundary(root) {
       assert.equal(JSON.stringify(firstProjected.execution).includes(canaryOpenAi), false);
       assert.equal(JSON.stringify(secondProjected.execution).includes(alternateSecret), false);
     }
+    // smol-toml uses null-prototype records, including nested environment
+    // tables. Keep destination selection and projection structural, without
+    // retaining nested Secret-bearing values or depending on their lengths.
+    const previewAccountId = "fedcba9876543210fedcba9876543210";
+    const previewDestination =
+      `Cloudflare worker phase-c-preview-worker; account ${previewAccountId} via wrangler.toml`;
+    const previewConfig = `${baselineWranglerConfig}[env.preview]\n` +
+      `name = "phase-c-preview-worker"\naccount_id = "${previewAccountId}"\n`;
+    const previewRequest = {
+      ...snapshotRequest,
+      env: "preview",
+      providerIdentity: `accounts:${previewAccountId}`
+    };
+    const previewPlan = adapter.planDeploy(name, "preview", { force: false });
+    const nestedSecrets = [canaryOpenAi, "synthetic-nested-secret-with-a-different-length"];
+    const nestedHashes = [];
+    for (const secret of nestedSecrets) {
+      write(projectDir, "wrangler.toml", `${previewConfig}[env.preview.vars]\n` +
+        `NESTED = { name = "${secret}", account_id = "${secret}", credentials = { token = "${secret}" } }\n`);
+      const nested = buildTrustedExecution(previewRequest, previewPlan, {
+        pathOverride: fixture.pathOverride,
+        projectDir
+      });
+      assert.equal(nested.ok, true, "nested TOML environment records must resolve");
+      if (!nested.ok) continue;
+      const config = nested.execution.snapshot.destinationConfig.find(
+        (file) => file.path.endsWith("wrangler.toml")
+      );
+      assert.equal(config?.destinationLabel, previewDestination);
+      assert.ok(config.contentHash);
+      nestedHashes.push(config.contentHash);
+      assert.equal("size" in config, false);
+      const nestedApproval = makeApprovalPlan(previewRequest, previewPlan, nested.execution, "first-use");
+      assert.equal(nestedApproval.destination, `${previewDestination}; provider identity accounts:${previewAccountId}`);
+      assert.deepEqual(resolveClerkWorkerDestination(projectDir, "preview"), {
+        accountId: previewAccountId,
+        name: "phase-c-preview-worker"
+      });
+      for (const output of [
+        JSON.stringify(nested.execution),
+        JSON.stringify(nestedApproval),
+        buildWindowsApprovalScript(nestedApproval)
+      ]) {
+        assert.equal(output.includes(secret), false, "nested TOML Secret values must not enter output");
+      }
+    }
+    assert.equal(nestedHashes.length, 2);
+    assert.equal(nestedHashes[0], nestedHashes[1], "nested Secret values and lengths must not affect the projection hash");
+
+    const productionFromNested = buildTrustedExecution(snapshotRequest, plan, {
+      pathOverride: fixture.pathOverride,
+      projectDir
+    });
+    assert.equal(productionFromNested.ok, true);
+    if (productionFromNested.ok) {
+      assert.match(productionFromNested.execution.snapshot.destinationLabel, /^Cloudflare worker phase-c-worker; account 0123456789abcdef0123456789abcdef /);
+    }
+    write(projectDir, "wrangler.toml", previewConfig.replace("phase-c-preview-worker", "changed-preview-worker") +
+      `[env.preview.vars]\nNESTED = { name = "${canaryOpenAi}", account_id = "${canaryOpenAi}", credentials = { token = "${canaryOpenAi}" } }\n`);
+    const changedPreview = buildTrustedExecution(previewRequest, previewPlan, {
+      pathOverride: fixture.pathOverride,
+      projectDir
+    });
+    assert.equal(changedPreview.ok, true);
+    if (changedPreview.ok) {
+      assert.notEqual(changedPreview.execution.snapshot.destinationConfig.find(
+        (file) => file.path.endsWith("wrangler.toml")
+      )?.contentHash, nestedHashes[0], "nested destination changes must still affect the projection hash");
+    }
+
+    // No root fallback is available in these fixtures: malformed or missing
+    // destination fields must not become a concrete preview destination.
+    for (const [label, content] of [
+      ["malformed TOML", `[env.preview]\nname = "${canaryOpenAi}\n`],
+      ["duplicate TOML key", `${previewConfig}name = "duplicate-worker"\n`],
+      ["non-record environments", 'env = "preview"\n'],
+      ["non-record preview", '[env]\npreview = "worker"\n'],
+      ["preview array of tables", `[[env.preview]]\nname = "worker"\naccount_id = "${previewAccountId}"\n`],
+      ["non-string name", `[env.preview]\nname = { value = "worker" }\naccount_id = "${previewAccountId}"\n`],
+      ["non-string account", `[env.preview]\nname = "worker"\naccount_id = ["${previewAccountId}"]\n`],
+      ["missing name", `[env.preview]\naccount_id = "${previewAccountId}"\n`],
+      ["missing account", '[env.preview]\nname = "worker"\n'],
+      ["missing preview", `[env.development]\nname = "worker"\naccount_id = "${previewAccountId}"\n`]
+    ]) {
+      write(projectDir, "wrangler.toml", content);
+      const rejected = buildTrustedExecution(previewRequest, previewPlan, {
+        pathOverride: fixture.pathOverride,
+        projectDir
+      });
+      assert.deepEqual(rejected, { ok: false, reason: "unsafe-environment" }, label);
+      assert.equal(resolveClerkWorkerDestination(projectDir, "preview"), null, label);
+      assertNoCanary(`${label} result`, JSON.stringify(rejected));
+    }
     write(projectDir, "wrangler.toml", baselineWranglerConfig);
 
     // Multiple Wrangler config filenames make precedence version-dependent,
@@ -3795,7 +4020,7 @@ async function testPhaseDDestinationBoundary(root) {
       assert.deepEqual(locked.historyDiagnostic, { phase: "start", issue: "lock-present", recovery: "wait-and-inspect" });
       assert.ok(printed.some((line) => line.includes("no provider write was attempted")));
       assert.ok(printed.some((line) => line.includes("crash or stale lock is not established")));
-      assert.ok(printed.some((line) => line.includes("run history --json again")));
+      assert.ok(printed.some((line) => line.includes("run history --json --offline again")));
       assert.equal(existsSync(recordPath), false);
       assert.equal(existsSync(join(historyDir, "lock")), true);
 
@@ -4320,7 +4545,7 @@ async function testPhaseELifecycle(root) {
     assert.equal(helperRequest.shell, false);
 
     const encoded = helperRequest.args[helperRequest.args.indexOf("-EncodedCommand") + 1];
-    const script = Buffer.from(encoded, "base64").toString("utf16le");
+    const script = decodeWindowsHelperScript(encoded);
     assert.equal(script, buildWindowsRemovalScript(dialogPlan));
     // Deny-safe: Enter, Escape, and the initial focus all decline.
     assert.match(script, /\$form\.AcceptButton = \$noButton/);
@@ -5724,12 +5949,33 @@ function testAssertProFeatureConfinedToDeploy() {
   const allowed = new Set([
     "../packages/core/license.ts",
     "../packages/cli/index.ts",
-    "../packages/mcp/tools.ts"
+    "../packages/mcp/tools.ts",
+    "../packages/core/deploy/engine.ts",
+    "../packages/core/deploy/handoff.ts" // closed local development execution only
   ]);
   const offenders = readSources([...VAULT_SOURCE_FILES, ...DEPLOY_SOURCE_FILES, ...MCP_SOURCE_FILES])
     .filter((file) => file.text.includes("assertProFeature(") && !allowed.has(file.path))
     .map((file) => file.path);
-  assert.deepEqual(offenders, [], "assertProFeature must only be called from cli/index.ts and mcp/tools.ts");
+  assert.deepEqual(offenders, [], "assertProFeature must stay confined to deploy entrypoints");
+  const engine = readSources(["../packages/core/deploy/engine.ts"])[0].text;
+  assert.equal((engine.match(/assertProFeature\(/g) ?? []).length, 2);
+  const connectionEntry = engine.slice(engine.indexOf("export async function runConnectionDeploy"), engine.indexOf("export async function runDeploy("));
+  assert.match(connectionEntry, /assertProFeature\("deploy", deps\.licenseOptions\)/);
+  assert.ok(connectionEntry.indexOf("assertProFeature(") < connectionEntry.indexOf("new ConnectionStateStore"),
+    "the v2 entrypoint must gate before any metadata/vault/provider work, including dry-run");
+  const clerkEntry = engine.slice(engine.indexOf("export async function runClerkConnectionPrepare"), engine.indexOf("export async function runDeploy("));
+  assert.match(clerkEntry, /assertProFeature\("deploy",\s*deps\.licenseOptions\)/);
+  assert.ok(clerkEntry.indexOf("assertProFeature(") < clerkEntry.indexOf("new ConnectionStateStore"),
+    "Clerk preparation must gate before metadata/vault/provider work, including dry-run");
+  const handoff = readSources(["../packages/core/deploy/handoff.ts"])[0].text;
+  assert.equal((handoff.match(/assertProFeature\(/g) ?? []).length, 1);
+  const localEntry = handoff.slice(handoff.indexOf("export async function runLocalApplication("), handoff.indexOf("async function prepareLocalExecution("));
+  assert.match(localEntry, /assertProFeature\("deploy", deps\.licenseOptions\)/);
+  assert.ok(localEntry.indexOf("assertProFeature(") < localEntry.indexOf("return prepareLocalExecution("),
+    "bounded local execution must gate before metadata/vault/process work");
+  const localInspection = readSources(["../packages/core/local/session.ts"])[0].text;
+  assert.ok(!localInspection.includes("assertProFeature("), "local inspection/status remains free");
+
 }
 
 async function testMcpDeploySecretLicenseGate(root) {

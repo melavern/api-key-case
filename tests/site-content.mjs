@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import {
   applyPublishGate,
+  LANDING_PAGE_PUBLISH_GATE_MET,
   checkLandingPage,
   deploy,
   loadLocalPostHogConfig,
@@ -140,7 +141,7 @@ for (const forbidden of [".envを卒業", ".env を卒業", ".envの自動削除
 
 for (const [content, label] of [[readme, "English README"], [readmeJa, "Japanese README"]]) {
   assert.match(content, /current `?\.env`?|今の `\.env` から始める/, `${label} must explain the existing env path`);
-  assert.match(content, /cannot hold different development and production values|development用と\s*production用の別々の値を同時には保持できません/, `${label} must explain the single project\/name slot`);
+  assert.match(content, /legacy save\/check commands keep one value per project\/name|従来のsave\/checkは同じproject\/nameごとに1つの値を保持/, `${label} must distinguish legacy slots from generic registrations`);
   assert.match(content, /scanner|scanner/, `${label} must explain scanner limitations`);
   assert.match(content, /Cloudflare/, `${label} must explain provider constraints`);
   assert.match(content, /registration remains available|Secretの登録自体は\s*可能/, `${label} must separate registration from deploy readiness`);
@@ -294,7 +295,9 @@ assert.match(activationSection, /注文の支払・返金状態を Lemon Squeezy
 assert.doesNotMatch(activationSection, /次の情報を HTTPS で固定送信先/, "privacy must not bundle the IP address and digest into what the CLI sends");
 assert.doesNotMatch(activationSection, /<li><strong>接続元 IP アドレス：<\/strong>/, "privacy must not list the IP address as an item the CLI sends");
 assert.doesNotMatch(activationSection, /<li><strong>購入キーの SHA-256 ダイジェスト：<\/strong>/, "privacy must not list the digest as an item the CLI sends");
-assert.match(privacy, /最終更新：2026-09-15/, "privacy must carry the date of its latest data-flow revision");
+assert.match(privacy, /最終更新：2026-10-16/, "privacy must carry the date of its latest data-flow revision");
+assert.match(privacy, /<strong>Tally：<\/strong>/, "privacy must disclose the form provider used by the macOS validation application");
+assert.match(privacy, /<strong>Resend：<\/strong>/, "privacy must disclose the acknowledgment mail provider");
 assert.match(privacy, /PostHog/, "privacy must disclose the usage analytics provider");
 assert.match(privacy, /cli_command_result/, "privacy must disclose the CLI usage event");
 assert.match(privacy, /telemetry disable/, "privacy must disclose the CLI telemetry opt-out");
@@ -318,7 +321,7 @@ const priceSection = landing.match(/<section class="section" id="price"[\s\S]*?<
 const purchaseNote = priceSection?.match(/<p class="purchase-note">[\s\S]*?<\/p>/)?.[0];
 assert.ok(proCard, "the Pro pricing card must remain present");
 assert.ok(purchaseNote, "purchase conditions must have a note below the pricing cards");
-assert.match(proCard, /保存済みの値を、各サービスへ配置するところまで任せられます。/, "the Pro card must lead with its deployment value");
+assert.match(proCard, /登録したキーを、対応サービスや承認した開発アプリで使えます。/, "the Pro card must describe placement and approved application use");
 assert.doesNotMatch(proCard, /dry-run/, "the Pro card must not promote dry-run");
 assert.match(proCard, /通常対応の配置は Windows 11 Build 22000以降＋Windows Hello が条件です/, "the Pro card must repeat the normal Windows condition before purchase");
 assert.match(purchaseNote, /<strong>購入前に確認：<\/strong>/, "purchase conditions must use the small purchase-check note");
@@ -382,13 +385,13 @@ assert.match(landing, /「AIに渡さない」のは、API Key Case自身の経�
 assert.doesNotMatch(landing, /作者/, "user-facing trust copy must refer to the developer, not the author");
 assert.doesNotMatch(landing, /production だけ手で止める|production など、人間|production を完全自動/, "user-facing copy must say 本番環境 rather than production");
 assert.match(landing, /本番環境（production）への配置/, "the Agent prompt may retain the technical environment name with a Japanese explanation");
-assert.equal(countOf("対応済みの外部配置先: Cloudflare / Vercel / GitHub"), 1, "the pricing copy must identify the three services as external destinations");
+assert.equal(countOf("Cloudflare / Vercel / GitHubへの配置と、開発アプリの起動"), 1, "the pricing copy must distinguish allowlisted placement and application use");
 assert.match(securitySection, /配置時はCloudflare \/ Vercel \/ GitHubの公式CLIへ渡します/, "security copy must identify the actual handoff and the three destinations");
 assert.equal(countOf("GitGuardianの調査では、2025年のGitHub公開コミットから、コードに埋め込まれた新しい認証情報（Secret）が約2,865万件検出されました。検出件数は前年比34%増です。"), 1, "the landing page must include exactly one market-evidence statement");
 assert.equal(countOf("https://blog.gitguardian.com/the-state-of-secrets-sprawl-2026/"), 1, "the market evidence must link once to GitGuardian's official 2026 source");
 
-// The announcement's opening is the sole Hero headline; EV stays an illustration.
-assert.match(heroSection, /<h1>APIキーの設定も、<br>Agentに任せたい。<br><span class="hero-last-line">でも、<span class="marker">値は渡したくない。<\/span><\/span><\/h1>/);
+// The Hero states the user outcome; the existing video stays an illustration.
+assert.match(heroSection, /<h1>APIキーを<br>AIに貼らずに、<br><span class="hero-last-line"><span class="marker">AIと開発を進める。<\/span><\/span><\/h1>/);
 assert.doesNotMatch(landing, /hero-hook|AIに実装を任せる。|考えなくていい。/, "the old headline and extra hook must not compete");
 const sectionOffset = (id) => landing.indexOf(`id="${id}"`);
 assert.ok(sectionOffset("three") < sectionOffset("ev") && sectionOffset("ev") < sectionOffset("security"), "the video must connect the three steps to security");
@@ -409,13 +412,16 @@ assert.match(securitySection, /Linuxは診断・状態確認・履歴と、利�
 assert.match(securitySection, /操作はAgentに任せても、重要な判断までAgent自身には任せません/);
 assert.match(securitySection, /自動で配置できるのは、確認済みの同じ送り先へのVercel preview/);
 const reviewPrompt = landing.match(/id="prompt-review"[^>]*>([\s\S]*?)<\/textarea>/)?.[1];
-assert.ok(reviewPrompt.includes(`${manifest.version}に対応する公開ソースが取得できるか確認`));
+assert.ok(reviewPrompt.includes(`${publishedVersion}に対応する公開ソースが取得できるか確認`));
 assert.match(reviewPrompt, /未確認としてください/);
 assert.match(reviewPrompt, /公開資料だけを読み/);
 assert.match(reviewPrompt, /人間の承認として扱わないでください/);
-assert.match(landing, /同じプロジェクトの同じキー名には、開発用と本番用の別々の値を同時に保存できません/);
+assert.match(landing, /用途ごとに別のキーを登録することもできます/);
 assert.match(landing, /Cloudflareへの配置では、設定ファイルと同じ場所に実際の/);
-assert.match(landing, /ローカルアプリへの値の注入は行いません/);
+assert.match(landing, /承認したアプリとその依存コードはキーを読めます/);
+assert.match(setupPrompt, /secret capabilities --json/);
+assert.match(setupPrompt, /secret discover --project \. --json/);
+assert.match(setupPrompt, /結果不明の操作を自動で再実行しないでください/);
 for (const asset of ["favicon.ico", "brand/favicon.svg", "brand/mark.svg", "brand/logo.svg", "brand/apple-touch-icon.png", "brand/og-image.png"]) {
   assert.equal(existsSync(resolve(repoDir, asset)), true, `${asset} must be committed beside the pages`);
 }
@@ -444,18 +450,15 @@ for (const forbidden of ["実機の録画です", "本当に進みます", "初�
 assert.match(readFileSync(resolve(repoDir, "launch-ja-lp-vertical.vtt"), "utf8"), /^WEBVTT\r?\n/, "the committed captions must be WebVTT");
 
 // PAGE_SPEC §8 publish gate. The page no longer protects itself by being a
-// separate file, so the gate lives in the publish script. It was opened for
-// 0.9.1 on 2026-09-14, so a staged build must now be indexable and carry the
-// committed robots.txt; closing it again is a deliberate withdrawal of the
-// page's claims and must fail these assertions rather than slip through.
-// deploy() is deliberately not invoked here: with the gate open it would
-// reach Wrangler, and the PostHog requirement it shares with the Preview lane
-// is already asserted above through stageSite({ requirePostHog: true }).
+// separate file, so the gate lives in the publish script. The 0.10.0 candidate
+// deliberately closes it until package/source acceptance. Check both the page
+// and robots behavior of the declared state; never infer publication from copy.
 assert.doesNotThrow(() => checkLandingPage(landing), "the landing page must pass its publish checks");
 assert.throws(() => checkLandingPage(landing + "<p>npx api-key-case scan</p>"), /must not teach CLI usage/);
 assert.throws(() => checkLandingPage('<textarea id="unrelated">npx api-key-case scan</textarea>'), /must not teach CLI usage/);
 assert.equal(typeof deploy, "function", "the production deploy lane must still exist");
-assert.equal(applyPublishGate(landing), landing, "an open gate must leave the published page untouched (no noindex)");
+if (LANDING_PAGE_PUBLISH_GATE_MET) assert.equal(applyPublishGate(landing), landing);
+else assert.match(applyPublishGate(landing), /name="robots" content="noindex, nofollow"/);
 {
   const stagedDir = stageSite();
   for (const media of ["launch-ja-lp-vertical.mp4", "launch-ja-lp-vertical-poster.jpg", "launch-ja-lp-vertical.vtt", "launch-ja-landscape.mp4", "launch-ja-landscape-poster.jpg", "launch-ja-landscape.vtt"]) {
@@ -468,12 +471,19 @@ assert.equal(applyPublishGate(landing), landing, "an open gate must leave the pu
     assert.ok(paths.includes("launch-ja.mp4") && paths.includes("launch-ja-poster.jpg"));
     for (const media of paths) assert.deepEqual(readFileSync(join(stagedDir, media)), readFileSync(resolve(repoDir, media)), `${name}'s public media URL must survive production staging: ${media}`);
   }
-  assert.equal(readFileSync(join(stagedDir, "robots.txt"), "utf8"), readFileSync(resolve(repoDir, "robots.txt"), "utf8"), "an open gate must stage the committed robots.txt, not Disallow: /");
-  assert.doesNotMatch(readFileSync(join(stagedDir, "index.html"), "utf8"), /name="robots"/, "the staged production page must be indexable");
+  const stagedRobots = readFileSync(join(stagedDir, "robots.txt"), "utf8");
+  const stagedLanding = readFileSync(join(stagedDir, "index.html"), "utf8");
+  if (LANDING_PAGE_PUBLISH_GATE_MET) {
+    assert.equal(stagedRobots, readFileSync(resolve(repoDir, "robots.txt"), "utf8"));
+    assert.doesNotMatch(stagedLanding, /name="robots"/);
+  } else {
+    assert.match(stagedRobots, /Disallow: \//);
+    assert.match(stagedLanding, /name="robots" content="noindex, nofollow"/);
+  }
 }
 
 for (const source of editorialSources) {
-  assert.match(source, /APIキーの設定も、Agentに任せたい。/, "the LP copy source must record the hero hook shared with the announcement video");
+  assert.match(source, /APIキーをAIに貼らずに、AIと開発を進める/, "the LP copy source must record the adopted primary outcome");
   assert.match(source, /貼る \/ 入れる \/ 確認する/, "the LP copy source must use the revised three-step wording");
   assert.match(source, /セットアップ用プロンプトをコピー/, "the LP copy source must preserve the primary CTA");
   assert.match(source, /AIに安全性をレビューさせる/, "the LP copy source must preserve the review CTA");
@@ -495,7 +505,7 @@ assert.equal(manifest.files.includes("CHANGELOG.md"), true, "npm package must in
 assert.equal(manifest.files.includes("LICENSES/0BSD.txt"), true, "npm package must include the generated-output license");
 
 const disclosure = pages.get("tokushoho.html");
-assert.match(disclosure, /請求があれば遅滞なく開示します/, "commercial disclosure must provide a delayed-disclosure commitment");
+assert.match(disclosure, /請求があれば遅滞なく開示(?:します|いたします)/, "commercial disclosure must provide a delayed-disclosure commitment");
 assert.doesNotMatch(disclosure, /最終確認画面で商品、価格、税、支払方法および返金条件/, "commercial disclosure must not claim the checkout screen shows refund conditions");
 assert.match(disclosure, /<a href="refund\.html">返金ポリシー<\/a>で返金条件と動作環境/, "commercial disclosure must route refund conditions to this site");
 assert.match(disclosure, /特商法に基づく表示の開示請求/, "commercial disclosure must provide a concrete request route");

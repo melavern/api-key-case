@@ -22,7 +22,7 @@ The CLI is expected to:
 - Human-owned terminal use keeps the existing path: interactive hidden-input prompt → local CLI process memory → the OS secret store (Keychain / Credential Manager / Linux OS keyring).
 - Agent-first Secret input uses `save <NAME> --ask`. On supported Windows and macOS hosts its separate Human Plane path is: password-dialog keystroke → fixed-path, sanitized helper-process memory → the native OS secret store. The helper writes the credential directly and returns only `saved`, `cancelled`, or `unavailable`; the value is never returned to the CLI parent. On macOS the JXA helper calls Security.framework directly with the existing `api-key-case` service/account naming, rather than placing the value in a `security` command, argv, environment, file, or parent-facing IPC payload. No function in the Human Plane interface returns a secret value.
 - The Human Plane helper is resolved and verified at an OS-fixed absolute path: Windows PowerShell on Windows and root-owned, not group/world-writable `/usr/bin/osascript` on macOS. It runs from the fixed system directory with ignored stdio and a fresh environment: empty on macOS, and on Windows an explicit allowlist of `SystemRoot`, `WINDIR`, `SYSTEMDRIVE`, `PATH`, `PATHEXT`, `ComSpec`, `TEMP`, `TMP`, `USERPROFILE`, `HOMEDRIVE` and `HOMEPATH`. It does not inherit Agent-controlled `PATH`, `HOME`, `NODE_OPTIONS`, `LD_PRELOAD`, `DYLD_*`, provider authentication variables, or the project working directory. The Windows list is longer than it looks because it has to be: Node fills `PATH`, `TEMP`, `USERPROFILE`, `HOMEDRIVE`, `HOMEPATH` and `SYSTEMDRIVE` in from the parent process whenever the spawn omits them, so each one is *set* to a fixed system location, to a per-call scratch directory, or to the profile resolved through the OS rather than left out. `USERNAME`, `USERDOMAIN` and `LOGONSERVER` are still supplied that way; they name the caller rather than resolving code or files, and the helper reads none of them. If that boundary is unavailable, `--ask` fails closed and prints a handoff command for a human-owned terminal; it never falls back to the parent process's prompt.
-- `check`/`hasSecret` uses the OS secret store's read API only to determine whether an entry exists, then immediately reduces the result to a boolean. It does not return, persist, log, or expose the value. This is distinct from the deploy handoff, which is the only path that must retain a value long enough to pass it to an official CLI.
+- `check`/`hasSecret` uses the OS secret store's read API only to determine whether an entry exists, then immediately reduces the result to a boolean. It does not return, persist, log, or expose the value. This is distinct from the sole value-bearing handoff module, which retains a value only for closed official-CLI operations and the separately gated local application candidate below.
 - `save` never accepts a value as a command-line argument or piped stdin. The legacy prompt requires a human-owned TTY; `--ask` does not read stdin at all.
 - `check` and `list` report only registered/missing status, names, scopes, and timestamps. The on-disk metadata index (`~/.api-key-case/index.json`) never contains a value, a hash of a value, or a value's length.
 - Secret registration has two separate stages: the OS secret-store write and the value-free metadata/index update. If the store write succeeds but the index update fails, the CLI reports those facts separately and directs the user to `check <NAME>`; absence from `list` or `next` is not treated as proof that the stored Secret is missing.
@@ -46,6 +46,58 @@ The CLI is expected to:
 - Confirming an operation in the Human Plane records that identity, plus a `(project, target, environment)` slot used only to tell a first use apart from a changed destination. Both records live in the OS secret store as existence-only entries under a `v1|destination…` account whose value is a fixed marker, so no file write can mint one and they cannot collide with a Secret account. A trust record is not an approval token, a deploy permission, or access to any Secret: the engine still re-resolves the destination, re-applies the operation policy, and re-verifies the execution snapshot before every spawn. There is no CLI flag, MCP parameter, environment variable, or stdin path that creates or edits one. Anything able to call the OS credential API directly is already inside the OS-account trust boundary this tool relies on everywhere else.
 - The automatic policy denies by default. `production`, `github` at any `--env`, Vercel `development`, `--force`, `--scope user`, any overwrite-capable or destructive step, an unconfirmed or changed destination, an ambiguous destination, a provider credential present in the environment, and anything outside the closed allowlist all require the Human Plane. The allowlist currently holds exactly one entry — Vercel `preview` in `project` scope without `--force` — because that call fails rather than overwriting and because the value cannot be read back afterwards. That second premise is this tool's own, not an inherited default: on Vercel, sensitivity is a per-variable setting independent of the environment (`--no-sensitive` exists, and the CLI's default has changed over time), so the adapter always plans `vercel env add … --sensitive` for `preview` and `production`. `preview` also plans `--yes`: the CLI asks which Git branch a Preview variable applies to, and a non-interactive child cannot answer, in which case `vercel` exits 0 without creating the variable (measured on 59.11.7, 2026-09-08). A test asserts that every environment on the automatic-safe allowlist still plans sensitive storage, so removing the flag cannot silently widen automatic execution. `development` never receives the flag, so its value stays readable back, which is why it is off the allowlist. Older Vercel releases also rejected the flag there; 59.11.7 accepts it, so this is now a deliberate choice by this tool rather than a provider restriction, and relaxing it would be a reviewed change to the allowlist premise rather than a flag edit. Cloudflare is excluded because `wrangler secret put` always overwrites.
 - The deploy target is a closed list (`cloudflare` | `vercel` | `github`) fixed in source; it cannot be extended or redirected by a config file or environment variable.
+
+### Generic Windows secret workflow (0.10.0)
+
+Generic registration keeps values in the existing native input/OS-store path.
+Agents supply validated display metadata, never a value, approval or UI code.
+The input window shows the key name and masked entry; classification and context
+are available in initially closed Details. Existing associations are discovered
+before another entry is requested.
+
+Registered Cloudflare/Vercel/GitHub destinations and ordinary Node/npm/Python
+LaunchProfiles require Pro and the existing independent native review. Each
+application session requires fresh Windows OS verification, an exact profile and
+a bounded lifetime (at most 120 minutes). The app, dependencies, children and same
+OS user can read its environment; this is not Agent isolation or a sandbox.
+App output streams are disconnected, but application-owned logging, files and
+network disclosures remain possible. Agent-facing CLI/MCP/JSON and plaintext-file
+export do not return values. Unknown operations are observed, never automatically
+replayed. New routes are Windows-only; legacy platform support remains separate.
+
+### Earlier fixed Resend local application candidate
+
+The adopted local boundary permits an explicitly approved application to read its
+project × Resend × development v2 key. Application code, dependencies and the same
+OS user are trusted. API Key Case does not expose the key via Agent CLI/MCP/JSON,
+plaintext files, argv or ordinary logs. App-owned logs/files/network behavior remain
+outside that guarantee, and stopping cannot revoke a copied key. This is not a
+sandbox or a generic secret runner.
+
+`connection local` is a staged development surface. Inspection/status confer no
+permission. The actual foreground Node-artifact launcher is source-disabled pending
+real Windows synthetic process-tree acceptance and review. No caller flag, env,
+receipt, hosted destination trust or test result enables it. The future enabling
+change must retain a new Windows OS verification for every session, a 30-minute
+maximum, exact revision binding, atomic Job Object ownership before child execution,
+non-inherited ownership handles, full-tree termination, and ignored app streams.
+
+The public executing entry accepts only a closed request and cancellation signal;
+it constructs trusted dependencies internally. Its raw-reading coordinator is
+private, with no caller-controlled owner, approval, snapshot or permission mint.
+Synthetic mocks exist only in disposable test builds.
+
+The sole value-bearing handoff module passes the exact key over a private helper
+pipe for a fixed safe child environment. There is no arbitrary args/env/URL/shell
+or npm/build/install path. Private artifact/runtime/build-input snapshots and helper
+digests never become Agent-visible or persisted fingerprints. They detect changes
+within the declared set; they do not prove build provenance, self-containment, or
+coverage of dynamic imports/dependencies. Opaque attempts are durably marked unknown
+before launch; interruption and malformed protocol do not trigger a second launch.
+A stale session lock requires owner review, with a supported recovery primitive
+still pending. Receipts do not prove app readiness or confer authority. See the
+[local handoff contract](docs/design/local-application-handoff.md) for exact bounds,
+remaining native acceptance, and the separate real-application gate.
 
 ### MCP boundary (`mcp`)
 
@@ -142,3 +194,39 @@ Deleting a local file or rewriting Git history does not invalidate a leaked cred
 ## Supported versions
 
 Before the first stable release, security fixes are provided only for the latest published version.
+
+## Explicit native-configuration inspection (private development)
+
+`connection native inspect` is a separate, explicit network operation for a selected Resend/Vercel or closed Clerk/Vercel provider-native intent.
+The ordinary connection plan remains offline. Inspection uses the installed trusted official CLI, an exact linked project
+and environment, and a fixed Vercel API GET through that CLI. A bounded version probe requires reviewed CLI 59.11.7 before the API command; other versions fail closed without automatically installing or downgrading anything. It never reads the API Key Case vault, transfers a key,
+creates an integration, installs a CLI/plugin, initiates login, pulls environment files or executes an application.
+The existing CLI session may refresh or invalidate its own authentication. That is not a side-effect-free local status read.
+
+The dedicated inspection module transiently consumes bounded stdout which can contain provider environment values.
+It discards stderr, never returns or logs raw output/errors, and derives fingerprints only from allowlisted metadata.
+No cache, value equality, credential validity, integration identity or application success is inferred. A configuration ID
+means integration attribution only. Neither inspection nor editable metadata grants Secret or execution authority.
+Timeout, abort, oversized output, malformed data and changing basis fail closed. `termination-unconfirmed` means the owned
+CLI's close was not observed during the bounded grace period; no process-tree cleanup or automatic retry is claimed.
+
+
+The Clerk-native extension stores only a separate fixed intent and inspects the fixed secret/public-setting pair.
+It introduces no Clerk vault reference or value-bearing handoff. Existing Resend intent IDs, state, receipts, locks and
+execution paths are retained. A matching integration configuration ID is only correlated attribution; it proves neither
+Clerk identity, matching key values nor authentication. Neither setting's value is returned, including the publishable key.
+The schema5 Clerk report is metadata only, and unreadable native metadata never falls back to generic key registration.
+
+
+### Private Clerk Worker-version preparation candidate
+
+The gated Clerk preparation route is one fixed Wrangler4.131.2 operation inside the existing
+value-bearing handoff module. It uses only the selected CLERK_SECRET_KEY project/environment
+slot and fresh hosted-target approval, with no local-runner expansion. The human approves
+latest remote Worker code and existing Version URL/resource exposure; source is not pinned.
+Creating a version is not production activation, but may make the Secret usable by that code.
+Only a closed version UUID/status leaves bounded internal captures. Raw CLI output/errors are
+never returned or logged by API Key Case. Fixed Wrangler logging/output/telemetry/skills controls
+are separate from possible existing-session auth refresh. Journal schema3 records preparation
+as advisory history and fails closed in older readers. Native enablement remains false pending
+the affected synthetic Windows lifecycle/approval milestone; no live action was performed here.

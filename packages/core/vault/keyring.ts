@@ -5,7 +5,7 @@ import {
   toDestinationAccount,
   VAULT_SERVICE
 } from "./naming.js";
-import type { DestinationTrustRef, SecretRef, Vault } from "./types.js";
+import type { DestinationTrustRef, StoredSecretRef, Vault } from "./types.js";
 
 const PROBE_ACCOUNT = "v1|probe";
 
@@ -23,7 +23,7 @@ export class KeyringVault implements Vault {
     }
   }
 
-  async setSecret(ref: SecretRef, value: string): Promise<void> {
+  async setSecret(ref: StoredSecretRef, value: string): Promise<void> {
     const entry = new Entry(VAULT_SERVICE, toAccount(ref));
     try {
       entry.setPassword(value);
@@ -32,7 +32,7 @@ export class KeyringVault implements Vault {
     }
   }
 
-  async hasSecret(ref: SecretRef): Promise<boolean> {
+  async hasSecret(ref: StoredSecretRef): Promise<boolean> {
     const entry = new Entry(VAULT_SERVICE, toAccount(ref));
     let found: boolean;
     try {
@@ -43,7 +43,7 @@ export class KeyringVault implements Vault {
     return found;
   }
 
-  async deleteSecret(ref: SecretRef): Promise<boolean> {
+  async deleteSecret(ref: StoredSecretRef): Promise<boolean> {
     const entry = new Entry(VAULT_SERVICE, toAccount(ref));
     try {
       return entry.deleteCredential();

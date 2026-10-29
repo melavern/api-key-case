@@ -90,3 +90,26 @@ stdin; it does not transmit the value through MCP:
 
 API Key Case reduces the risk of an accidental secret leak; it does not
 guarantee complete safety.
+
+
+## Explicit guidance-only profile (development candidate)
+
+`api-key-case mcp <fixed-project> --guidance-only` exposes only
+`inspect_setup_requirements`, with no input arguments. The default invocation
+continues to expose the seven legacy tools unchanged. This is a stdio profile,
+not an active ChatGPT connection or a hosted service.
+
+The profile uses the existing local scanner with Git inspection and all writes
+omitted. It returns counts and a small closed service-name catalog, not variable
+names, source paths/text, findings, credentials or provider output. The project is
+bound at process startup; a changed real path is rejected. Its dependencies contain
+no vault factory, deployment adapter, Human Plane callback or provider request.
+Existing credentials, provider/destination state and Git history are explicitly
+not inspected. No detected references means none detected, not no secrets needed.
+Do not turn this response into a request to re-register an existing key.
+
+This is the first narrow implementation toward the owner's chat-access goal.
+Human entry/approval, connection-state resume and provider qualification still use
+the existing independent flows. It installs no tunnel, listener, OAuth grant or
+persistent access. Do not connect a real project/account merely because this
+profile exists. Review notes: guidance profile (maintainer-only evidence; omitted from the public tree).

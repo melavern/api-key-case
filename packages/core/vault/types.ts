@@ -6,6 +6,40 @@ export interface SecretRef {
   projectId: string | null; // null when scope === "user"
 }
 
+/** Project-only, fixed-provider slot. No value-bearing getter is exposed. */
+export interface ResendCredentialRef extends SecretRef {
+  name: "RESEND_API_KEY";
+  scope: "project";
+  projectId: string;
+  service: "resend";
+  environment: "development" | "preview" | "production";
+}
+export interface ClerkCredentialRef extends SecretRef {
+  name: "CLERK_SECRET_KEY";
+  scope: "project";
+  projectId: string;
+  service: "clerk";
+  environment: "development" | "preview" | "production";
+}
+export interface OpenAICredentialRef extends SecretRef {
+  name: "OPENAI_API_KEY";
+  scope: "project";
+  projectId: string;
+  service: "openai";
+  environment: "development" | "preview" | "production";
+}
+/** Test-only profile: never a live key or a production environment. */
+export interface StripeTestCredentialRef extends SecretRef {
+  name: "STRIPE_API_KEY";
+  scope: "project";
+  projectId: string;
+  service: "stripe-test";
+  environment: "development" | "preview";
+}
+export type ConnectionCredentialRef = ResendCredentialRef | ClerkCredentialRef | OpenAICredentialRef | StripeTestCredentialRef;
+export type CredentialService = ConnectionCredentialRef["service"];
+export type StoredSecretRef = SecretRef | ConnectionCredentialRef;
+
 /**
  * A Phase D destination trust record (v2.1 §3.2).
  *
@@ -35,9 +69,9 @@ export interface DestinationTrustRef {
 export interface Vault {
   readonly backendName: string;
   isAvailable(): Promise<boolean>;
-  setSecret(ref: SecretRef, value: string): Promise<void>;
-  hasSecret(ref: SecretRef): Promise<boolean>;
-  deleteSecret(ref: SecretRef): Promise<boolean>; // true = deleted; false = absent
+  setSecret(ref: StoredSecretRef, value: string): Promise<void>;
+  hasSecret(ref: StoredSecretRef): Promise<boolean>;
+  deleteSecret(ref: StoredSecretRef): Promise<boolean>; // true = deleted; false = absent
   hasDestinationTrust(ref: DestinationTrustRef): Promise<boolean>;
   saveDestinationTrust(ref: DestinationTrustRef): Promise<void>;
   deleteDestinationTrust(ref: DestinationTrustRef): Promise<boolean>; // true = deleted; false = absent

@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { CliCheckOptions, CliStatus, DeployEnv, DeployPlan, DeployTarget, DetectResult } from "../core/deploy/types.js";
 import { extractVersion, runCliSync } from "./shared.js";
+import { cloudflareTargetPlan, type CloudflareTarget } from "../core/deploy/cloudflare-targets.js";
 
 const CONFIG_FILES = ["wrangler.toml", "wrangler.json", "wrangler.jsonc"];
 
@@ -63,7 +64,7 @@ export class CloudflareAdapter implements DeployTarget {
   }
 }
 
-function cloudflareIdentity(output: string): string | undefined {
+export function cloudflareIdentity(output: string): string | undefined {
   try {
     const parsed = JSON.parse(output) as { loggedIn?: unknown; accounts?: unknown };
     if (parsed.loggedIn !== true || !Array.isArray(parsed.accounts)) return undefined;
@@ -78,5 +79,18 @@ function cloudflareIdentity(output: string): string | undefined {
     return `accounts:${[...new Set(ids.map((id) => id.toLowerCase()))].sort().join(",")}`;
   } catch {
     return undefined;
+  }
+}
+
+/** Internal adapter for an exact entry resolved from the repository allowlist. */
+export class CloudflareConfigAdapter extends CloudflareAdapter {
+  constructor(private readonly destination: CloudflareTarget) { super(); }
+  override planDeploy(name: string, env: DeployEnv, opts: { force: boolean }): DeployPlan {
+    void env; void opts;
+    return cloudflareTargetPlan(this.destination, name);
+  }
+  override async checkCli(options: CliCheckOptions = {}): Promise<CliStatus> {
+    const status = await super.checkCli(options);
+    return status.version && /^4\./.test(status.version) ? status : { ...status, loggedIn: false, identity: undefined };
   }
 }

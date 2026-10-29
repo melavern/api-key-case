@@ -6,6 +6,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { DeploymentHistory, buildHistoryReport, historyDiagnostic, historyIssueFromError, renderHistoryDiagnostic } from "../dist/core/deploy/history.js";
+import { ConnectionStateStore } from "../dist/core/agent/connection-state.js";
+import { connectionCredentialRef } from "../dist/core/agent/connection-credential.js";
 import { deriveProjectId } from "../dist/core/vault/naming.js";
 import { renderAgentProtocol } from "../dist/core/agent/init.js";
 
@@ -43,6 +45,10 @@ export async function runDeploymentHistoryTests() {
     const missing = JSON.parse(run(["history", "--json"]).stdout);
     assert.equal(missing.status, "missing");
     assert.equal(missing.schemaVersion, 2);
+    assert.equal(missing.destinationInspection, "requested");
+    assert.equal(JSON.parse(run(["history", "--json", "--offline"]).stdout).destinationInspection, "skipped-offline");
+    run(["history", "--json", "--offline", "--offline"], 1);
+    run(["next", "--json", "--offline", "--offline"], 1);
     assert.deepEqual(missing.diagnostic, { phase: "inspect", issue: "not-created", recovery: "none" });
     assert.equal(missing.writeAccess, "not-tested");
     run(["history"], 1);
@@ -74,6 +80,22 @@ export async function runDeploymentHistoryTests() {
       baseDir: root, adapters: new Map([["vercel", { id: "vercel" }]]),
       resolveDestination: async () => { probes++; return currentId ? { fingerprint: currentId } : null; }
     };
+    const offlineBefore = JSON.stringify(history.read());
+    let forbiddenReads = 0;
+    const offlineReport = await buildHistoryReport(project, { ...options, offline: true,
+      adapters: new Proxy(new Map(), { get() { forbiddenReads++; throw new Error(canary); } }),
+      resolveDestination: async () => { forbiddenReads++; throw new Error(canary); }
+    });
+    assert.equal(forbiddenReads, 0, "offline mode must not even access adapter or resolver capabilities");
+    assert.equal(offlineReport.destinationInspection, "skipped-offline");
+    assert.ok(offlineReport.entries.every(entry => entry.currentDestination === "unresolved"));
+    assert.deepEqual(offlineReport.entries.map(entry => entry.outcome), ["unknown", "incomplete", "completed"]);
+    assert.equal(offlineReport.authority, "advisory-local-history");
+    assert.equal(offlineReport.currentRemoteState, "not-inspected");
+    assert.equal(JSON.stringify(history.read()), offlineBefore, "offline inspection does not rewrite history or locks");
+    const offlineCli = JSON.parse(run(["history", "--json", "--offline"]).stdout);
+    assert.equal(offlineCli.destinationInspection, "skipped-offline");
+    assert.ok(offlineCli.entries.every(entry => entry.currentDestination === "unresolved"));
     let report = await buildHistoryReport(project, options);
     assert.deepEqual(report.entries.map((entry) => entry.outcome), ["unknown", "incomplete", "completed"]);
     assert.equal(probes, 1, "one closed destination probe per recorded target/environment");
@@ -224,6 +246,9 @@ export async function runDeploymentHistoryTests() {
     assert.equal(otherHistory.read().entries.length, 1, "local history deletion does not clear other projects");
     const protocol = renderAgentProtocol("0.9.1");
     assert.match(protocol, /history --json/);
+    assert.match(protocol, /history --json --offline/);
+    assert.match(protocol, /published 0\.9\.2 does not include --offline/);
+    assert.match(protocol, /destinationInspection=skipped-offline/);
     assert.match(protocol, /not current remote state or authority to skip approval/);
     assert.match(protocol, /Stop the group on history-save failure/);
     assert.match(protocol, /history schemaVersion 2/);
@@ -234,6 +259,177 @@ export async function runDeploymentHistoryTests() {
     assert.match(protocol, /A provider failure, timeout, or unknown result does not justify a force retry/);
     assert.match(protocol, /never repeat the same force operation automatically/);
     assert.match(protocol, /A known Secret that is absent from list or next/);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+  await runConnectionDeploymentHistoryTests();
+}
+
+async function runConnectionDeploymentHistoryTests() {
+  // Preserve realpathSync's spelling, including Windows 8.3 paths. Metadata
+  // and v2 refs must not switch identities after native physical resolution.
+  const root = realpathSync(mkdtempSync(join(tmpdir(), "akc-connection-history-")));
+  try {
+    const project = join(root, "project"), other = join(root, "other");
+    const connectionHome = join(root, "connection-home");
+    mkdirSync(project); mkdirSync(other); mkdirSync(connectionHome);
+    const history = new DeploymentHistory(project, root);
+    const ref = connectionCredentialRef(project, "preview");
+    const legacyInput = { ...input, name: ref.name };
+    const legacy = history.begin(legacyInput);
+    assert.ok(legacy); assert.equal(history.finish(legacy, "completed"), true);
+    const dir = journalDir(root, project), file = join(dir, "history.json");
+    const legacyDisk = readFileSync(file, "utf8"), legacyReceipt = history.read().entries[0];
+    assert.equal(JSON.parse(legacyDisk).schemaVersion, 1, "legacy-only writes retain the original journal schema");
+    assert.equal(Object.hasOwn(legacyReceipt, "connection"), false);
+
+    // This store contains only synthetic value-free metadata. No Vault,
+    // provider executable, network request or real home directory is used.
+    const store = new ConnectionStateStore(project, connectionHome);
+    const register = (selectedRef) => {
+      const mutation = store.beginCredentialMutation(selectedRef);
+      assert.equal(mutation.ok, true);
+      assert.equal(store.finishCredentialMutation(selectedRef, mutation.value, true), true);
+      return mutation.value;
+    };
+    const revision = register(ref);
+    const connectionInput = { ref, target: "vercel", destinationId, force: false,
+      credentialRevision: revision, intentFingerprint: "c".repeat(64) };
+    const id = history.beginConnection({ ...connectionInput, rawOutput: canary, value: canary,
+      ref: { ...ref, value: canary } });
+    assert.ok(id);
+    const mixedDisk = readFileSync(file, "utf8"), mixed = JSON.parse(mixedDisk);
+    assert.equal(mixed.schemaVersion, 2, "first v2 start explicitly upgrades the journal");
+    assert.deepEqual(mixed.entries[0], legacyReceipt, "migration preserves the entire legacy receipt");
+    const pending = mixed.entries[1];
+    assert.equal(pending.id, id);
+    assert.equal(pending.outcome, "unknown");
+    assert.equal(pending.finishedAt, null, "start is durable before any handoff");
+    assert.equal(pending.registrationUpdatedAt, null, "v2 does not reuse legacy registration metadata");
+    assert.deepEqual(pending.connection, { credentialVersion: 2, service: "resend", environment: "preview",
+      projectId: ref.projectId, credentialRevision: revision, intentFingerprint: connectionInput.intentFingerprint });
+    assert.equal(mixedDisk.includes(canary), false, "both ref and outer extras are projected away");
+    assert.equal(mixedDisk.includes(project), false);
+    assert.deepEqual(new DeploymentHistory(project, root).read().entries, mixed.entries);
+    assert.equal(readFileSync(file, "utf8"), mixedDisk, "inspection never migrates or mutates the journal");
+
+    const options = { adapters: new Map(), baseDir: root, connectionBaseDir: connectionHome };
+    const inspect = async () => (await buildHistoryReport(project, { ...options, offline: true,
+      resolveDestination: async () => assert.fail("offline v2 inspection must not probe providers") })).entries.find((entry) => entry.id === id);
+    assert.equal((await inspect()).localRegistration, "unverified");
+    const index = join(root, ".api-key-case", "index.json");
+    writeFileSync(index, JSON.stringify({ version: 1, entries: [{ name: ref.name, scope: ref.scope,
+      projectId: ref.projectId, updatedAt: "2099-01-01T00:00:00.000Z" }] }));
+    assert.equal((await inspect()).localRegistration, "unverified", "a v1 index change cannot update a v2 receipt");
+    register(connectionCredentialRef(project, "production"));
+    assert.equal((await inspect()).localRegistration, "unverified", "another v2 environment does not update this slot");
+    const changedRevision = register(ref);
+    assert.notEqual(changedRevision, revision);
+    assert.equal((await inspect()).localRegistration, "update-recorded", "the exact v2 revision is compared");
+    const noConnectionMetadata = await buildHistoryReport(project, { adapters: new Map(), baseDir: root });
+    assert.equal(noConnectionMetadata.entries.find((entry) => entry.id === id).localRegistration, "unverified",
+      "missing v2 metadata never falls back to a matching v1 index");
+    const mutation = store.beginCredentialMutation(ref);
+    assert.equal(mutation.ok, true);
+    assert.equal((await inspect()).localRegistration, "unverified", "an in-progress registration is not a revision");
+    assert.equal(store.finishCredentialMutation(ref, mutation.value, false), true);
+    assert.equal((await inspect()).localRegistration, "unverified", "unsettled registration remains unknown");
+
+    const extraPending = history.beginConnection({ ...connectionInput, intentFingerprint: "d".repeat(64), force: true });
+    assert.ok(extraPending); assert.notEqual(extraPending, id);
+    assert.equal(history.finish(extraPending, "unknown"), true);
+    assert.equal(history.finish(extraPending, "completed"), false, "there is no receipt replay/rewrite");
+    assert.equal(history.read().entries[2].connection.intentFingerprint, "d".repeat(64));
+    const beforeResult = readFileSync(file, "utf8");
+    mkdirSync(join(dir, "lock"));
+    assert.equal(history.finish(id, "completed"), false);
+    assert.equal(history.beginConnection(connectionInput), null);
+    assert.equal(history.writeIssue, "lock-present");
+    assert.equal(readFileSync(file, "utf8"), beforeResult);
+    rmSync(join(dir, "lock"), { recursive: true });
+    assert.equal(history.read().entries[1].outcome, "unknown", "failed result persistence retains the durable unknown");
+    assert.equal(history.finish(id, "completed"), true);
+    const validDisk = readFileSync(file, "utf8");
+
+    for (const invalidInput of [
+      { ...connectionInput, ref: { ...ref, projectId: deriveProjectId(other) } },
+      { ...connectionInput, ref: { ...ref, scope: "user" } },
+      { ...connectionInput, ref: { ...ref, service: "other" } },
+      { ...connectionInput, ref: { ...ref, environment: "other" } },
+      { ...connectionInput, ref: { name: ref.name, scope: ref.scope, projectId: ref.projectId } },
+      { ...connectionInput, target: "other" },
+      { ...connectionInput, credentialRevision: null },
+      { ...connectionInput, intentFingerprint: canary }
+    ]) {
+      assert.equal(history.beginConnection(invalidInput), null);
+      assert.equal(history.writeIssue, "invalid-data");
+      assert.equal(readFileSync(file, "utf8"), validDisk, "invalid v2 starts cannot change retained history");
+    }
+    const invalidReceipts = [
+      { ...pending, connection: { ...pending.connection, extra: canary } },
+      { ...pending, connection: { ...pending.connection, credentialVersion: 1 } },
+      { ...pending, connection: { ...pending.connection, service: "other" } },
+      { ...pending, connection: { ...pending.connection, environment: "production" } },
+      { ...pending, connection: { ...pending.connection, projectId: deriveProjectId(other) } },
+      { ...pending, connection: { ...pending.connection, credentialRevision: null } },
+      { ...pending, connection: { ...pending.connection, intentFingerprint: canary } },
+      { ...pending, connection: null }, { ...pending, name: "OTHER_KEY" },
+      { ...pending, scope: "user" }, { ...pending, target: "other" },
+      { ...pending, registrationUpdatedAt: revision }, { ...pending, rawOutput: canary }
+    ];
+    for (const [journal, issue] of [
+      ...[2,4].flatMap(schemaVersion=>invalidReceipts.map((receipt) => [{ schemaVersion, entries: [receipt] }, "invalid-data"])),
+      [{ schemaVersion: 1, entries: [pending] }, "invalid-data"],
+      [{ schemaVersion: 2, entries: [pending, pending] }, "invalid-data"],
+      [{ schemaVersion: 2, entries: [pending], extra: canary }, "invalid-data"],
+      [{ schemaVersion: 5, entries: [] }, "unsupported-schema"]
+    ]) {
+      const corrupt = JSON.stringify(journal);
+      writeFileSync(file, corrupt);
+      const report = await buildHistoryReport(project, options);
+      assert.equal(report.diagnostic.issue, issue); assert.deepEqual(report.entries, []);
+      assert.equal(JSON.stringify(report).includes(canary), false);
+      assert.equal(history.beginConnection(connectionInput), null);
+      assert.equal(history.begin(legacyInput), null);
+      assert.equal(history.writeIssue, issue);
+      assert.equal(readFileSync(file, "utf8"), corrupt, "neither writer overwrites invalid/unknown schemas");
+    }
+    writeFileSync(file,JSON.stringify({...JSON.parse(validDisk),schemaVersion:4}));
+    assert.equal(history.read().status,'available','schema 4 retains compatible legacy/v2 entries');
+    const retainedSchema4=history.beginConnection(connectionInput);
+    assert.ok(retainedSchema4);assert.equal(history.finish(retainedSchema4,'unknown'),true);
+    assert.equal(JSON.parse(readFileSync(file,'utf8')).schemaVersion,4,'compatible writes never downgrade schema 4');
+    writeFileSync(file, validDisk);
+    const cloudflare = history.beginConnection({ ...connectionInput, target: "cloudflare" });
+    assert.ok(cloudflare, "the second allowed deployment provider retains the same v2 identity contract");
+    assert.equal(history.finish(cloudflare, "incomplete"), true);
+    {
+      const previous = readFileSync(file, "utf8");
+      const legacyGitHub = history.begin({ ...legacyInput, target: "github", env: ref.environment });
+      const namedGitHub = history.beginConnection({ ...connectionInput, target: "github" });
+      assert.ok(legacyGitHub && namedGitHub);
+      let probes = 0;
+      const report = await buildHistoryReport(project, {baseDir:root, adapters:new Map([["github", {id:"github"}]]),
+        resolveDestination:async()=>{probes++;return {fingerprint:connectionInput.destinationId};}});
+      assert.equal(probes,1,"only the compatible legacy GitHub receipt probes");
+      assert.equal(report.entries.find(entry=>entry.id===namedGitHub).currentDestination,"unresolved");
+      assert.equal(report.entries.find(entry=>entry.id===legacyGitHub).currentDestination,"selection-matches");
+      writeFileSync(file,previous);
+    }
+    if (process.platform !== "win32") {
+      const alias = join(root, "alias"); symlinkSync(project, alias, "dir");
+      assert.equal(new DeploymentHistory(alias, root).read().entries.length, 4);
+    }
+    const otherHistory = new DeploymentHistory(other, root);
+    assert.equal(otherHistory.beginConnection(connectionInput), null, "a v2 ref cannot cross project identity");
+    assert.equal(otherHistory.read().status, "missing");
+    for (let index = 0; index < 205; index++) assert.ok(history.beginConnection(connectionInput));
+    assert.equal(history.read().entries.length, 200);
+    assert.ok(history.read().entries.every((entry) => entry.connection && entry.outcome === "unknown"));
+    assert.ok(Buffer.byteLength(readFileSync(file, "utf8")) <= 256 * 1024);
+    assert.equal(history.finish(id, "completed"), false, "evicted v2 starts are never resurrected");
+    for (let index = 0; index < 200; index++) assert.ok(history.begin(legacyInput));
+    assert.ok(history.read().entries.every((entry) => !Object.hasOwn(entry, "connection")));
+    assert.equal(JSON.parse(readFileSync(file, "utf8")).schemaVersion, 2, "eviction never downgrades a migrated journal");
+    assert.deepEqual(readdirSync(dir), ["history.json"]);
   } finally { rmSync(root, { recursive: true, force: true }); }
 }
 

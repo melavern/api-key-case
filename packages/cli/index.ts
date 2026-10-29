@@ -1,4 +1,20 @@
 #!/usr/bin/env node
+import { runSecretCommand } from "./secret.js";
+import { assertCredentialPurpose, CREDENTIAL_PURPOSES } from "../core/human/acquisition.js";
+import type { CredentialPurpose } from "../core/human/types.js";
+import { runConnectionInventoryCommand } from "./connection-inventory.js";
+import { runConnectionResumeCommand } from "./connection-resume.js";
+import { runConnectionTargetCommand } from "./connection-target.js";
+import { runCloudflareGuideCommand } from "./cloudflare-guide.js";
+import { readNativeAcquisitionGuide, renderNativeAcquisitionGuide, readOfficialNativeRouteOption, renderOfficialNativeRouteOption } from "../core/agent/native-acquisition.js";
+import { inspectProviderNative, renderNativeInspectionResult } from "../core/agent/provider-native-check.js";
+import { recordNativeInspection, recordNativeApplication } from "../core/agent/native-observations.js";
+import {recordClerkWorkerApplication} from "../core/agent/clerk-worker-observations.js";
+import { inspectLocalApplication, recordLocalApplicationObservation, readLocalApplicationStatus, runLocalApplication } from "../core/local/session.js";
+import { buildConnectionPlan, recordApplicationObservation } from "../core/agent/connection-plan.js";
+import { readCredentialGuide, renderCredentialGuide } from "../core/agent/credential-guide.js";
+import type { CredentialService } from "../core/vault/types.js";
+import { runConnectionCredential, CREDENTIAL_SERVICES } from "../core/agent/connection-credential.js";
 import { readFileSync, realpathSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -6,14 +22,25 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { ADAPTERS, isTargetId } from "../adapters/index.js";
 import {
   AgentInitSafetyError,
+  AgentCurrentCliError,
   initializeAgentInstructions,
   renderAgentProtocol,
+  resolveCurrentCliInvocation,
   type AgentHost
 } from "../core/agent/init.js";
 import { buildNextReport } from "../core/agent/next.js";
+import { checkResendConnection } from "../core/agent/connection-check.js";
+import {
+  ConnectionStateStore,
+  type LocalSessionObservationInput,
+  type ConnectionEnvironment,
+  type ConnectionRoute,
+  type ConnectionDestinationKind
+} from "../core/agent/connection-state.js";
 import { buildHistoryReport, historyDiagnostic, historyIssueFromError, renderHistoryDiagnostic } from "../core/deploy/history.js";
 import { askAndRecordSecret, createHumanPlane, humanPlaneRequirement } from "../core/human/index.js";
-import { inspectTargets, runDeploy } from "../core/deploy/engine.js";
+import { inspectTargets, runClerkConnectionPrepare, runConnectionDeploy, runDeploy, type ClerkPrepareResult } from "../core/deploy/engine.js";
+import { isCloudflareDestinationId, listCloudflareTargets, resolveCloudflareTarget } from "../core/deploy/cloudflare-targets.js";
 import { AUTOMATIC_SAFE_ENVS, inspectDestinationTrust } from "../core/deploy/destination.js";
 import { isDeployEnv, type DeployEnv, type TargetId } from "../core/deploy/types.js";
 import { runForgetDestinationTrust, runRemoveSecret } from "../core/lifecycle.js";
@@ -72,8 +99,17 @@ type DeployArgs = {
   targetDir: string;
 };
 type TargetsArgs = { targetDir: string; json: boolean };
-type NextArgs = { targetDir: string; json: boolean };
-type AgentInitArgs = { targetDir: string; check: boolean };
+type NextArgs = { targetDir: string; json: boolean; offline: boolean };
+type AgentInitArgs = { targetDir: string; check: boolean; useCurrentCli: boolean };
+type ConnectionSetArgs = {
+  targetDir: string;
+  service: "resend" | "clerk" | "openai" | "stripe-test" | null;
+  environment: ConnectionEnvironment | null;
+  route: ConnectionRoute | null;
+  destination: ConnectionDestinationKind | null;
+  sendingDomain: string | null;
+  nativeEnrollment: "resend-vercel-integration" | "resend-vercel-marketplace" | null;
+};
 
 type CommandTelemetryResult = {
   command: CliTelemetryCommand;
@@ -114,6 +150,11 @@ async function main(argv: string[]): Promise<void> {
     return;
   }
 
+  if (command === "secret") {
+    process.exitCode = await runSecretCommand(rest);
+    return;
+  }
+
   if (command === "scan") {
     await runObservedCommand("scan", undefined, () => runScan(rest));
     return;
@@ -126,6 +167,11 @@ async function main(argv: string[]): Promise<void> {
 
   if (command === "next") {
     await runNextCommand(rest);
+    return;
+  }
+
+  if (command === "connection") {
+    await runConnectionCommand(rest);
     return;
   }
 
@@ -340,11 +386,11 @@ function parseScanArgs(rest: string[]): ScanArgs {
 async function runHistoryCommand(rest: string[]): Promise<void> {
   const args = parseNextArgs(rest, "history");
   if (!args.json) {
-    console.error("Usage: api-key-case history --json [path]");
+    console.error("Usage: api-key-case history --json [--offline] [path]");
     terminate(1);
   }
   try {
-    const report = await buildHistoryReport(args.targetDir, { adapters: ADAPTERS });
+    const report = await buildHistoryReport(args.targetDir, { adapters: ADAPTERS, offline: args.offline });
     console.log(JSON.stringify(report, null, 2));
   } catch (error) {
     console.error("History inspection failed. No deployment was requested by this inspection.");
@@ -356,7 +402,7 @@ async function runHistoryCommand(rest: string[]): Promise<void> {
 async function runNextCommand(rest: string[]): Promise<void> {
   const args = parseNextArgs(rest);
   if (!args.json) {
-    console.error("Usage: api-key-case next --json [path]");
+    console.error("Usage: api-key-case next --json [--offline] [path]");
     terminate(1);
   }
 
@@ -366,7 +412,8 @@ async function runNextCommand(rest: string[]): Promise<void> {
     const report = await buildNextReport(targetDir, {
       vault: createVault(),
       adapters: ADAPTERS.values(),
-      licensePlan: license.plan
+      licensePlan: license.plan,
+      offline: args.offline
     });
     console.log(JSON.stringify(report, null, 2));
   } catch {
@@ -375,14 +422,523 @@ async function runNextCommand(rest: string[]): Promise<void> {
   }
 }
 
+// Human presentation of the existing closed result, never raw provider output.
+function renderClerkPreparationResult(result: ClerkPrepareResult): string {
+  const lines = [`Clerk ${result.environment}: ${result.status}.`];
+  if (result.status === "prepared" && result.versionId && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(result.versionId)) {
+    lines.push(`Created Worker version: ${result.versionId}.`);
+    lines.push("Use this exact version only in a separately authorized app-deployment step.");
+  }
+  if (result.status === "dry-run") lines.push("Preview only; no Worker version was created.");
+  if (result.status === "prepared" || result.placementEffects === "possible") {
+    lines.push("This invocation did not activate production; existing Version URLs may expose a created version.");
+    lines.push("Application authentication has not been verified.");
+  }
+  if (!result.historySaved && result.placementEffects === "possible") {
+    lines.push("The result was not saved to local history. Preserve this outcome and stop dependent work; missing history does not mean nothing happened.");
+  }
+  if (result.historyDiagnostic?.issue) lines.push(renderHistoryDiagnostic(result.historyDiagnostic));
+  if (result.termination === "unconfirmed") {
+    lines.push("Owned CLI termination is unconfirmed. Check that operation before another request; no process cleanup is established.");
+  }
+  if ((result.placementEffects === "possible" && result.status !== "prepared") ||
+      (!result.historySaved && result.placementEffects === "possible") || result.termination === "unconfirmed" || result.status === "history-unavailable") {
+    lines.push("Do not retry or activate automatically. Run this same private CLI's history --json --offline for the same project, preserve the existing evidence, and agree the next step with the human.");
+  }
+  return lines.join("\n");
+}
+
+async function runConnectionCommand(rest: string[]): Promise<void> {
+  const [subcommand, ...args] = rest;
+  if (subcommand === "resume") {
+    const exitCode = runConnectionResumeCommand(args);
+    if (exitCode !== 0) terminate(exitCode);
+    return;
+  }
+  if (subcommand === "target") {
+    const exitCode = runConnectionTargetCommand(args);
+    if (exitCode !== 0) terminate(exitCode);
+    return;
+  }
+  if (subcommand === "inventory") {
+    const exitCode = await runConnectionInventoryCommand(args);
+    if (exitCode !== 0) terminate(exitCode);
+    return;
+  }
+  if (subcommand === "cloudflare") {
+    const exitCode = runCloudflareGuideCommand(args);
+    if (exitCode !== 0) terminate(exitCode);
+    return;
+  }
+  if (subcommand === "local") {
+    const [operation, ...options] = args;
+    if (operation === "observe") {
+      const usage = () => { console.error("Usage: api-key-case connection local observe --service resend --env development --attempt <id> --execution-basis <id> --credential-revision <timestamp> --authority <agent-observed|human-reported> --outcome <passed|failed|unknown|received|not-received> --json [path]. Records only a completed matching trial; no execution or permission."); terminate(1); };
+      let projectDir = process.cwd(), pathSeen = false, json = false;
+      const fields = new Map<string, string>();
+      const allowed = ["--service", "--env", "--attempt", "--execution-basis", "--credential-revision", "--authority", "--outcome"];
+      for (let i = 0; i < options.length; i++) {
+        const arg = options[i], value = options[i + 1];
+        if (allowed.includes(arg) && !fields.has(arg) && value && !value.startsWith("-")) { fields.set(arg, value); i++; }
+        else if (arg === "--json" && !json) json = true;
+        else if (!arg.startsWith("-") && !pathSeen) { pathSeen = true; projectDir = resolve(arg); }
+        else usage();
+      }
+      const authority = fields.get("--authority"), outcome = fields.get("--outcome");
+      if (!json || fields.size !== allowed.length || fields.get("--service") !== "resend" || fields.get("--env") !== "development" ||
+          !(authority === "agent-observed" ? ["passed", "failed", "unknown"].includes(outcome ?? "") :
+            authority === "human-reported" && ["received", "not-received", "unknown"].includes(outcome ?? ""))) usage();
+      const result = recordLocalApplicationObservation(projectDir, { service: "resend", environment: "development",
+        attemptId: fields.get("--attempt")!, executionBasisId: fields.get("--execution-basis")!, credentialRevision: fields.get("--credential-revision")!,
+        authority, outcome } as LocalSessionObservationInput);
+      console.log(JSON.stringify(result));
+      if (result.status !== "recorded") terminate(1);
+      return;
+    }
+    const usage = () => { console.error("Usage: api-key-case connection local <inspect|run|status> --service resend --env development --json [path]. inspect/run require --artifact dist/<entry>.cjs --max-seconds <1..1800>. No arbitrary command, argv, env, or URL is accepted. Native launch is disabled pending Windows acceptance; purchasing Pro does not enable it."); terminate(1); };
+    if (!["inspect", "run", "status"].includes(operation)) usage();
+    let projectDir = process.cwd(), pathSeen = false, service = false, environment = false, json = false;
+    let artifact: string | null = null, maxDurationMs: number | null = null;
+    for (let i = 0; i < options.length; i++) {
+      const arg = options[i], value = options[i + 1];
+      if (arg === "--service" && !service && value === "resend") { service = true; i++; }
+      else if (arg === "--env" && !environment && value === "development") { environment = true; i++; }
+      else if (arg === "--json" && !json) json = true;
+      else if (operation !== "status" && arg === "--artifact" && artifact === null && /^dist\/(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_-]+\.cjs$/.test(value ?? "")) { artifact = value; i++; }
+      else if (operation !== "status" && arg === "--max-seconds" && maxDurationMs === null && /^[0-9]{1,4}$/.test(value ?? "") && Number(value) >= 1 && Number(value) <= 1800) { maxDurationMs = Number(value) * 1000; i++; }
+      else if (!arg.startsWith("-") && !pathSeen) { pathSeen = true; projectDir = resolve(arg); }
+      else usage();
+    }
+    if (!service || !environment || !json || (operation !== "status" && (!artifact || maxDurationMs === null))) usage();
+    if (operation === "status") { console.log(JSON.stringify(readLocalApplicationStatus(projectDir))); return; }
+    const abort = new AbortController();
+    const cancel = () => abort.abort();
+    process.once("SIGINT", cancel); process.once("SIGTERM", cancel);
+    try {
+      const deps = { vault: createVault(), humanPlane: createHumanPlane(), signal: abort.signal };
+      const request = { projectDir, service: "resend" as const, environment: "development" as const, artifact: artifact!, maxDurationMs: maxDurationMs! };
+      const outcome = operation === "inspect" ? await inspectLocalApplication(deps, request) : await runLocalApplication(request, abort.signal);
+      console.log(JSON.stringify(outcome));
+      if (outcome.status === "pro-required") terminate(6);
+      if (!["ready-for-review", "exited"].includes(outcome.status)) terminate(outcome.status === "declined" ? 4 : 1);
+    } finally { process.removeListener("SIGINT", cancel); process.removeListener("SIGTERM", cancel); }
+    return;
+  }
+  if (subcommand === "native") {
+    const [operation, ...options] = args;
+    if (operation === "options") {
+      // Fixed offline pre-selection lookup: no local project, keyring, CLI, network or provider effect.
+      let service: "resend" | "clerk" | null = null, environment: ConnectionEnvironment | null = null, json = false;
+      const usage = () => { console.error("Usage: api-key-case connection native options --service <resend|clerk> --env <development|preview|production> [--json]. Lists documented official Vercel routes only; does not select or execute them."); terminate(1); };
+      for (let i = 0; i < options.length; i++) {
+        const arg = options[i], value = options[i + 1];
+        if (arg === "--service" && !service && (value === "resend" || value === "clerk")) { service = value; i++; }
+        else if (arg === "--env" && !environment && (value === "development" || value === "preview" || value === "production")) { environment = value; i++; }
+        else if (arg === "--json" && !json) json = true;
+        else usage();
+      }
+      if (!service || !environment) usage();
+      const candidate = readOfficialNativeRouteOption(service, environment);
+      console.log(json ? JSON.stringify(candidate) : renderOfficialNativeRouteOption(candidate));
+      return;
+    }
+    if (operation === "guide") {
+      let projectDir = process.cwd(), pathSeen = false, json = false;
+      let service: "resend" | "clerk" | null = null, environment: ConnectionEnvironment | null = null;
+      const usage = () => { console.error("Usage: api-key-case connection native guide --service <resend|clerk> --env <development|preview|production> [--json] [path]. Reads local selection and advisory receipts only; no login, network, connection or key registration."); terminate(1); };
+      for (let i = 0; i < options.length; i++) {
+        const arg = options[i], value = options[i + 1];
+        if (arg === "--service" && !service && ["resend", "clerk"].includes(value)) { service = value as "resend" | "clerk"; i++; }
+        else if (arg === "--env" && !environment && ["development", "preview", "production"].includes(value)) { environment = value as ConnectionEnvironment; i++; }
+        else if (arg === "--json" && !json) json = true;
+        else if (!arg.startsWith("-") && !pathSeen) { pathSeen = true; projectDir = resolve(arg); }
+        else usage();
+      }
+      if (!service || !environment) usage();
+      const result = readNativeAcquisitionGuide(projectDir, service!, environment!);
+      console.log(json ? JSON.stringify(result) : renderNativeAcquisitionGuide(result));
+      if (!result.selection) terminate(1);
+      return;
+    }
+    if (operation === "observe-application") {
+      let projectDir=process.cwd(),pathSeen=false,json=false,service:"resend"|"clerk"|null=null,environment:ConnectionEnvironment|null=null;
+      let inspectionId:string|null=null,feature:"protected-access"|"send-and-delivery"|null=null,observer:"agent"|"human"|null=null,outcome:"passed"|"failed"|"unknown"|null=null,maxAgeSeconds:number|null=null;
+      const usage=()=>{console.error("Usage: api-key-case connection native observe-application --service <resend|clerk> --env <development|preview|production> --inspection <receipt-id> --feature <protected-access|send-and-delivery> --observer <agent|human> --outcome <passed|failed|unknown> --max-age-seconds <1..86400> --json [path]. Records a caller observation only; no provider/app execution or current-health claim.");terminate(1);};
+      for(let i=0;i<options.length;i++) {
+        const arg=options[i],value=options[i+1];
+        if(arg==="--service"&&!service&&["resend","clerk"].includes(value)){service=value as "resend"|"clerk";i++;}
+        else if(arg==="--env"&&!environment&&["development","preview","production"].includes(value)){environment=value as ConnectionEnvironment;i++;}
+        else if(arg==="--inspection"&&!inspectionId&&/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(value??"")){inspectionId=value;i++;}
+        else if(arg==="--feature"&&!feature&&["protected-access","send-and-delivery"].includes(value)){feature=value as "protected-access"|"send-and-delivery";i++;}
+        else if(arg==="--outcome"&&!outcome&&["passed","failed","unknown"].includes(value)){outcome=value as "passed"|"failed"|"unknown";i++;}
+        else if(arg==="--observer"&&!observer&&["agent","human"].includes(value)){observer=value as "agent"|"human";i++;}
+        else if(arg==="--max-age-seconds"&&maxAgeSeconds===null&&/^[0-9]{1,5}$/.test(value??"")&&Number(value)>=1&&Number(value)<=86400){maxAgeSeconds=Number(value);i++;}
+        else if(arg==="--json"&&!json)json=true;
+        else if(!arg.startsWith("-")&&!pathSeen){pathSeen=true;projectDir=resolve(arg);}
+        else usage();
+      }
+      if(!service||!environment||!inspectionId||!feature||!observer||!outcome||maxAgeSeconds===null||!json||feature!==(service==="clerk"?"protected-access":"send-and-delivery"))usage();
+      const result=recordNativeApplication(projectDir,{service:service!,environment:environment!,inspectionId:inspectionId!,feature:feature!,observer:observer!,outcome:outcome!,maxAgeSeconds:maxAgeSeconds!});
+      console.log(JSON.stringify(result));if(result.status!=="recorded")terminate(1);return;
+    }
+    let projectDir = process.cwd(), pathSeen = false, json = false;
+    let record=false,maxAgeSeconds:number|null=null;
+    let service: "resend" | "clerk" | null = null;
+    let environment: ConnectionEnvironment | null = null;
+    const usage = () => { console.error("Usage: api-key-case connection native inspect --service <resend|clerk> --env <development|preview|production> [--record --max-age-seconds <1..86400>] [--json] [path]. Explicit Vercel metadata inspection using an existing CLI session; optional advisory receipt only; no app execution or key registration."); terminate(1); };
+    if (operation !== "inspect") usage();
+    for (let i = 0; i < options.length; i++) {
+      const arg = options[i], value = options[i + 1];
+      if (arg === "--service" && !service && ["resend","clerk"].includes(value)) { service = value as "resend" | "clerk"; i++; }
+      else if (arg === "--env" && !environment && ["development", "preview", "production"].includes(value)) { environment = value as ConnectionEnvironment; i++; }
+      else if (arg === "--json" && !json) json = true;
+      else if (arg === "--record" && !record) record=true;
+      else if (arg === "--max-age-seconds" && maxAgeSeconds===null && /^[0-9]{1,5}$/.test(value??"") && Number(value)>=1 && Number(value)<=86400) {maxAgeSeconds=Number(value);i++;}
+      else if (!arg.startsWith("-") && !pathSeen) { pathSeen = true; projectDir = resolve(arg); }
+      else usage();
+    }
+    if (!service || !environment || record!==(maxAgeSeconds!==null)) usage();
+    const abort = new AbortController(), cancel = () => abort.abort();
+    process.once("SIGINT", cancel); process.once("SIGTERM", cancel);
+    try {
+      const result = await inspectProviderNative(projectDir, environment!, { signal: abort.signal }, service!);
+      const recording=record?recordNativeInspection(projectDir,result,maxAgeSeconds!):null;
+      console.log(json ? JSON.stringify(recording?{schemaVersion:1,inspection:result,recording}:result) :
+        renderNativeInspectionResult(result)+(recording?`\n設定確認の記録は${recording.status==="recorded"?"保存済み":"不明"}です。${recording.receiptId?`識別子は${recording.receiptId}です。`:""}`:""));
+      if (result.status !== "inspected" || recording&&recording.status!=="recorded") terminate(1);
+    } finally { process.removeListener("SIGINT", cancel); process.removeListener("SIGTERM", cancel); }
+    return;
+  }
+  if (subcommand === "prepare") {
+    let targetDir=process.cwd(),pathSeen=false,service=false,json=false,dryRun=false;
+    let environment:ConnectionEnvironment|null=null;
+    const usage=()=>{console.error("Usage: api-key-case connection prepare --service clerk --env <development|preview|production> [--dry-run] [--json] [path]. Creates an existing Worker's latest version with potential Version URL exposure; this invocation does not activate production.");terminate(1);};
+    for(let i=0;i<args.length;i++){
+      const arg=args[i];
+      if(arg==="--service"&&!service&&args[i+1]==="clerk"){service=true;i++;}
+      else if(arg==="--env"&&!environment&&["development","preview","production"].includes(args[i+1]))environment=args[++i] as ConnectionEnvironment;
+      else if(arg==="--dry-run"&&!dryRun)dryRun=true;
+      else if(arg==="--json"&&!json)json=true;
+      else if(!arg.startsWith("-")&&!pathSeen){pathSeen=true;targetDir=resolve(arg);}
+      else usage();
+    }
+    if(!service||!environment)usage();
+    const abort=new AbortController(),cancel=()=>abort.abort();process.once("SIGINT",cancel);
+    try{
+      const result=await runClerkConnectionPrepare({vault:createVault(),humanPlane:createHumanPlane(),signal:abort.signal},{service:"clerk",environment:environment!,projectDir:targetDir,dryRun});
+      console.log(json ? JSON.stringify(result) : renderClerkPreparationResult(result));
+      if(!["prepared","dry-run"].includes(result.status))terminate(result.status==="declined"?4:1);
+    }finally{process.removeListener("SIGINT",cancel);}
+    return;
+  }
+  if (subcommand === "destinations") {
+    let targetDir = process.cwd(), pathSeen = false, json = false;
+    for (const arg of args) {
+      if (arg === "--json" && !json) json = true;
+      else if (!arg.startsWith("-") && !pathSeen) { targetDir = resolve(arg); pathSeen = true; }
+      else { console.error("Usage: api-key-case connection destinations [--json] [path]"); terminate(1); }
+    }
+    const catalog = listCloudflareTargets(targetDir);
+    const report = { ...catalog, targets: catalog.targets.map(target => ({ ...target,
+      configReadiness: resolveCloudflareTarget(targetDir, target.id, target.services[0], target.sourceEnvironment) ? "locally-bound" : "unavailable" })),
+      providerProbes: "not-run", permission: "none" };
+    if (json) console.log(JSON.stringify(report));
+    else { console.log(`Cloudflare destination catalog: ${report.status}. Permission: none.`);
+      for (const target of report.targets) console.log(`${target.id}: ${target.worker}, account ${target.accountId}, config ${target.config}, source ${target.sourceEnvironment}, deployment ${target.deploymentEnvironment}, Wrangler ${target.wranglerEnvironment ?? "top-level (no --env)"}: ${target.configReadiness}.`); }
+    if (report.status !== "available") terminate(5);
+    return;
+  }
+  if (subcommand === "deploy") {
+    let targetDir = process.cwd(), pathSeen = false, json = false, force = false, dryRun = false;
+    let service: "resend" | "openai" | "stripe-test" | null = null;
+    let environment: "development" | "preview" | "production" | null = null;
+    let destinationId: string | null = null;
+    const usage = () => { console.error("Usage: api-key-case connection deploy --service <resend|openai|stripe-test> --env <development|preview|production> [--destination <catalog-id>] [--dry-run] [--force] [--json] [path]. Config paths and commands are not accepted. Registered Cloudflare targets require approval every time and reject --force. Stripe test supports development/preview only; native execution gates apply."); terminate(1); };
+    for (let i = 0; i < args.length; i++) {
+      const arg = args[i];
+      if (arg === "--service" && !service && ["resend", "openai", "stripe-test"].includes(args[i + 1])) { service = args[++i] as "resend" | "openai" | "stripe-test"; }
+      else if (arg === "--destination" && !destinationId && isCloudflareDestinationId(args[i + 1])) destinationId = args[++i];
+      else if (arg === "--env" && !environment && ["development", "preview", "production"].includes(args[i + 1])) {
+        environment = args[++i] as "development" | "preview" | "production";
+      } else if (arg === "--json" && !json) json = true;
+      else if (arg === "--force" && !force) force = true;
+      else if (arg === "--dry-run" && !dryRun) dryRun = true;
+      else if (!arg.startsWith("-") && !pathSeen) { targetDir = resolve(arg); pathSeen = true; }
+      else usage();
+    }
+    if (!service || !environment || (destinationId && force)) usage();
+    const outcome = await runConnectionDeploy({ vault: createVault(), humanPlane: createHumanPlane() }, {
+      service: service!, environment: environment!, projectDir: targetDir, force, dryRun, ...(destinationId ? { destinationId } : {})
+    });
+    if (json) console.log(JSON.stringify(outcome));
+    else {
+      console.log(`${outcome.service === "resend" ? "Resend" : outcome.service === "openai" ? "OpenAI" : "Stripe test"} ${outcome.environment} deployment: ${outcome.status}.`);
+      if (outcome.preview) console.log(`Preview: ${outcome.preview.name} (project, v2 ${outcome.service} ${outcome.preview.sourceEnvironment}) to ${outcome.preview.target} (${outcome.preview.destinationEnvironment}); force=${outcome.preview.force}, removes-existing-first=${outcome.preview.removesExistingFirst}, may-overwrite=${outcome.preview.mayOverwrite}. Effect: ${outcome.preview.placementEffect}; native execution: ${outcome.preview.nativeExecution}; provider mode: ${outcome.preview.providerMode}. Permission: none.`);
+      if (outcome.preview?.repository) console.log(`Destination: ${outcome.preview.repository}, named GitHub Environment ${outcome.preview.destinationEnvironment}; never repository-wide storage.`);
+      if (outcome.destination) { const target = outcome.destination; console.log(`Destination: ${target.id}; account ${target.accountId}; Worker ${target.worker}; config ${target.config}; deployment ${target.deploymentEnvironment}; Wrangler ${target.wranglerEnvironment ?? "top-level (no --env)"}; source ${target.sourceEnvironment}.`); }
+      if (outcome.status === "unavailable" && !dryRun && (process.platform !== "win32" || (!destinationId && service !== "resend"))) console.log("New v2 connection deployment is unavailable on this host pending native acceptance. The offline Pro preview remains available; legacy deployment support is unchanged.");
+      if (outcome.status === "dry-run") console.log("Offline request preview only. Destination, account and CLI readiness were not verified. Execution resolves them again and applies destination trust and Human Plane approval. No provider probe, secret handoff or metadata write ran.");
+      else if (outcome.status === "completed") console.log("Secret placement completed. Provider validity and application readiness were not checked.");
+      if (outcome.placementEffects === "possible" && outcome.status !== "completed") console.log("Provider changes may already exist. Inspect history and decide the next step with the human; do not retry automatically.");
+      if (outcome.historyDiagnostic) console.log(renderHistoryDiagnostic(outcome.historyDiagnostic));
+    }
+    if (outcome.status === "pro-required") { if (!json) printProFeatureRequired(); terminate(6); }
+    if (outcome.status === "declined") terminate(4);
+    if (!["completed", "dry-run"].includes(outcome.status)) terminate(outcome.status === "history-unavailable" || outcome.status === "unavailable" ? 5 : 1);
+    return;
+  }
+  if(subcommand==="observe-application"&&args.some((arg,index)=>arg==="--service"&&args[index+1]==="clerk")) {
+    const usage=()=>{console.error("Usage: api-key-case connection observe-application --service clerk --env <development|preview|production> --preparation <receipt-id> --version <version-id> --feature protected-access --observer <agent|human> --outcome <passed|failed|unknown> --max-age-seconds <1..86400> --json [path]. Records a caller observation of a prepared Worker version only; no activation, app/provider execution or current-health claim.");terminate(1);};
+    let projectDir=process.cwd(),pathSeen=false,json=false;
+    const fields=new Map<string,string>(),allowed=["--service","--env","--preparation","--version","--feature","--observer","--outcome","--max-age-seconds"];
+    for(let i=0;i<args.length;i++) {
+      const arg=args[i],value=args[i+1];
+      if(allowed.includes(arg)&&!fields.has(arg)&&value&&!value.startsWith("-")){fields.set(arg,value);i++;}
+      else if(arg==="--json"&&!json)json=true;
+      else if(!arg.startsWith("-")&&!pathSeen){pathSeen=true;projectDir=resolve(arg);}
+      else usage();
+    }
+    const environment=fields.get("--env"),observer=fields.get("--observer"),outcome=fields.get("--outcome"),age=fields.get("--max-age-seconds"),uuid=/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/;
+    if(!json||fields.size!==allowed.length||fields.get("--service")!=="clerk"||!["development","preview","production"].includes(environment??"")||
+      !uuid.test(fields.get("--preparation")??"")||!uuid.test(fields.get("--version")??"")||fields.get("--feature")!=="protected-access"||
+      !["agent","human"].includes(observer??"")||!["passed","failed","unknown"].includes(outcome??"")||!/^\d{1,5}$/.test(age??"")||Number(age)<1||Number(age)>86400)usage();
+    const result=recordClerkWorkerApplication(projectDir,{service:"clerk",environment:environment as ConnectionEnvironment,preparationId:fields.get("--preparation")!,
+      versionId:fields.get("--version")!,feature:"protected-access",observer:observer as "agent"|"human",outcome:outcome as "passed"|"failed"|"unknown",maxAgeSeconds:Number(age)});
+    console.log(JSON.stringify(result));if(result.status!=="recorded")terminate(1);return;
+  }
+  if (subcommand === "plan" || subcommand === "observe-application") {
+    let targetDir = process.cwd(), pathSeen = false, service = false, json = false;
+    let environment: ConnectionEnvironment | null = null;
+    let planFingerprint: string | null = null, outcome: "passed" | "failed" | "unknown" | null = null;
+    let configuration: "observed" | "unknown" | null = null, maxAgeSeconds: number | null = null;
+    const usage = () => { console.error("Usage: api-key-case connection plan --service resend --env <development|preview|production> --json [path]; observe-application additionally requires --plan <fingerprint> --outcome <passed|failed|unknown> --configuration <observed|unknown> --max-age-seconds <1..86400>. No application is executed."); terminate(1); };
+    for (let i = 0; i < args.length; i++) {
+      const arg = args[i], value = args[i + 1];
+      if (arg === "--service" && !service && value === "resend") { service = true; i++; }
+      else if (arg === "--env" && !environment && ["development", "preview", "production"].includes(value)) { environment = value as ConnectionEnvironment; i++; }
+      else if (arg === "--json" && !json) json = true;
+      else if (subcommand === "observe-application" && arg === "--plan" && planFingerprint === null && /^[a-f0-9]{64}$/.test(value ?? "")) { planFingerprint = value; i++; }
+      else if (subcommand === "observe-application" && arg === "--outcome" && outcome === null && ["passed", "failed", "unknown"].includes(value)) { outcome = value as "passed" | "failed" | "unknown"; i++; }
+      else if (subcommand === "observe-application" && arg === "--configuration" && configuration === null && ["observed", "unknown"].includes(value)) { configuration = value as "observed" | "unknown"; i++; }
+      else if (subcommand === "observe-application" && arg === "--max-age-seconds" && maxAgeSeconds === null && /^[0-9]{1,5}$/.test(value ?? "") && Number(value) >= 1 && Number(value) <= 86400) { maxAgeSeconds = Number(value); i++; }
+      else if (!arg.startsWith("-") && !pathSeen) { pathSeen = true; targetDir = resolve(arg); }
+      else usage();
+    }
+    if (!service || !environment || !json) usage();
+    try {
+      const deps = { vault: createVault() };
+      if (subcommand === "plan") console.log(JSON.stringify(await buildConnectionPlan(targetDir, environment!, deps)));
+      else {
+        if (!planFingerprint || !outcome || !configuration || maxAgeSeconds === null) usage();
+        const result = await recordApplicationObservation(targetDir, { environment: environment!, planFingerprint: planFingerprint!,
+          outcome: outcome!, configuration: configuration!, maxAgeSeconds: maxAgeSeconds! }, deps);
+        console.log(JSON.stringify(result));
+        if (result.status !== "recorded") terminate(1);
+      }
+    } catch { console.error("Connection observation unavailable. No application or deployment was executed."); terminate(1); }
+    return;
+  }
+  if (subcommand === "credential") {
+    const [operation, ...options] = args;
+    let targetDir = process.cwd(), pathSeen = false, service: CredentialService | null = null, json = false, force = false;
+    let environment: "development" | "preview" | "production" | null = null;
+    const usage = () => {
+      console.error("Usage: api-key-case connection credential <guide|save|check|remove> --service <resend|clerk|openai|stripe-test> --env <development|preview|production> [--json] [--force (save only)] [--purpose <email-sending|text-generation|embeddings|image-generation|test-payments> (save only)] [path]");
+      terminate(1);
+    };
+    let purpose: CredentialPurpose | undefined;
+    if (!["guide", "save", "check", "remove"].includes(operation)) usage();
+    for (let i = 0; i < options.length; i++) {
+      const arg = options[i];
+      if (arg === "--service" && !service && CREDENTIAL_SERVICES.includes(options[i + 1] as CredentialService)) { service = options[i + 1] as CredentialService; i++; }
+      else if (arg === "--env" && !environment && ["development", "preview", "production"].includes(options[i + 1])) {
+        environment = options[++i] as "development" | "preview" | "production";
+      } else if (arg === "--json" && !json) json = true;
+      else if (arg === "--force" && !force && operation === "save") force = true;
+      else if (arg === "--purpose" && purpose === undefined && operation === "save" && CREDENTIAL_PURPOSES.includes(options[i + 1] as CredentialPurpose)) purpose = options[++i] as CredentialPurpose;
+      else if (!arg.startsWith("-") && !pathSeen) { pathSeen = true; targetDir = resolve(arg); }
+      else usage();
+    }
+    if (!service || !environment) usage();
+    try { assertCredentialPurpose(service!, purpose); } catch { usage(); }
+    if (operation === "guide") {
+      const vault = createVault();
+      const report = await readCredentialGuide(targetDir, service!, environment!, {
+        vault: { hasSecret: ref => vault.hasSecret(ref) }, humanPlane: createHumanPlane()
+      });
+      console.log(json ? JSON.stringify(report) : renderCredentialGuide(report));
+      if (report.status !== "available") terminate(1);
+      return;
+    }
+    const outcome = await runConnectionCredential(targetDir, environment!, operation as "save" | "check" | "remove",
+      { vault: createVault(), humanPlane: createHumanPlane(), credentialPurpose: purpose }, force, service!);
+    if (json) console.log(JSON.stringify(outcome));
+    else console.log(`${outcome.service} ${outcome.environment} credential: ${outcome.status}.`);
+    if (!["registered", "saved", "removed"].includes(outcome.status)) terminate(outcome.status === "cancelled" ? 4 : 1);
+    return;
+  }
+  if (subcommand === "check") {
+    let targetDir = process.cwd(), json = false, pathSeen = false, service = false;
+    let environment: ConnectionEnvironment | null = null;
+    const usage = () => {
+      console.error("Usage: api-key-case connection check --service resend [--env <development|preview|production>] [--json] [path]");
+      terminate(1);
+    };
+    for (let index = 0; index < args.length; index++) {
+      const arg = args[index];
+      if (arg === "--json" && !json) json = true;
+      else if (arg === "--service" && !service && args[index + 1] === "resend") { service = true; index++; }
+      else if (arg === "--env" && !environment && ["development", "preview", "production"].includes(args[index + 1])) {
+        environment = args[++index] as ConnectionEnvironment;
+      } else if (!arg.startsWith("-") && !pathSeen) { pathSeen = true; targetDir = resolve(arg); }
+      else usage();
+    }
+    if (!service) usage();
+    const checked = await checkResendConnection(targetDir, { vault: createVault(), ...(environment ? { expectedEnvironment: environment } : {}) });
+    if (json) console.log(JSON.stringify(checked));
+    else if (checked.reason === "environment-mismatch") console.log(`Resend ${checked.environment} check stopped: the saved selection uses a different environment. Refresh next and review the selection; no provider check was run.`);
+    else console.log(`Resend${checked.environment ? ` ${checked.environment}` : ""} credential: ${checked.status} (${checked.resultCode}). This does not prove email sending or application readiness.`);
+    if (checked.status !== "valid") terminate(1);
+    return;
+  }
+  if (subcommand !== "set") {
+    console.error(
+      "Usage: api-key-case connection set --service <resend|clerk|openai|stripe-test> --env <development|preview|production> " +
+        "--route <provider-native|api-key-case-managed|manual> " +
+        "--destination <local|vercel|cloudflare|github|manual> [--sending-domain <domain>] " +
+        "[--native-enrollment <resend-vercel-integration|resend-vercel-marketplace>] [path]"
+    );
+    terminate(1);
+  }
+  const options = parseConnectionSetArgs(args);
+  if (!options.service || !options.environment || !options.route || !options.destination) {
+    console.error("NG: connection set needs a supported service, environment, route, and destination.");
+    terminate(1);
+  }
+  let targetDir: string;
+  try { targetDir = realpathSync(options.targetDir); }
+  catch {
+    console.error("NG: connection intent was not saved. Check the project path.");
+    terminate(1);
+  }
+  if (options.service === "clerk" && (options.sendingDomain !== null || !((options.route === "provider-native" && options.destination === "vercel") || (options.route === "api-key-case-managed" && options.destination === "cloudflare")))) {
+    console.error("NG: Clerk supports provider-native Vercel or managed Cloudflare version preparation, without a sending domain. No intent was saved.");
+    terminate(1);
+  }
+  const store = new ConnectionStateStore(targetDir);
+  if (options.nativeEnrollment && !(options.service === "resend" && options.route === "provider-native" && options.destination === "vercel")) {
+    console.error("NG: --native-enrollment is supported only for Resend provider-native Vercel selections. No intent was saved.");
+    terminate(1);
+  }
+  if ((options.service === "openai" || options.service === "stripe-test") &&
+      (options.route !== "api-key-case-managed" || !["vercel", "cloudflare"].includes(options.destination) ||
+       options.sendingDomain !== null || (options.service === "stripe-test" && options.environment === "production"))) {
+    console.error("NG: OpenAI and Stripe test support managed Vercel/Cloudflare only, without a sending domain. Stripe test supports development/preview only. No intent was saved.");
+    terminate(1);
+  }
+  const saved = options.service === "openai" || options.service === "stripe-test" ? store.setProviderHostedIntent({
+    service: options.service, environment: options.environment, route: "api-key-case-managed",
+    destination: { kind: options.destination as "vercel" | "cloudflare" }, sendingDomain: null
+  } as import("../core/agent/connection-state.js").ProviderHostedIntentInput) : options.service === "clerk" ? (options.route === "api-key-case-managed" ? store.saveClerkManagedIntent({service:"clerk",environment:options.environment,route:"api-key-case-managed",destination:{kind:"cloudflare"},sendingDomain:null}) : store.saveClerkNativeIntent({service:"clerk",environment:options.environment,
+    route:"provider-native",destination:{kind:"vercel"},sendingDomain:null})) : store.saveIntent({
+    service: "resend",
+    environment: options.environment,
+    route: options.route,
+    destination: { kind: options.destination },
+    sendingDomain: options.sendingDomain,
+    ...(options.nativeEnrollment ? { nativeEnrollment: options.nativeEnrollment } : {})
+  });
+  if (!saved.ok) {
+    console.error("NG: connection intent was not saved. Local metadata is unavailable; no credential or provider operation ran.");
+    terminate(1);
+  }
+  console.log(
+    `OK: ${saved.value.service === "resend" ? "Resend" : saved.value.service === "clerk" ? "Clerk" : saved.value.service === "openai" ? "OpenAI" : "Stripe test"} connection intent saved for ${saved.value.environment} ` +
+    `(${saved.value.route}, ${saved.value.destination.kind}${saved.value.service === "resend" && saved.value.nativeEnrollment ? `, ${saved.value.nativeEnrollment}` : ""}). This records setup intent only; it does not verify or configure a credential.`
+  );
+}
+
+function parseConnectionSetArgs(rest: string[]): ConnectionSetArgs {
+  const options: ConnectionSetArgs = {
+    targetDir: process.cwd(), service: null, environment: null, route: null, destination: null, sendingDomain: null, nativeEnrollment: null
+  };
+  let positional = false;
+  for (let index = 0; index < rest.length; index++) {
+    const arg = rest[index];
+    if (positional) {
+      console.error("NG: connection set accepts one project path.");
+      terminate(1);
+    }
+    const next = () => {
+      const value = rest[++index];
+      if (!value || value.startsWith("--")) {
+        console.error("NG: connection set needs a value for each option.");
+        terminate(1);
+      }
+      return value;
+    };
+    if (arg === "--service") {
+      const value = next();
+      if (options.service || !["resend","clerk","openai","stripe-test"].includes(value)) {
+        console.error("NG: connection set needs a supported service profile.");
+        terminate(1);
+      }
+      options.service = value as ConnectionSetArgs["service"];
+    } else if (arg === "--env") {
+      const value = next();
+      if (options.environment || !["development", "preview", "production"].includes(value)) {
+        console.error("NG: connection set needs one supported environment.");
+        terminate(1);
+      }
+      options.environment = value as ConnectionEnvironment;
+    } else if (arg === "--route") {
+      const value = next();
+      if (options.route || !["provider-native", "api-key-case-managed", "manual"].includes(value)) {
+        console.error("NG: connection set needs one supported route.");
+        terminate(1);
+      }
+      options.route = value as ConnectionRoute;
+    } else if (arg === "--destination") {
+      const value = next();
+      if (options.destination || !["local", "vercel", "cloudflare", "github", "manual"].includes(value)) {
+        console.error("NG: connection set needs one supported destination.");
+        terminate(1);
+      }
+      options.destination = value as ConnectionDestinationKind;
+    } else if (arg === "--sending-domain") {
+      if (options.sendingDomain !== null) {
+        console.error("NG: connection set accepts one sending domain.");
+        terminate(1);
+      }
+      options.sendingDomain = next();
+    } else if (arg === "--native-enrollment") {
+      const value = next();
+      if (options.nativeEnrollment || !["resend-vercel-integration", "resend-vercel-marketplace"].includes(value)) {
+        console.error("NG: connection set needs one supported Resend Vercel enrollment method.");
+        terminate(1);
+      }
+      options.nativeEnrollment = value as NonNullable<ConnectionSetArgs["nativeEnrollment"]>;
+    } else if (arg.startsWith("--")) {
+      console.error("NG: connection set received an unsupported option.");
+      terminate(1);
+    } else {
+      options.targetDir = arg;
+      positional = true;
+    }
+  }
+  return options;
+}
+
 function parseNextArgs(rest: string[], command: "next" | "history" = "next"): NextArgs {
   let targetDir = process.cwd();
-  let json = false;
+  let json = false, offline = false;
   let positionalCount = 0;
 
   for (const arg of rest) {
     if (arg === "--json") {
       json = true;
+    } else if (arg === "--offline" && !offline) {
+      offline = true;
     } else if (arg.startsWith("-")) {
       console.error("Unknown option.");
       terminate(1);
@@ -396,22 +952,32 @@ function parseNextArgs(rest: string[], command: "next" | "history" = "next"): Ne
     }
   }
 
-  return { targetDir, json };
+  return { targetDir, json, offline };
 }
 
 function runAgentInitCommand(rest: string[]): void {
   const args = parseAgentInitArgs(rest);
-  const version = readCliVersion();
 
   let result: ReturnType<typeof initializeAgentInstructions>;
+  let protocol: string;
   try {
+    // Command authority comes from this running module and Node, not from the
+    // project, process argv[1], a free-form path flag or persisted metadata.
+    const currentCli = args.useCurrentCli ? resolveCurrentCliInvocation(import.meta.url) : undefined;
+    const version = currentCli?.packageVersion ?? readCliVersion();
+    protocol = renderAgentProtocol(version, currentCli);
     result = initializeAgentInstructions({
       projectDir: args.targetDir,
       packageVersion: version,
       check: args.check,
-      host: args.host
+      host: args.host,
+      currentCli
     });
   } catch (error) {
+    if (error instanceof AgentCurrentCliError) {
+      console.error(`NG: ${error.message} No instruction files were changed.`);
+      terminate(args.check ? 2 : 1);
+    }
     if (error instanceof AgentInitSafetyError) {
       console.error("NG: agent instruction path or managed block is unsafe; no files were changed.");
       terminate(args.check ? 2 : 1);
@@ -429,7 +995,7 @@ function runAgentInitCommand(rest: string[]): void {
     return;
   }
 
-  console.log(renderAgentProtocol(version));
+  console.log(protocol);
   console.log("");
   if (result.persistence === "unavailable") {
     console.log("Persistence: no existing Agent host marker was found; no host-specific file was created.");
@@ -444,6 +1010,7 @@ function runAgentInitCommand(rest: string[]): void {
 function parseAgentInitArgs(rest: string[]): AgentInitArgs & { host?: AgentHost } {
   let targetDir = process.cwd();
   let check = false;
+  let useCurrentCli = false;
   let positionalCount = 0;
   let host: AgentHost | undefined;
 
@@ -451,10 +1018,12 @@ function parseAgentInitArgs(rest: string[]): AgentInitArgs & { host?: AgentHost 
     const arg = rest[index];
     if (arg === "--check") {
       check = true;
+    } else if (arg === "--use-current-cli" && !useCurrentCli) {
+      useCurrentCli = true;
     } else if (arg === "--host") {
       const value = rest[++index];
       if (host || (value !== "agents" && value !== "claude" && value !== "cursor")) {
-        console.error("Usage: api-key-case agent-init [path] [--check] [--host agents|claude|cursor]");
+        console.error("Usage: api-key-case agent-init [path] [--check] [--host agents|claude|cursor] [--use-current-cli]");
         terminate(1);
       }
       host = value;
@@ -471,7 +1040,7 @@ function parseAgentInitArgs(rest: string[]): AgentInitArgs & { host?: AgentHost 
     }
   }
 
-  return { targetDir, check, host };
+  return { targetDir, check, host, useCurrentCli };
 }
 
 // ---------------------------------------------------------------------------
@@ -1102,11 +1671,11 @@ async function runDeployCommand(rest: string[]): Promise<void> {
       if (result.handoff.timedOut || result.handoff.exitCode === null) {
         console.error(
           "The deployment result is unknown; provider changes may already exist. " +
-            "Run: api-key-case history --json . and agree the next step with the human."
+            "Run: api-key-case history --json --offline . and agree the next step with the human."
         );
       } else {
         console.error(
-          "The provider reported a deployment failure. Run: api-key-case history --json . " +
+          "The provider reported a deployment failure. Run: api-key-case history --json --offline . " +
             "and agree the next step with the human; do not retry automatically."
         );
       }
@@ -1193,8 +1762,15 @@ function readEnvValue(value: string | undefined): DeployEnv {
 // section 2). stdout is reserved for JSON-RPC once connected, so nothing in
 // this path may console.log; diagnostics, if any, go to stderr only.
 async function runMcpCommand(rest: string[]): Promise<void> {
-  const targetDir = rest.length > 0 ? resolve(rest[0]) : process.cwd();
-  const server = createMcpServer(targetDir);
+  const guidanceOnly = rest.includes("--guidance-only");
+  const vnext = rest.includes("--vnext");
+  const paths = rest.filter((value) => value !== "--guidance-only" && value !== "--vnext");
+  if (paths.length > 1 || paths.some((value) => value.startsWith("--")) || guidanceOnly && vnext ||
+      ["--guidance-only", "--vnext"].some(flag => rest.filter(value => value === flag).length > 1)) {
+    throw new Error("Usage: api-key-case mcp [path] [--guidance-only|--vnext]");
+  }
+  const targetDir = paths.length > 0 ? resolve(paths[0]) : process.cwd();
+  const server = createMcpServer(targetDir, { profile: vnext ? "vnext" : guidanceOnly ? "guidance-only" : "legacy" });
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }
@@ -1422,9 +1998,67 @@ function printHelp(): void {
   process.stdout.write(`api-key-case
 
 Usage:
-  api-key-case agent-init [path] [--check] [--host agents|claude|cursor]
-  api-key-case next --json [path]
-  api-key-case history --json [path]
+  api-key-case secret capabilities [--json]
+  api-key-case secret input --label <label> --classification <unknown|nonproduction|production>
+      [--replace <credential-id>] [--json]
+  api-key-case secret input --operation <operation-id> [--json]
+  api-key-case secret operation status --operation <operation-id> [--json]
+  api-key-case secret discover [--project <path>] [--environment <name>] [--variable <name>] [--json]
+  api-key-case secret binding plan|apply --environment <name> --variable <name>
+      [--project <path>] [--credential <id>] [--risk <unknown|nonproduction|production>]
+      [--fingerprint <plan-fingerprint>] [--json]
+  api-key-case secret manage plan|apply --action <unlink|relink|classify-environment> --binding <id>
+      [--project <new-path>] [--risk <unknown|nonproduction|production>] [--fingerprint <plan-fingerprint>] [--json]
+  api-key-case secret binding|manage apply --operation <operation-id> [--json]
+  api-key-case secret target inspect|register --environment <label> [--kind <cloudflare|vercel|github-actions>]
+      [--project <path>] [--config <relative-path:Cloudflare-only>] [--fingerprint <hash>] [--json]
+  api-key-case secret use plan|apply --binding <binding-id> --target <target-id> [--project <path>] [--fingerprint <hash>] [--json]
+  api-key-case secret target register|use apply --operation <operation-id> [--json]
+  api-key-case secret profile list --project <app> [--json]
+  api-key-case secret profile plan|register --kind <node-entry|node-package-script|python-entry|python-module>
+      --entry <relative-path|dev|start|module> --bindings <id,id> [--runtime <absolute-path>]
+      [--project <path>] [--cwd <relative-path>] [--duration <seconds:1..7200>] [--profile <id>] [--fingerprint <hash>] [--json]
+  api-key-case secret launch plan|apply --profile <id> [--project <path>] [--fingerprint <hash>] [--json]
+  api-key-case secret profile register|launch apply --operation <operation-id> [--json]
+    Private vNext: check secret capabilities for native readiness; no value arguments.
+  api-key-case agent-init [path] [--check] [--host agents|claude|cursor] [--use-current-cli]
+  api-key-case next --json [--offline] [path]
+  api-key-case connection set --service <resend|clerk|openai|stripe-test> --env <development|preview|production>
+      --route <provider-native|api-key-case-managed|manual>
+      --destination <local|vercel|cloudflare|github|manual> [--sending-domain <domain>]
+      [--native-enrollment <resend-vercel-integration|resend-vercel-marketplace>] [path]
+  api-key-case connection credential <guide|save|check|remove> --service <resend|clerk|openai|stripe-test> --env <development|preview|production> [--json] [path]
+    save: optional --purpose <email-sending|text-generation|embeddings|image-generation|test-payments> (advisory only)
+  api-key-case connection check --service resend [--env <development|preview|production>] [--json] [path]
+  api-key-case connection destinations [--json] [path]
+  api-key-case connection deploy --service <resend|openai|stripe-test> --env <development|preview|production> [--destination <catalog-id>] [--dry-run] [--force] [--json] [path]
+  api-key-case connection local <inspect|run> --service resend --env development --artifact dist/<entry>.cjs
+    --max-seconds <1..1800> --json [path]
+  api-key-case connection native options --service <resend|clerk> --env <development|preview|production> [--json]
+    Documented official Vercel routes only; no connection or credential operation.
+  api-key-case connection local status --service resend --env development --json [path]
+  api-key-case connection local observe --service resend --env development --attempt <id>
+    --execution-basis <id> --credential-revision <timestamp> --authority <agent-observed|human-reported>
+    --outcome <passed|failed|unknown|received|not-received> --json [path]
+    Closed trial history only: agent app result or human delivery report, never readiness/permission.
+    Windows-only development candidate: Pro and fresh native approval are required; real-app acceptance is separate.
+  api-key-case connection prepare --service clerk --env <development|preview|production> [--dry-run] [--json] [path]
+  api-key-case connection inventory [--json] [path]
+    Rediscover eleven project credential slots without changing the selected connection.
+    Stripe test supports development/preview only. OpenAI/Stripe test support hosted planning; execution awaits native acceptance.
+  api-key-case connection resume <plan|apply> --service <resend|clerk|openai|stripe-test> --env <development|preview|production>
+    [--route <provider-native|api-key-case-managed|manual>] [--fingerprint <plan-sha256> (required for apply only)] [--json] [path]
+    Route is required for apply and non-Resend profiles; Resend plan may read the recorded route. OpenAI/Stripe test require the managed route. Local metadata only.
+  api-key-case connection target <plan|apply> --service <resend|clerk|openai|stripe-test> --env <environment> (--org-id <id> --project-id <id> | --account-id <id> --worker <name>) [--fingerprint <plan-sha256>] [--json] [path]
+  api-key-case connection cloudflare guide --service <resend|clerk|openai|stripe-test> --env <development|preview|production> [--json] [path]
+  api-key-case connection cloudflare options --service <resend|clerk|openai|stripe-test> --env <development|preview|production> [--json]
+  api-key-case connection native guide --service <resend|clerk> --env <development|preview|production> [--json] [path]
+    Local-only official integration guide and recorded configuration state. No browser, network or setup action.
+  api-key-case connection native inspect --service <resend|clerk> --env <development|preview|production> --json [path]
+  api-key-case connection plan --service resend --env <development|preview|production> --json [path]
+  api-key-case connection observe-application --service resend --env <environment> --plan <fingerprint>
+    --outcome <passed|failed|unknown> --configuration <observed|unknown> --max-age-seconds <1..86400> --json [path]
+  api-key-case history --json [--offline] [path]
   api-key-case scan [path] [--json] [--strict]
                             [--write-env-example] [--agent-report] [--force]
   api-key-case save <NAME> [--scope user|project] [--force] [--ask]
@@ -1438,7 +2072,7 @@ Usage:
   api-key-case trust status [path] [--json]
   api-key-case trust forget --target <cloudflare|vercel|github>
                        --env <production|preview|development> [path]
-  api-key-case mcp [path]
+  api-key-case mcp [path] [--guidance-only|--vnext]
   api-key-case license activate
   api-key-case license status [--json]
   api-key-case license deactivate
@@ -1447,9 +2081,12 @@ Usage:
   api-key-case telemetry disable
 
 Commands:
+  secret     Inspect private vNext capabilities or an exact operation status.
+             Windows generic input uses the independent native UI when available.
   agent-init Initialize the Agent Control Plane and managed project instruction.
+             --use-current-cli binds this checked local Node/CLI entry; ephemeral npx entries fail closed.
   next       Return a closed, status-only schema of semantic next actions.
-  history    Inspect advisory past deploy results, never current remote values.
+  history    Inspect advisory past deploy results; --offline avoids provider identity probes.
   scan       Check .env safety, required secret names, and likely leaked tokens.
   save       Store a secret value in the OS secret store. --ask opens the
              Agent-independent Human Plane and never reads this process's stdin.

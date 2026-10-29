@@ -55,6 +55,29 @@ MicrosoftのWin32 ABI例も、activation factoryからinterop interfaceを取得
   今回起動したhelperのPIDに束縛したままにする。
 - 表示を変更したら §6 の実機4モードを再実行する。文面の変更は承認境界の変更として扱う。
 
+## 2.2 Helper command transport (2026-10-04)
+
+The Clerk approval builder exceeded the Windows process command-line limit when
+its entire Unicode source was passed as UTF-16 Base64 to `-EncodedCommand`.
+Long generated scripts now use gzip over UTF-8 and a small, encoded bootstrap
+that restores the original script in memory inside the same fixed PowerShell
+process. Short scripts keep their existing transport. The complete executable
+and argument length must remain below a conservative 30,000-character budget;
+an oversized result fails closed without launching or falling back.
+
+This transports generated code and validated display metadata only. The input
+value is still acquired inside the password control and stored by that helper;
+it never enters the generated source, compression buffer, argv, parent process,
+environment, file or log. No new script file, pipe, getter, provider, or approval
+token is introduced. Stdio remains ignored, cwd and environment stay fixed, and
+only the original script's explicit exit status is consumed. Bootstrap decoding
+errors, script exceptions and return without an explicit status exit 10.
+
+Regression tests execute harmless long Unicode scripts on Windows, compare the
+restored approval/removal source byte for byte, retain closed decision mapping,
+and reject still-oversized requests before spawn. They do not authenticate,
+access the OS store, display dialogs or contact a provider.
+
 ## 3. Windows versionへの影響
 
 Microsoftのdesktop interop methodの最低要件はWindows Build 22000である。このためWindows側の

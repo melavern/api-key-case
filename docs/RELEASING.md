@@ -1,5 +1,7 @@
 # Release checklist
 
+> **vNext note (2026-10-21):** 新経路の対応範囲と未受入事項は[Windows開発候補](releases/windows-vnext-candidate.md)で区別する。Privateでの設計・実装は公開npm 0.9.2・LP・販売条件を変更しない。新機能が実装/OS実機受入を終えた段階でのみ本書の既存公開ゲートへ渡す。本書にある従来の公開記録をvNextの受入済み証拠としない。内部戦略・Human Roadmap・上流設計はPublic exportへ含めない。
+
 This checklist describes the human-controlled steps between the private
 development repository and a public npm release, and records the acceptance
 that each published version passed. It is deliberately documentation only:
@@ -7,10 +9,62 @@ reading it or running the verification commands below must not make the
 GitHub repository public, push a commit, create a tag, deploy a Worker, or
 publish to npm.
 
+## Development integration and release acceptance
+
+Private development integration requires relevant automated tests, independent
+review and affected native functional/security acceptance. Secret handling,
+environment identity/isolation, consent, integrity and safe operation remain
+change-time gates. A visual defect that compromises those properties is also a
+development blocker.
+
+The supported display-scale matrix is a final public-release gate, not a repeated
+manual prerequisite for every development merge. Record exactly what was observed;
+unverified coverage is never a pass. For the environment-credential candidate,
+Windows 100% functional/layout acceptance was user-reported on 2026-10-02, while
+150% save/removal-dialog coverage remains required before public release. See
+[the evidence and stage-based contract](design/environment-credentials.md#platform-boundary-and-acceptance).
+This distinction follows the user's 2026-10-02 direction and does not waive any
+functional/security check or permit release, deployment, or broader OS claims.
+
+Agents should handle repeatable verification and UI operation when access permits.
+Human participation is reserved for authentication, real-secret entry, and
+observations or judgments that available tools cannot establish.
+
+### Structured Windows guide candidate
+
+The 2026-10-08 structured guide has actual 150% Save/Cancel/copy/long-text
+acceptance for Resend, Clerk, OpenAI and Stripe test. The reviewed-candidate follow-up now
+passes actual 100% Save/Cancel for all four profiles and the long Japanese-path/
+domain case. Clipboard operations were OFF; 100% real Copy remains unverified.
+
+For **Private development integration**, require the selected independent review,
+relevant automated tests and native evidence covering this change's actual
+DPI, layout, focus and secure-input risks. The known final 96-DPI foreground-focus
+interruption must be resolved or bounded by a **targeted, non-disruptive 96-DPI
+confirmation on the current candidate** of visible input, initial/keyboard focus,
+Save/Cancel and reachable controls. Do not require re-running the whole
+four-provider/long-text 96-DPI matrix merely to merge the Private branch when
+the affected conditions are covered and no material new issue remains.
+Any newly observed clipping, missing security guidance or unsafe input behavior
+still blocks development integration.
+
+The remaining **100% real Copy acceptance** requires an isolated test desktop
+before public release; the completed layout/input/save/cancel cases and remaining
+release conditions are recorded in the existing verification record.
+The implementation Agent owns any targeted native follow-up on an available,
+non-busy interactive Windows desktop; no repeated dialogs on the owner's active
+desktop. The native guide test leaves the OS clipboard untouched by default;
+real clipboard verification requires explicit opt-in on an isolated test desktop.
+See [the dated record](VERIFICATION.md#structured-windows-credential-guide--2026-10-08).
+This does not cover other approval/removal dialogs, high-contrast visuals,
+macOS, provider validity/execution or a public release.
+
 ## MCP Registry publication
 
-The official MCP Registry is in preview. The current Registry candidate is
-`server.json`: `io.github.melavern/api-key-case` version `0.9.2`, pointing at
+The official MCP Registry is in preview. `server.json`
+(`io.github.melavern/api-key-case` version `0.9.2`) was published to the
+Registry on 2026-09-30 and read back as the active latest version (see
+[VERIFICATION](VERIFICATION.md#mcp-registry-publication--2026-09-30)). It points at
 the existing public `api-key-case` npm package and its `mcp` stdio subcommand.
 The `melavern` namespace matches the public source repository and package
 publisher; the private development repository is not the Registry source.
@@ -148,9 +202,16 @@ the published `0.9.1`, the registry package is the artifact to test:
 `npx -y api-key-case@0.9.1 --version` resolves to `0.9.1` and no local
 tarball is needed.
 
-For repeatable Ubuntu verification, use `npm run test:package` and, when the
-required tools are present, `npm run test:keyring:linux`. The latter creates its
-own D-Bus session and store; its values and provider CLIs are fixtures.
+For repeatable portable package verification, use `npm run test:package`. It
+installs the real tarball, then replaces only the disposable consumer's native
+keyring dependency with an explicit unavailable mock. A child-inherited native
+load guard covers CLI, `next`, MCP and exact-version offline npx. Every packed
+app file must stay byte-identical. This lane does not prove native-store access.
+Its disposable HOME and Node/shell-only PATH also keep provider CLI diagnosis
+away from existing user metadata and provider logins.
+When the required tools are present and real-store testing is authorized, use
+the separate `npm run test:keyring:linux` lane. It creates its own D-Bus session
+and store; its values and provider CLIs are fixtures.
 
 For a human/Agent session, build and pack the reviewed checkout into a
 temporary directory. Install that tarball in a **disposable consumer project**
@@ -215,6 +276,25 @@ bootstrap-token setup are not repeated.
 
 ## 1. Per-release candidate gate
 
+In the public repository, CI runs on PR updates and pushes to `main`; a newer
+run for the same PR or ref cancels the older read-only run. In the private
+development repository, pushes and PR updates are hand-offs and start no
+runner: candidates are verified locally at integration, and hosted CI runs only
+on explicit manual dispatch with a chosen breadth (`representative` = Ubuntu
+Node 22 plus the pack-list check, `keyring` = adds the strict real-store blocks
+on all three OSes, `full` = the five portable Node/OS combinations plus the
+three stores). Choose the narrowest breadth that answers the question.
+
+Known prose/status and static Web changes run only the lightweight contract
+lane; executable examples, mixed code changes, unknown paths or unavailable
+diffs retain the product checks. The strict keyring lane uses
+`node tests/run-tests.mjs --keyring-only` to run all three existing real-store
+blocks without repeating the portable suite. Packaging waits for the portable
+tests, builds its clean checkout and uses `npm pack --dry-run --ignore-scripts`
+on that tested SHA. Normal `prepack` and the release gates below remain intact.
+A pass on a private SHA is not inherited by the exported public tree: the
+release candidate is verified again where it is published.
+
 Run these checks from a clean checkout and review their output:
 
 ```sh
@@ -222,7 +302,7 @@ npm test
 npm audit --omit=dev
 npm pack --dry-run
 npm pack --dry-run --json        # optional machine-readable file-list review
-npm run test:package             # actual artifact installed outside this checkout
+npm run test:package             # installed artifact; explicit native-keyring mock
 ```
 
 On npm versions that prepend lifecycle stdout to `--json`, inspect the JSON
@@ -236,7 +316,10 @@ real-store E2E and the installed artifact inside a disposable D-Bus session.
 Do not count this as evidence for Windows Hello, macOS dialogs or real provider
 writes. The default package lane audits the fresh consumer's dependencies too:
 the development repository's lockfile/overrides alone do not prove what a
-new npm consumer will install.
+new npm consumer will install. This audit runs before the disposable native
+dependency is replaced. An absent D-Bus address alone is not a no-store test:
+the native library may still use Linux keyutils. Do not remove the default
+mock or count its unavailable/error coverage as real keyring acceptance.
 
 The packed tarball must contain only the CLI build, `package.json`, public
 README files, `CHANGELOG.md`, `LICENSE`, `LICENSES/0BSD.txt`, `NOTICE`, `SECURITY.md`, and `SUPPORT.md`. It must not contain

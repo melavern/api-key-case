@@ -4,11 +4,11 @@
 [![Node.js 20+](https://img.shields.io/badge/Node.js-20%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![License: Elastic-2.0](https://img.shields.io/badge/License-Elastic--2.0-0d1714.svg)](LICENSE)
 
-**Hand an AI coding agent the work, not the key.** API Key Case scans a project locally, reports likely secret-handling risks, and generates redacted context for Claude Code, Codex, Cursor, and similar tools. Values live in your OS secret store, and Pro `deploy` places them into Cloudflare, Vercel, or GitHub through those platforms' official CLIs — a secret value is never returned, printed, or logged.
+**Keep building with your AI coding agent without pasting API keys into chat.** Enter values in a dedicated window and keep them in your OS secret store. Claude Code, Codex, Cursor, or a similar agent can check registration status and configure supported Cloudflare, Vercel, or GitHub destinations. Deployment is a Pro feature. The tool returns status to the agent, never the key value.
 
 日本語版のREADMEは **[README.ja.md](https://github.com/melavern/api-key-case/blob/main/README.ja.md)** にあります。
 
-> **This README describes the v0.9.2 pre-stable release candidate.** `@latest` follows npm's published dist-tag, which can lag during staged publication. Confirm that the exact `0.9.2` package is available before using its Agent workflow; the [release checklist](docs/RELEASING.md) records the gates and acceptance evidence.
+> **Instructions for v0.10.0 (pre-stable).** Start with the [generic Windows workflow](#generic-windows-workflow). Check [npm](https://www.npmjs.com/package/api-key-case) for published versions.
 >
 > This pre-stable tool reduces accidental exposure risk. It does not guarantee complete secret protection. Always review generated files before sharing them.
 >
@@ -37,6 +37,16 @@ store is available; Agent-first input, approval, executing deploy, and
 approval-required value/trust removal are not provided. Linux keyring backend
 selection and login/reboot persistence remain environment-dependent.
 
+## Generic Windows workflow
+
+In v0.10.0, a supported Windows session can:
+
+- Reuse a registered key in another project or development environment selected by its owner.
+- Start an approved Node.js / Python development app with registered keys.
+- Check interrupted registration, placement, and launch results before continuing.
+
+The new workflow targets Windows. Placement and app launch require Pro and fresh human identity verification. Approved apps and their dependencies can read their keys; review the app before approving it. Ask your usual agent to run `npx -y api-key-case@0.10.0 agent-init .` and follow the returned protocol. It checks capabilities and existing project registrations before requesting missing input. The common input window uses a task-specific key name; classification and context are under Details.
+
 The published release's basic commands can be tried independently:
 
 ```sh
@@ -59,7 +69,7 @@ Never put a real secret in a command argument, Issue, chat message, or generated
 
 You can register keys you already use without letting the Agent read `.env`. Confirm only the Secret name, open the file yourself, and copy only its value into the Human Plane. This is not automatic ingestion: API Key Case does not delete, synchronize, replace, or otherwise change the original `.env`, so you can keep using it where needed. Registration can be the end of the task; deploy is separate.
 
-The scanner currently recognizes `.env.example` plus common JavaScript/TypeScript references. A missed name in another language or unsupported syntax does not mean the Secret is unnecessary: if you know its name, you can still save or check it directly. Storage has no deployment-environment dimension, so one project/name cannot hold different development and production values at the same time; choose which single value to register and do not overwrite an existing entry unintentionally.
+The scanner currently recognizes `.env.example` plus common JavaScript/TypeScript references. A missed name in another language or unsupported syntax does not mean the Secret is unnecessary: if you know its name, you can still save or check it directly. The legacy save/check commands keep one value per project/name. The generic workflow below uses separately registered keys and explicit associations, so distinct purposes can use distinct keys without overwriting one another.
 
 Deployment has additional provider/project constraints. In particular, Cloudflare Agent-first deploy stops under API Key Case's safety conditions when a Wrangler project also has a real `.env`, `.env.*` (excluding `.env.example`), `.dev.vars`, or `.dev.vars.*` file, because Wrangler can load those files. This is not a login or Free-plan failure: local Secret registration remains available, and API Key Case does not modify the file. Run the Free readiness diagnosis before purchasing Pro.
 
@@ -446,7 +456,7 @@ The test Worker is `api-key-case-license-exchange-test`; live is `api-key-case-l
 
 ## Status and roadmap
 
-Current source candidate: **v0.9.2 (pre-stable)**. The preceding v0.9.1 release was published on npm on 2026-09-14 (JST). Security fixes are provided for the latest published pre-stable release only. Code completion and portable tests do not establish acceptance on real Agent hosts, Windows/macOS dialogs or provider accounts. See the [release checklist](docs/RELEASING.md), [verification record](docs/VERIFICATION.md) and [changelog](CHANGELOG.md). Version 1.0 remains reserved until external users have validated real projects.
+Current source candidate: **v0.10.0 (pre-stable)**. The preceding v0.9.1 release was published on npm on 2026-09-14 (JST). Security fixes are provided for the latest published pre-stable release only. Code completion and portable tests do not establish acceptance on real Agent hosts, Windows/macOS dialogs or provider accounts. See the [release checklist](docs/RELEASING.md), [verification record](docs/VERIFICATION.md) and [changelog](CHANGELOG.md). Version 1.0 remains reserved until external users have validated real projects.
 
 - Phase 1: local scanning and safe file generation
 - Phase 2: OS secret store save / check / list / remove (`user` / `project` scope)

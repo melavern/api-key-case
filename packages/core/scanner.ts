@@ -19,6 +19,8 @@ import { findSecretLikeTokens, type SecretFinding } from "./patterns.js";
 
 export type ScanOptions = {
   targetDir: string;
+  /** Local advisory inspection only; tracked/history exposure is not inspected. */
+  skipGitInspection?: boolean;
   writeEnvExample?: boolean;
   agentReport?: boolean;
   force?: boolean;
@@ -95,10 +97,14 @@ const TEXT_EXTENSIONS = new Set([
 
 export function scanProject(options: ScanOptions): ScanReport {
   const targetDir = realpathSync.native(resolve(options.targetDir));
-  const gitignore = checkGitignore(targetDir);
-  const git = inspectGit(targetDir);
+  const gitignore = options.skipGitInspection
+    ? { hasGitignore: false, ignoresDotEnv: false, ignoresDotEnvVariants: false }
+    : checkGitignore(targetDir);
+  const git: GitState = options.skipGitInspection
+    ? { available: false, isRepo: false, trackedEnvFiles: [], historyEnvFiles: [] }
+    : inspectGit(targetDir);
   const files = walkFiles(targetDir);
-  const envFiles = inspectEnvFiles(targetDir, files, git);
+  const envFiles = inspectEnvFiles(targetDir, files, git, options.skipGitInspection);
   const sourceFiles = files.filter((file) => shouldScanTextFile(file));
   const { requiredSecrets, secretUsages, envExampleUnsafe } = collectRequiredSecrets(targetDir, sourceFiles);
   const secretFindings = sourceFiles.flatMap((file) => {
@@ -171,7 +177,8 @@ function walkFiles(rootDir: string): string[] {
 function inspectEnvFiles(
   rootDir: string,
   files: string[],
-  git: GitState
+  git: GitState,
+  skipGitInspection = false
 ): EnvFileState[] {
   const tracked = new Set(git.trackedEnvFiles);
   const history = new Set(git.historyEnvFiles);
@@ -181,7 +188,7 @@ function inspectEnvFiles(
     .filter(isEnvFile)
     .map((file) => ({
       file,
-      ignored: isPathIgnored(rootDir, file),
+      ignored: skipGitInspection ? false : isPathIgnored(rootDir, file),
       tracked: tracked.has(file),
       seenInHistory: history.has(file)
     }))

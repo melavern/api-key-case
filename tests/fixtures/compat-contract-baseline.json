@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "baseline": {
+    "commit": "362061a590cee6ec5f25ea1848ecf4adc9f91155",
+    "capturedAt": "2026-10-19",
+    "documents": [
+      { "path": "AGENTS.md", "sha256": "8f055ce6c6a873f1e4ad7012bc10061388dc123f46498714409486772e0ba08a" },
+      { "path": ".development/roadmap.json", "sha256": "7f484eb7781fbda24d80639b60133f79f41f75b2d8922e951ee6a3de5170a31f" },
+      { "path": ".development/decisions.json", "sha256": "52735c955c771f704c9b1c4ee725ccacd7c11e82ee97ab152dd31b41af596cc0" },
+      { "path": "docs/product-strategy.md", "sha256": "0e03854c9d2cef2807bcf53005f1a7616c7baf6f101df8d0554a09cc3e77f2cf" },
+      { "path": "docs/design/agent-neutral-start.md", "sha256": "74cdb3b2b12b67c0a19e31181553083029bf726833bae1cf94fe8ff0d4d96ba4" },
+      { "path": "docs/design/agent-neutral-secret-foundation.md", "sha256": "e89dd4d8598bfdcf1aa5f362280391078fc7adb1750edc76bb937ad699f0ee33" },
+      { "path": "docs/design/environment-credentials.md", "sha256": "de4bc6c9ca65e7ffa3c30b71367cf5648b89815055f86e50b55e3b3964519f84" },
+      { "path": "docs/design/provider-credential-acquisition.md", "sha256": "67747139fd89043918397d20cea921972a4a17c1c504e9e97f91c2f3b1acbe99" },
+      { "path": "docs/design/deployment-history.md", "sha256": "10c58388134f068205c735369598792e1138358db8f20133272a1d30e0049e6b" },
+      { "path": "docs/design/phase-5-license.md", "sha256": "48da7f2dd1dc8ec440156fb2d4ad6fa39803c65b45837dbe31fc64ec08f78aa5" },
+      { "path": "docs/RELEASING.md", "sha256": "e64ec2b61fa210a730ba783ecf42eb8f8248377cc0e6ece75f83eaac2288b4d7" }
+    ],
+    "unavailableCurrentState": ["tasks/in-progress.md"],
+    "executionConditions": {
+      "platform": "Linux x86_64",
+      "node": "v22.22.2",
+      "npm": "10.9.7",
+      "fixtureData": "synthetic only",
+      "realOsSecretStore": "not used",
+      "providerOperations": "not used",
+      "network": "not used; CLI fixture subprocesses deny network",
+      "nativeDialogs": "not used"
+    }
+  },
+  "verification": {
+    "command": "npm run test:compat-contract",
+    "nodeTestRunner": { "passed": 33, "failed": 0 },
+    "providerCredentialCliCases": 23,
+    "currentCliGuidanceCases": 41,
+    "windowsHelperCommand": "passed",
+    "exitCode": 0
+  },
+  "legacyV1": {
+    "name": "COMPAT_FIXTURE_KEY",
+    "projectId": "0123456789abcdef",
+    "userAccount": "v1|user|-|COMPAT_FIXTURE_KEY",
+    "projectAccount": "v1|project|0123456789abcdef|COMPAT_FIXTURE_KEY"
+  },
+  "v2": {
+    "projectId": "0123456789abcdef",
+    "slots": [
+      { "service": "resend", "environment": "development", "name": "RESEND_API_KEY", "account": "v2|credential|project|0123456789abcdef|resend|development|RESEND_API_KEY" },
+      { "service": "resend", "environment": "preview", "name": "RESEND_API_KEY", "account": "v2|credential|project|0123456789abcdef|resend|preview|RESEND_API_KEY" },
+      { "service": "resend", "environment": "production", "name": "RESEND_API_KEY", "account": "v2|credential|project|0123456789abcdef|resend|production|RESEND_API_KEY" },
+      { "service": "clerk", "environment": "development", "name": "CLERK_SECRET_KEY", "account": "v2|credential|project|0123456789abcdef|clerk|development|CLERK_SECRET_KEY" },
+      { "service": "clerk", "environment": "preview", "name": "CLERK_SECRET_KEY", "account": "v2|credential|project|0123456789abcdef|clerk|preview|CLERK_SECRET_KEY" },
+      { "service": "clerk", "environment": "production", "name": "CLERK_SECRET_KEY", "account": "v2|credential|project|0123456789abcdef|clerk|production|CLERK_SECRET_KEY" },
+      { "service": "openai", "environment": "development", "name": "OPENAI_API_KEY", "account": "v2|credential|project|0123456789abcdef|openai|development|OPENAI_API_KEY" },
+      { "service": "openai", "environment": "preview", "name": "OPENAI_API_KEY", "account": "v2|credential|project|0123456789abcdef|openai|preview|OPENAI_API_KEY" },
+      { "service": "openai", "environment": "production", "name": "OPENAI_API_KEY", "account": "v2|credential|project|0123456789abcdef|openai|production|OPENAI_API_KEY" },
+      { "service": "stripe-test", "environment": "development", "name": "STRIPE_API_KEY", "account": "v2|credential|project|0123456789abcdef|stripe-test|development|STRIPE_API_KEY" },
+      { "service": "stripe-test", "environment": "preview", "name": "STRIPE_API_KEY", "account": "v2|credential|project|0123456789abcdef|stripe-test|preview|STRIPE_API_KEY" }
+    ]
+  },
+  "deploymentHistory": {
+    "readableSchemas": [1, 2, 3, 4],
+    "outcomes": ["completed", "incomplete", "unknown"],
+    "authority": "advisory-local-history"
+  },
+  "destinationTrust": {
+    "states": ["trusted", "changed", "unconfirmed"],
+    "recordKinds": ["destination", "destination-slot"],
+    "fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "slot": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "license": {
+    "prefix": "AKC1",
+    "payload": { "v": 1, "plan": "pro", "id": "synthetic-entitlement", "issuedAt": "2026-10-19" }
+  },
+  "agentSurfaces": {
+    "cliCommands": ["save", "check", "list", "remove", "history", "trust", "license"],
+    "mcpTools": ["list_required_secrets", "check_secret", "save_secret", "deploy_secret", "generate_env_example", "scan_secret_leaks", "check_gitignore"]
+  },
+  "helperFixtures": {
+    "windows": "tests/windows-helper-command.mjs",
+    "macos": "tests/macos-human-plane-script.mjs",
+    "noNativeExecution": true
+  }
+}

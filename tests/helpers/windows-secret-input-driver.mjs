@@ -203,6 +203,8 @@ export function buildSecretInputDriver({
     "$script:report.helperPidCount = $helperPids.Length",
     `if ($dialog -eq [IntPtr]::Zero) { Stop-AkcDriver ${DRIVER_EXIT.dialogNotFound} 'dialog-not-found' }`,
     "$controls = [AkcSecretInputDriver]::Inspect($dialog)",
+    "$readyDeadline = [DateTime]::UtcNow.AddSeconds(10)",
+    "while (-not ($controls | Where-Object { $_.IsPassword }) -and [DateTime]::UtcNow -lt $readyDeadline -and [AkcSecretInputDriver]::Alive($dialog)) { Start-Sleep -Milliseconds 100; $controls = [AkcSecretInputDriver]::Inspect($dialog) }",
     "$described = @()",
     "foreach ($control in $controls) {",
     "  $described += @{ className = $control.ClassName; style = $control.Style; isEdit = $control.IsEdit; isButton = $control.IsButton; isPassword = $control.IsPassword; isReadOnly = $control.IsReadOnly; isMultiline = $control.IsMultiline; textLength = $control.TextLength; text = $control.Text }",

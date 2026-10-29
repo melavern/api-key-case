@@ -54,7 +54,12 @@ export function upsertRegistryEntry(
   );
 
   if (existing) {
-    existing.updatedAt = now;
+    const previous = Date.parse(existing.updatedAt);
+    // A timestamp is the non-secret credential revision used to invalidate
+    // observations. Keep it unique even when two saves happen in one clock tick.
+    existing.updatedAt = Number.isFinite(previous) && Date.parse(now) <= previous
+      ? new Date(previous + 1).toISOString()
+      : now;
     existing.projectPath = entry.projectPath;
   } else {
     entries.push({

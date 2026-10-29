@@ -3,6 +3,7 @@ import { accessSync, constants, readFileSync, realpathSync, statSync } from "nod
 import { spawn, spawnSync, type ChildProcess, type SpawnOptionsWithoutStdio } from "node:child_process";
 import { userInfo } from "node:os";
 import { delimiter, dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { RESEND_CLI_VERSION, RESEND_NPM_BUNDLE_SHA256 } from "../agent/resend-doctor.js";
 
 export interface ResolvedExecutable {
   absolutePath: string;
@@ -20,7 +21,7 @@ export interface ResolvedCli extends ResolvedExecutable {
   isWindowsScript: boolean; // .cmd / .bat — needs the fixed cmd.exe wrapper below
   /** Frozen OS-derived PATH used for trusted execution; absent for legacy PATH resolution. */
   trustedPath?: string;
-  /** Exact Node runtime for a trusted macOS `#!/usr/bin/env node` CLI. */
+  /** Exact Node runtime for a trusted script; never selected by a shell/PATH at spawn. */
   interpreter?: ResolvedExecutable;
 }
 
@@ -32,10 +33,12 @@ export interface TrustedCliOptions {
   platformOverride?: NodeJS.Platform;
   /** Test-only exact interpreter used with a darwin pathOverride fixture. */
   interpreterOverride?: string;
+  /** Synthetic bundle digest, honored only with the explicit pathOverride test seam. */
+  resendBundleHashOverride?: string;
 }
 
 const WINDOWS_EXTENSIONS = [".exe", ".cmd", ".bat"] as const;
-const TRUSTED_COMMANDS = new Set(["wrangler", "vercel", "gh"]);
+const TRUSTED_COMMANDS = new Set(["wrangler", "vercel", "gh", "resend"]);
 const WINDOWS_ROOT = String.raw`C:\Windows`;
 const WINDOWS_REG_PATH = String.raw`C:\Windows\System32\reg.exe`;
 const WINDOWS_CMD_PATH = String.raw`C:\Windows\System32\cmd.exe`;
@@ -77,6 +80,14 @@ export function resolveTrustedCli(
   options: TrustedCliOptions = {}
 ): ResolvedCli | null {
   if (options.pathOverride !== undefined) {
+    if (command === "resend" && (options.platformOverride ?? process.platform) === "win32") {
+      const projectDir = options.projectDir ? safeRealpath(options.projectDir) : null;
+      if (options.projectDir && !projectDir) return null;
+      const dirs = options.pathOverride.split(delimiter).map(safeRealpath)
+        .filter((dir): dir is string => Boolean(dir))
+        .filter((dir) => isSafeTrustedDirectory(dir, projectDir));
+      return resolveWindowsResend(dirs, projectDir, options.resendBundleHashOverride);
+    }
     if (options.platformOverride === "darwin") {
       const projectDir = options.projectDir ? safeRealpath(options.projectDir) : null;
       if (options.projectDir && !projectDir) return null;
@@ -125,6 +136,7 @@ export function resolveTrustedCli(
 
   const trustedPath = trustedDirs.join(delimiter);
   if (process.platform === "win32") {
+    if (command === "resend") return resolveWindowsResend(trustedDirs, projectDir);
     for (const trustedDir of trustedDirs) {
       for (const ext of WINDOWS_EXTENSIONS) {
         const candidate = join(trustedDir, `${command}${ext}`);
@@ -134,6 +146,37 @@ export function resolveTrustedCli(
     }
   } else if (process.platform === "darwin") {
     return resolveMacOSTrustedCli(command, trustedDirs, projectDir);
+  }
+  return null;
+}
+
+// npm's global Windows layout is fixed. Never interpret, parse or execute its
+// .cmd/.bat shim. Bind the reviewed self-contained bundle and an OS-PATH Node
+// executable separately. No workspace/package resolution or `npx` occurs here.
+function resolveWindowsResend(
+  trustedDirs: readonly string[], projectDir: string | null,
+  bundleHash = RESEND_NPM_BUNDLE_SHA256
+): ResolvedCli | null {
+  const trustedPath = trustedDirs.join(delimiter);
+  // Preserve the existing native route, even if an earlier npm install exists.
+  for (const dir of trustedDirs) {
+    const cli = inspectCandidate(join(dir, "resend.exe"), false, trustedPath);
+    if (cli && isPathOutsideProject(cli.realPath, projectDir)) return cli;
+  }
+  const interpreter = trustedDirs.map((dir) => inspectExecutable(join(dir, "node.exe")))
+    .find((node) => node && isPathOutsideProject(node.realPath, projectDir));
+  if (!interpreter) return null;
+  for (const dir of trustedDirs) {
+    const packageDir = join(dir, "node_modules", "resend-cli");
+    try {
+      const manifest = JSON.parse(readFileSync(join(packageDir, "package.json"), "utf8"));
+      if (manifest.name !== "resend-cli" || manifest.version !== RESEND_CLI_VERSION ||
+          manifest.engines?.node !== ">=22" ||
+          !["dist/cli.cjs", "./dist/cli.cjs"].includes(manifest.bin?.resend)) continue;
+      const cli = inspectCandidate(join(packageDir, "dist", "cli.cjs"), false, trustedPath);
+      if (!cli || cli.contentHash !== bundleHash || !isPathOutsideProject(cli.realPath, projectDir)) continue;
+      return Object.freeze({ ...cli, interpreter });
+    } catch { /* absent/unsupported npm layout is unavailable, never a shell fallback */ }
   }
   return null;
 }

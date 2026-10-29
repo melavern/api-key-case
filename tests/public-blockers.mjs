@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { unsafeMetadataLink } from './helpers/metadata-link-fixture.mjs';
 import {
   chmodSync,
   lstatSync,
@@ -51,12 +52,12 @@ function testAgentInstructionBoundaries(root) {
   const outsideFile = join(outside, "AGENTS.md");
   writeText(outside, "AGENTS.md", "outside agent instructions\n");
   const linked = join(project, "AGENTS.md");
-  symlinkSync(outsideFile, linked);
+  const linkedTarget=unsafeMetadataLink(outsideFile, linked);
   assert.throws(
     () => initializeAgentInstructions({ projectDir: project, packageVersion: "0.9.1", check: false }),
     /unsafe/i
   );
-  assert.equal(readlinkSync(linked), outsideFile);
+  assert.equal(readlinkSync(linked), linkedTarget);
   assert.equal(readFileSync(outsideFile, "utf8"), "outside agent instructions\n");
 
   const hardlinkProject = join(root, "u1-agent-init-hardlink");
@@ -84,7 +85,7 @@ function testGeneratedFileBoundaries(root) {
   const outsideEnv = join(outside, "env-example-target.txt");
   writeText(outside, "env-example-target.txt", "OUTSIDE_ONLY=must-not-be-read\n");
   const envExample = join(project, ".env.example");
-  symlinkSync(outsideEnv, envExample);
+  unsafeMetadataLink(outsideEnv, envExample);
   const linkBefore = readlinkSync(envExample);
   const outsideBefore = readFileSync(outsideEnv, "utf8");
 
@@ -100,14 +101,14 @@ function testGeneratedFileBoundaries(root) {
   const outsideReport = join(outside, "agent-report-target.txt");
   writeText(outside, "agent-report-target.txt", "keep this outside file\n");
   const agentContext = join(project, "AGENT_CONTEXT.safe.md");
-  symlinkSync(outsideReport, agentContext);
+  const reportTarget=unsafeMetadataLink(outsideReport, agentContext);
   const agentDenied = scanProject({ targetDir: project, agentReport: true, force: true });
   const agentContextState = agentDenied.agentReport.files.find(
     (file) => file.path === "AGENT_CONTEXT.safe.md"
   );
   assert.equal(agentContextState?.written, false);
   assert.match(agentContextState?.reason ?? "", /unsafe|refus/i);
-  assert.equal(readlinkSync(agentContext), outsideReport);
+  assert.equal(readlinkSync(agentContext), reportTarget);
   assert.equal(readFileSync(outsideReport, "utf8"), "keep this outside file\n");
 
   const normal = join(root, "u1-normal");

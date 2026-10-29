@@ -1,0 +1,14 @@
+{
+  "main": "worker.mjs",
+  "compatibility_date": "2026-10-04",
+  "env": {
+    "development": {
+      "name": "replace-with-existing-development-worker",
+      "account_id": "REPLACE_WITH_EXISTING_ACCOUNT_ID",
+      "vars": {
+        "CLERK_PUBLISHABLE_KEY": "REPLACE_WITH_PUBLIC_DEVELOPMENT_KEY",
+        "APP_ORIGIN": "https://replace-with-existing-app.example"
+      }
+    }
+  }
+}

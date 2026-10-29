@@ -1,9 +1,10 @@
+import { buildCredentialAcquisitionPanel, STRIPE_TEST_INPUT_ERROR } from "./acquisition.js";
 import { spawn } from "node:child_process";
 import { accessSync, constants, realpathSync, statSync } from "node:fs";
 
 import { assertValidSecretName } from "../vault/types.js";
 import { toAccount, VAULT_SERVICE } from "../vault/naming.js";
-import type { ApprovalPlan, ApprovalTrustState } from "../deploy/types.js";
+import { approvalSourceLabel, assertApprovalConnectionSource, type ApprovalPlan, type ApprovalTrustState } from "../deploy/types.js";
 import type {
   HumanApprovalStatus,
   HumanPlane,
@@ -143,6 +144,9 @@ export class MacOSHumanPlane implements HumanPlane {
 export function buildMacOSSecretInputScript(request: SecretInputRequest): string {
   validateSecretInputRequest(request);
 
+  const guidance = buildCredentialAcquisitionPanel(request);
+  const acquisition = "environment" in request && request.service === "clerk" ? null : guidance;
+  const stripeTest = "environment" in request && request.service === "stripe-test";
   const secretName = jxaStringLiteral(request.name);
   const account = jxaStringLiteral(toAccount(request));
   const service = jxaStringLiteral(VAULT_SERVICE);
@@ -152,6 +156,13 @@ export function buildMacOSSecretInputScript(request: SecretInputRequest): string
       : "Registration destination: Current user (shared across projects)"
   );
   const projectDir = jxaStringLiteral(request.projectDir ?? "");
+  const connectionDetails = "environment" in request
+    ? [
+        `Service: ${request.service}`,
+        `Environment: ${request.environment}`,
+        `Project ID: ${request.projectId}`
+      ]
+    : [];
 
   return [
     "ObjC.import('AppKit');",
@@ -168,11 +179,27 @@ export function buildMacOSSecretInputScript(request: SecretInputRequest): string
     "app.activateIgnoringOtherApps(true);",
     "const alert = $.NSAlert.alloc.init;",
     "alert.messageText = 'API Key Case - Secret Input';",
+    ...(connectionDetails.length > 0
+      ? [`const connectionDetails = [${connectionDetails.map(jxaStringLiteral).join(", ")}].join('\\n');`]
+      : []),
     "const destination = destinationLabel + (projectDir ? '\\n' + projectDir : '');",
-    "alert.informativeText = 'Enter the value for ' + secretName + '.\\n\\n' + destination + '\\n\\nIt will be stored directly in the macOS Keychain.';",
+    `alert.informativeText = 'Enter the value for ' + secretName + '.\\n\\n' + destination${connectionDetails.length > 0 ? " + '\\n' + connectionDetails" : ""} + '\\n\\nIt will be stored directly in the macOS Keychain.';`,
+    ...(acquisition ? [
+      `alert.messageText = ${jxaStringLiteral(acquisition.title.en)};`,
+      `alert.informativeText = destination + '\\n' + connectionDetails + '\\n\\n' + ${[...acquisition.steps.map(step => step.en), "The value is stored directly in the macOS Keychain.", acquisition.afterSave.en].map(jxaStringLiteral).join(" + '\\n\\n' + ")};`
+    ] : []),
     "const field = $.NSSecureTextField.alloc.initWithFrame($.NSMakeRect(0, 0, 360, 24));",
     "field.placeholderString = 'Secret value';",
-    "alert.accessoryView = field;",
+    ...(acquisition ? [
+      "const accessory = $.NSView.alloc.initWithFrame($.NSMakeRect(0, 0, 420, 64));",
+      "field.setFrame($.NSMakeRect(0, 0, 420, 24));",
+      "const link = $.NSTextField.alloc.initWithFrame($.NSMakeRect(0, 36, 420, 24));",
+      "link.bezeled = false; link.drawsBackground = false; link.editable = false; link.selectable = true; link.allowsEditingTextAttributes = true;",
+      `const linkText = $.NSMutableAttributedString.alloc.initWithString(${jxaStringLiteral(acquisition.linkText.en)});`,
+      `linkText.addAttributeValueRange($.NSLinkAttributeName, $.NSURL.URLWithString(${jxaStringLiteral(acquisition.linkUrl)}), $.NSMakeRange(0, ${acquisition.linkText.en.length}));`,
+      "link.attributedStringValue = linkText;",
+      "accessory.addSubview(link); accessory.addSubview(field); alert.accessoryView = accessory;"
+    ] : ["alert.accessoryView = field;"]),
     "alert.addButtonWithTitle('Save');",
     "alert.addButtonWithTitle('Cancel');",
     "alert.window.initialFirstResponder = field;",
@@ -186,6 +213,19 @@ export function buildMacOSSecretInputScript(request: SecretInputRequest): string
     "  field.stringValue = '';",
     "  $.exit(2);",
     "}",
+    ...(stripeTest ? [
+      // Keep the value and kind check inside the same native helper as the OS write.
+      "if (value.indexOf('sk_test_') !== 0 || value.length <= 8 || /\\s/.test(value)) {",
+      "  field.stringValue = '';",
+      "  value = '';",
+      "  const invalid = $.NSAlert.alloc.init;",
+      "  invalid.messageText = 'API Key Case - Stripe test key required';",
+      `  invalid.informativeText = ${jxaStringLiteral(STRIPE_TEST_INPUT_ERROR.en)};`,
+      "  invalid.addButtonWithTitle('OK');",
+      "  invalid.runModal;",
+      "  $.exit(2);",
+      "}"
+    ] : []),
     "let resultCode = 10;",
     "let valueData = null;",
     "try {",
@@ -246,7 +286,19 @@ export function buildMacOSApprovalScript(plan: ApprovalPlan): string {
     "alert.informativeText = [",
     "  'A high-risk operation needs your approval.',",
     "  '',",
+    ...(plan.target === "cloudflare" && plan.connectionSource?.operation !== "cloudflare-version-preparation" ? [
+      "  'This secret put creates a Worker version and deploys it immediately.',"
+    ] : []),
+    ...(plan.connectionSource?.service === "clerk" ? [
+      "  'Creates a Worker version using latest remote code, which may change before execution.',",
+      "  'Existing Version URLs may expose this version; it can use existing resources.',",
+      "  'This invocation does not activate production traffic.',"
+    ] : []),
     "  'Secret name: ' + secretName,",
+    ...(plan.connectionSource ? [
+      `  ${jxaStringLiteral(`Source: v2 ${approvalSourceLabel(plan.connectionSource.service)} / ${plan.connectionSource.environment}`)},`,
+      `  ${jxaStringLiteral(`Registration revision: ${plan.connectionSource.credentialRevision}`)},`
+    ] : []),
     "  'Scope: ' + scope,",
     "  'Target: ' + target,",
     "  'Environment: ' + environment,",
@@ -289,6 +341,11 @@ export function buildMacOSRemovalScript(plan: RemovalPlan): string {
     ? [
         `Secret name: ${plan.name}`,
         `Scope: ${plan.scope}`,
+        ...("environment" in plan ? [
+          `Service: ${plan.service}`,
+          `Environment: ${plan.environment}`,
+          `Project ID: ${plan.projectId}`
+        ] : []),
         `Project: ${plan.projectDir ?? "(user scope: every project on this machine)"}`,
         "",
         consequence
@@ -349,6 +406,7 @@ function validateSecretInputRequest(request: SecretInputRequest): void {
 }
 
 function validateApprovalPlan(plan: ApprovalPlan): void {
+  assertApprovalConnectionSource(plan);
   if (!plan || typeof plan !== "object") {
     throw new Error("Invalid approval plan.");
   }
@@ -423,6 +481,7 @@ function validateRemovalPlan(plan: RemovalPlan): void {
     ) {
       throw new Error("Invalid project-scoped removal plan.");
     }
+    jxaStringLiteral(toAccount(plan));
     if (plan.projectDir !== null) jxaStringLiteral(plan.projectDir);
     return;
   }

@@ -4,26 +4,26 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0d1714">
-  <meta name="description" content="API Key Caseは、APIキーをAIに見せずに扱うローカルCLIです。Windows 11＋Windows Helloを通常対応の基準に、macOSは協力検証版、Linuxは診断・手動保管に対応します。">
+  <meta name="description" content="APIキーをAIのチャットへ貼らずに、普段のCoding Agentと開発を進める。値は専用画面からOSの保管庫へ。Cloudflare・Vercel・GitHubへの設定もAgentに任せられます。">
   <meta property="og:type" content="website">
   <meta property="og:locale" content="ja_JP">
-  <meta property="og:title" content="API Key Case — APIキーの設定も、Agentに任せたい。でも、値は渡したくない。">
-  <meta property="og:description" content="APIキーの設定はAgentに任せ、値は専用画面へ。重要な操作はあなたが確認する、AIコーディング時代のローカルCLI。">
+  <meta property="og:title" content="API Key Case — APIキーをAIに貼らずに、AIと開発を進める。">
+  <meta property="og:description" content="API Key Caseのアカウント登録は不要。キーの値は専用画面へ。設定の続きは、いつものAIエージェントに。">
   <meta property="og:url" content="https://apikeycase.melavern.com/">
   <meta property="og:image" content="https://apikeycase.melavern.com/brand/og-image.png">
   <meta property="og:image:type" content="image/png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
-  <meta property="og:image:alt" content="API Key Case — APIキーの設定も、Agentに任せたい。でも、値は渡したくない。Agentに依頼し、あなたが値を安全に入力し、送信先を確認して実行する3ステップのイラスト。">
+  <meta property="og:image:alt" content="API Key Case。Agentに依頼し、専用画面へキーを入力し、送り先を確認する3ステップのイラスト。">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="API Key Case — APIキーの設定も、Agentに任せたい。でも、値は渡したくない。">
-  <meta name="twitter:description" content="APIキーの設定はAgentに任せ、値は専用画面へ。重要な操作はあなたが確認する、AIコーディング時代のローカルCLI。">
+  <meta name="twitter:title" content="API Key Case — APIキーをAIに貼らずに、AIと開発を進める。">
+  <meta name="twitter:description" content="API Key Caseのアカウント登録は不要。キーの値は専用画面へ。設定の続きは、いつものAIエージェントに。">
   <meta name="twitter:image" content="https://apikeycase.melavern.com/brand/og-image.png">
   <link rel="canonical" href="https://apikeycase.melavern.com/">
   <link rel="icon" href="favicon.ico" sizes="48x48">
   <link rel="icon" href="brand/favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="brand/apple-touch-icon.png">
-  <title>API Key Case — APIキーの設定も、Agentに任せたい。でも、値は渡したくない。</title>
+  <title>API Key Case — APIキーをAIに貼らずに、AIと開発を進める。</title>
 
   <script type="application/ld+json">
   {
@@ -32,7 +32,7 @@
     "name": "API Key Case",
     "applicationCategory": "DeveloperApplication",
     "operatingSystem": "Windows 11 with Windows Hello; macOS collaborative verification; Linux diagnosis and manual storage",
-    "softwareVersion": "0.9.2",
+    "softwareVersion": "0.10.0",
     "description": "APIキーをAIに見せずに実装を進めるためのローカルCLI。",
     "url": "https://apikeycase.melavern.com/",
     "downloadUrl": "https://www.npmjs.com/package/api-key-case",
@@ -309,7 +309,6 @@
       font-size: 15px;
       font-weight: 800;
     }
-    .hero-boundary svg { width: 18px; min-width: 18px; height: 18px; color: #139263; }
 
     /* Hero mini three-step list: 貼る / 入れる / 確認する */
     .mini-steps {
@@ -486,7 +485,6 @@
       font-size: 13px;
       font-weight: 750;
     }
-    .three-not b { margin-right: 7px; color: var(--coral); font-weight: 850; }
     .three-not-label {
       display: block;
       margin-bottom: 5px;
@@ -635,8 +633,6 @@
     .price-card--pro .price-note { color: #aabab3; }
     .feature-list { display: grid; gap: 12px; margin: 0 0 30px; padding: 0; list-style: none; }
     .feature-list li { display: flex; gap: 10px; align-items: flex-start; font-size: 14.5px; }
-    .feature-list svg { width: 18px; min-width: 18px; margin-top: 4px; color: #139263; }
-    .price-card--pro .feature-list svg { color: var(--lime); }
     .plan-action { margin-top: auto; }
     .plan-action .button { width: 100%; }
     .purchase-terms { margin: 12px 2px 0; color: #9fb0a8; font-size: 11px; line-height: 1.65; text-align: center; }
@@ -821,15 +817,14 @@
     <section class="hero" id="top">
       <div class="wrap hero-grid">
         <div>
-          <h1>APIキーの設定も、<br>Agentに任せたい。<br><span class="hero-last-line">でも、<span class="marker">値は渡したくない。</span></span></h1>
+          <h1>APIキーを<br>AIに貼らずに、<br><span class="hero-last-line"><span class="marker">AIと開発を進める。</span></span></h1>
 
           <p class="hero-copy">
-            Coding Agentが進めるのは、API Key Caseの導入と、APIキーまわりの操作です。<br>
-            あなたがするのは、専用画面への値の入力と、重要な操作の確認です。
+            API Key Caseのアカウント登録は不要です。<br>
+            キーは専用画面へ入力。対応サービスへの設定や開発アプリの起動は、いつものAIエージェントが進めます。
           </p>
 
           <p class="hero-boundary">
-            <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M6 9V6.5a4 4 0 0 1 8 0V9M5 9h10a1 1 0 0 1 1 1v6H4v-6a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
             秘密値そのものは、AIに渡しません。
           </p>
         </div>
@@ -837,7 +832,7 @@
         <div class="hero-panel">
           <p class="hero-panel-title">あなたがやるのは、3つだけ</p>
           <ul class="mini-steps">
-            <li><i aria-hidden="true">①</i><b>貼る</b><span>最初に1回、Coding Agentへ</span></li>
+            <li><i aria-hidden="true">①</i><b>貼る</b><span>最初に1回、いつものAIエージェントへ</span></li>
             <li><i aria-hidden="true">②</i><b>入れる</b><span>求められたAPIキーの値だけ</span></li>
             <li><i aria-hidden="true">③</i><b>確認する</b><span>専用画面で、重要な操作を承認</span></li>
           </ul>
@@ -852,9 +847,9 @@
                 data-prompt-status="cta-status-hero-agent"
                 data-lp-action="setup-prompt"
                 data-lp-location="hero"
-                data-prompt-done="コピーしました。Claude Code / Codex / Cursor などのCoding Agentに貼り付けてください。"
+                data-prompt-done="コピーしました。いつものAIエージェントに貼り付けてください。"
                 aria-describedby="cta-micro-hero-agent cta-status-hero-agent">セットアップ用プロンプトをコピー</button>
-              <p class="cta-micro" id="cta-micro-hero-agent">Claude Code / Codex / Cursor に貼るだけ</p>
+              <p class="cta-micro" id="cta-micro-hero-agent">いつものAIエージェントに貼るだけ<br>（Claude Code / Codex / Cursorなど）</p>
               <p class="cta-status" id="cta-status-hero-agent" role="status" aria-live="polite"></p>
             </div>
           </div>
@@ -872,17 +867,14 @@
     <!-- PROB — 問題の名前づけ -->
     <section class="section section--tight" id="prob" aria-labelledby="prob-title">
       <div class="wrap">
-        <p class="section-kicker">APIキーまわりの手間</p>
-        <h2 class="section-heading section-heading--sm" id="prob-title">APIキーを使うたび、これを毎回やっていませんか。</h2>
+        <p class="section-kicker">AIで開発するあなたへ</p>
+        <h2 class="section-heading section-heading--sm" id="prob-title">APIキーの扱いで、手が止まっていませんか。</h2>
 
         <ul class="prob-list">
-          <li>探す</li>
-          <li>コピーする</li>
-          <li><code>.env</code> をAgentに見せていいか迷う</li>
-          <li>どのコマンドか調べる</li>
-          <li>サービスへの登録方法を調べる</li>
-          <li>任せて安全か判断する</li>
-          <li>本番環境だけ手で止める</li>
+          <li>キーをAIのチャットへ貼るのは不安</li>
+          <li><code>.env</code> をGitに含めていないか気になる</li>
+          <li>同じキーを何度も探して入力している</li>
+          <li>キーの設定で、開発の続きが止まる</li>
         </ul>
 
         <aside class="market-evidence" aria-label="公開コミットの調査データ">
@@ -890,7 +882,7 @@
           <a href="https://blog.gitguardian.com/the-state-of-secrets-sprawl-2026/" target="_blank" rel="noopener noreferrer">GitGuardian, State of Secrets Sprawl 2026 <span aria-hidden="true">↗</span></a>
         </aside>
 
-        <p class="section-close">実装はAIに任せられるのに、APIキーの周りだけ、まだ自分が残っています。</p>
+        <p class="section-close">キーはOSの保管庫へ。値をチャットやコードへ貼り付けずに、対応サービスへの設定を進められます。</p>
       </div>
     </section>
 
@@ -899,28 +891,28 @@
       <div class="wrap">
         <p class="section-kicker">使い方</p>
         <h2 class="section-heading" id="three-title">あなたがやるのは、<span class="marker">3つだけ。</span></h2>
-        <p class="section-lead">普段のCoding Agentが、導入・利用条件の確認から、あなたが希望する配置先への設定まで案内します。</p>
+        <p class="section-lead">いつものAIエージェントが、導入・利用条件の確認から、あなたが希望するサービスへの設定や開発アプリの起動まで案内します。</p>
 
         <div class="three-grid">
           <article class="three-card">
             <span class="three-num" aria-hidden="true">01</span>
-            <h3>最初に1回、Coding Agentへ貼る</h3>
-            <p>API Key Caseの使い方を覚える必要はありません。以降、どの操作が必要かはAgentが判断して進めます。</p>
-            <p class="three-not"><span class="three-not-label">やらなくていいこと</span><b aria-hidden="true">×</b>コマンドや使い方を覚える</p>
+            <h3>最初に1回、いつものAIエージェントへ貼る</h3>
+            <p>下の導入文をいつものAIエージェントへ貼り付けます。必要な操作はAgentが案内するので、コマンドを覚える必要はありません。</p>
+            <p class="three-not"><span class="three-not-label">やらなくていいこと</span>コマンドや使い方を覚える</p>
           </article>
 
           <article class="three-card">
             <span class="three-num" aria-hidden="true">02</span>
             <h3>求められたAPIキーの値だけ入力する</h3>
-            <p>入力先はAgentのチャットではなく、API Key Caseの入力欄です。入力中も画面には表示されません。あなたが打つのは、値そのものだけ。</p>
-            <p class="three-not"><span class="three-not-label">やらなくていいこと</span><b aria-hidden="true">×</b>値をAgentのチャットへ貼る</p>
+            <p>入力先はAPI Key Caseの専用画面です。値をチャットへ貼る必要はありません。入力した値は画面に表示されません。</p>
+            <p class="three-not"><span class="three-not-label">やらなくていいこと</span>値をAgentのチャットへ貼る</p>
           </article>
 
           <article class="three-card">
             <span class="three-num" aria-hidden="true">03</span>
             <h3>重要な操作を、専用画面で確認する</h3>
-            <p>本番環境やGitHubへの配置などは、対象と送り先を見て承認します。WindowsではWindows Helloで本人確認を行います。</p>
-            <p class="three-not"><span class="three-not-label">やらなくていいこと</span><b aria-hidden="true">×</b>すべての操作を一つずつ確認する</p>
+            <p>アプリの起動や本番環境・GitHubへの配置などは、対象と送り先を見て承認します。WindowsではWindows Helloで本人確認を行います。</p>
+            <p class="three-not"><span class="three-not-label">やらなくていいこと</span>すべての操作を一つずつ確認する</p>
           </article>
         </div>
 
@@ -931,8 +923,9 @@
         <details class="env-details">
           <summary>登録・配置の前に知っておくこと</summary>
           <ul>
-            <li>登録だけで終了できます。元の <code>.env</code> の削除や書き換え、ローカルアプリへの値の注入は行いません。配置は、あなたが希望したときに進めます。</li>
-            <li>同じプロジェクトの同じキー名には、開発用と本番用の別々の値を同時に保存できません。自動の洗い出しで見つからないキーも、名前が分かれば確認・登録できます。</li>
+            <li>登録だけで終了できます。元の <code>.env</code> は削除・書き換えしません。サービスへの設定や開発アプリの起動は、あなたが希望したときに進めます。</li>
+            <li>登録したキーは、あなたが選んだ別のプロジェクトでも使えます。用途ごとに別のキーを登録することもできます。自動の洗い出しで見つからないキーも、名前が分かれば確認・登録できます。</li>
+            <li>新しい登録・再利用・開発アプリの起動はWindows向けです。配置とアプリ起動にはProと毎回の本人確認が必要です。</li>
             <li>Cloudflareへの配置では、設定ファイルと同じ場所に実際の <code>.env</code> や <code>.dev.vars</code> などがあると停止します。Agentが無料診断で案内します。ファイルは自動で読み取ったり変更したりしません。</li>
           </ul>
         </details>
@@ -949,9 +942,9 @@
                 data-prompt-status="cta-status-two-agent"
                 data-lp-action="setup-prompt"
                 data-lp-location="two"
-                data-prompt-done="コピーしました。Claude Code / Codex / Cursor などのCoding Agentに貼り付けてください。"
+                data-prompt-done="コピーしました。いつものAIエージェントに貼り付けてください。"
                 aria-describedby="cta-micro-two-agent cta-status-two-agent">セットアップ用プロンプトをコピー</button>
-              <p class="cta-micro" id="cta-micro-two-agent">Claude Code / Codex / Cursor に貼るだけ</p>
+              <p class="cta-micro" id="cta-micro-two-agent">いつものAIエージェントに貼るだけ<br>（Claude Code / Codex / Cursorなど）</p>
               <p class="cta-status" id="cta-status-two-agent" role="status" aria-live="polite"></p>
             </div>
           <details class="prompt-source" id="prompt-source-agent">
@@ -959,7 +952,7 @@
               <textarea class="prompt-text" id="prompt-agent" rows="16" readonly aria-label="Coding Agent用プロンプトの本文">このプロジェクトで API Key Case を使えるようにして、以降のAPIキーまわりの作業を進めてください。
 
 前提
-- API Key Case は、APIキーの値をAIへ渡さずに、保存と配置を進めるためのツールです。
+- API Key Case は、APIキーの値をAIへ渡さずに、保管し、対応サービスや承認した開発アプリで使うためのツールです。
 - 使い方は公開ドキュメントを参照してください: https://github.com/melavern/api-key-case
 - 私への説明と作業の進行は、あなたが担当してください。CLIのコマンドを私に選ばせず、完了したこと・残っていること・いま必要な操作を私の言葉でまとめてください。
 
@@ -969,11 +962,11 @@
 - 本番環境（production）への配置やGitHubへの登録などの重要な操作はAPI Key Caseの確認画面で行わせてください。チャットでのYes / Noを承認の代わりに使ったり、画面を自動操作したりしないでください。
 
 進め方
-1. npx -y api-key-case@0.9.2 agent-init . を実行してください。新規プロジェクトで指示を残せない場合は、あなたが使用する指示形式に合わせて --host agents / --host claude / --host cursor のいずれかを明示してください。返された固定バージョンのprotocolに従ってください。
-2. next --json の無料診断から、保存と配置の利用条件、必要な準備、未確認事項を先に説明してください。環境の問題とPro購入の必要性を分け、購入すれば対応外の環境でも使えるとは案内しないでください。
-3. 必要なキーの名前と不足分をまとめて説明し、不足分だけ専用の入力画面を順に開いてください。既存の .env にあるキーも登録できますが、本文は読まず、私自身が値だけを専用画面へ入力します。登録だけで終了しても構いません。キーの発行・ログインなど私が行う準備は順に案内してください。
-4. 私が希望する配置先と環境を確認して、既存のdeployを使って進めてください。検出されたすべてのサービスへ勝手に配置せず、キャンセルや失敗があれば止めてください。
-5. 実際の操作結果から完了したことと残りをまとめてください。保存済みを配置済みと扱わず、不要なキーの削除は別途提案してください。</textarea>
+1. npx -y api-key-case@0.10.0 agent-init . を実行してください。新規プロジェクトで指示を残せない場合は、あなたが使用する指示形式に合わせて --host agents / --host claude / --host cursor のいずれかを明示してください。返された固定バージョンのprotocolに従ってください。
+2. 返されたprotocolに従い、secret capabilities --json と secret discover --project . --json で利用条件と既存の登録を確認してください。旧方式の登録を使う場合は、そのprotocolに従って next --json の無料診断も使ってください。環境の問題とPro購入の必要性を分け、購入すれば対応外の環境でも使えるとは案内しないでください。
+3. 既存の登録を先に探し、本人の選択が必要な場合は専用画面で選ばせてください。不足分だけ、何のキーか分かる名前を付けて専用の入力画面を開いてください。既存の .env にあるキーも登録できますが、本文は読まず、私自身が値だけを専用画面へ入力します。登録だけで終了しても構いません。キーの発行・ログインなど私が行う準備は順に案内してください。
+4. 私が希望するサービスや開発アプリを確認し、この版のprotocolに従って進めてください。配置先・アプリ・実行内容を専用画面で確認し、必要なProと本人確認の条件を守ってください。キャンセル、失敗、結果不明があれば止めてください。結果不明の操作を自動で再実行しないでください。
+5. 実際の操作結果から完了したことと残りをまとめてください。保存済みを配置済みと扱わず、アプリを起動しただけで動作確認済みとも扱わないでください。不要なキーの削除は別途提案してください。</textarea>
             </details>
         </div>
       </div>
@@ -999,9 +992,9 @@
             <button class="button" type="button" data-prompt-target="prompt-agent"
               data-prompt-source="prompt-source-agent" data-prompt-status="cta-status-video-end"
               data-lp-action="setup-prompt" data-lp-location="video-end"
-              data-prompt-done="コピーしました。普段のCoding Agentに貼り付けてください。"
+              data-prompt-done="コピーしました。いつものAIエージェントに貼り付けてください。"
               aria-describedby="cta-status-video-end">プロンプトをコピーして始める</button>
-            <p class="cta-status" id="cta-status-video-end" role="status" aria-live="polite">コピーしたら、Claude Code / Codex / Cursor に貼るだけ</p>
+            <p class="cta-status" id="cta-status-video-end" role="status" aria-live="polite">コピーしたら、いつものAIエージェントに貼るだけ（Claude Code / Codex / Cursorなど）</p>
             <button class="button button--secondary" type="button" id="video-replay">もう一度見る</button>
           </div>
           </div>
@@ -1045,7 +1038,7 @@
         <div class="security-scope">
           <h3>この仕組みが守る範囲</h3>
           <div>
-            <p>「AIに渡さない」のは、API Key Case自身の経路（CLI・MCP・入力/確認画面）についてです。他のソフトや既存の <code>.env</code>、同じOSアカウントの別プロセスによる読み取り・製品コードの改変、配置後の各サービスや公式CLIの内部動作までは保護しません。</p>
+            <p>「AIに渡さない」のは、API Key Case自身の経路（CLI・MCP・入力/確認画面）についてです。承認したアプリとその依存コードはキーを読めます。他のソフトや既存の <code>.env</code>、同じOSアカウントの別プロセス、製品コードの改変、配置先や公式CLIの内部動作からの漏えいまでは防げません。</p>
             <p>完全な安全は保証しません。意図しない値の露出や操作による事故の確率と、日常のAPIキー運用の負担を減らすためのツールです。</p>
             <details class="security-more">
               <summary>自動操作の条件と、環境ごとの限界</summary>
@@ -1094,20 +1087,20 @@
               <summary>コピーされる内容を表示する</summary>
               <textarea class="prompt-text" id="prompt-review" rows="16" readonly aria-label="Security Review用プロンプトの本文">API Key Caseの公開資料を確認し、利用を判断するための材料を整理してください。開発者の説明だけを判断材料にしたくありません。
 
-対象: API Key Case 0.9.2
+対象: API Key Case 0.10.0
 - 公開リポジトリ: https://github.com/melavern/api-key-case
 - Security Model: https://github.com/melavern/api-key-case/blob/main/SECURITY.md
 - プライバシー: https://apikeycase.melavern.com/privacy
 
-最初に、0.9.2に対応する公開ソースが取得できるか確認し、確認したバージョンとコミットを明示してください。取得できない内容を推測で補わず、未確認としてください。公開資料だけを読み、私のプロジェクト・.env・秘密値は読み取らないでください。
+最初に、0.10.0に対応する公開ソースが取得できるか確認し、確認したバージョンとコミットを明示してください。取得できない内容を推測で補わず、未確認としてください。公開資料だけを読み、私のプロジェクト・.env・秘密値は読み取らないでください。
 
 確認してほしい点
 1. APIキーの値がどこを通るか。AIエージェント側へ値が渡る経路が本当に無いか。
 2. 値の保存先はどこか。平文で残る場所が無いか。
 3. MCPで公開されているツールが何を返すか。値そのものを返す関数が存在しないか。
-4. 外部への通信（telemetry、ライセンス確認、配置）が、何をどこへ送るか。
+4. 外部への通信（telemetry、ライセンス確認、配置）と、承認したアプリへの受け渡しが、何をどこへ送るか。
 5. 人間の確認が必要な操作と、自動で進む条件。チャットのYes / Noや画面の自動操作を承認として扱えるか。WindowsのOS本人確認と、macOSの未検証事項の違い。
-6. Agentの誤動作や外部コンテンツの悪意ある指示（prompt injection）に対して、このツール自身の経路で制限することと、防げないこと。同じOSアカウントのプロセスやコード改変、配置先CLIの挙動まで保護するという説明になっていないか。
+6. Agentの誤動作や外部コンテンツの悪意ある指示（prompt injection）に対して、このツール自身の経路で制限することと、防げないこと。承認したアプリ・依存コード、同じOSアカウントのプロセスやコード改変、配置先CLIの挙動まで保護するという説明になっていないか。
 
 確認できた事実・未確認事項・利用時の注意点を、根拠のリンク付きで分けて教えてください。このレビューを安全の保証や、実際の操作への人間の承認として扱わないでください。</textarea>
             </details>
@@ -1120,14 +1113,14 @@
     <section class="section" id="price" aria-labelledby="price-title">
       <div class="wrap">
         <p class="section-kicker">料金</p>
-        <h2 class="section-heading section-heading--sm" id="price-title">まず無料で試して、配置まで任せたくなったら。</h2>
+        <h2 class="section-heading section-heading--sm" id="price-title">まず無料で試して、設定やアプリ起動も任せたくなったら。</h2>
 
         <div class="os-pricing-summary" aria-labelledby="os-pricing-title">
           <h3 id="os-pricing-title">お使いの環境を確認してください</h3>
           <div class="os-pricing-grid">
             <article class="os-pricing-item">
               <h4>Windows — 通常対応</h4>
-              <p>Windows 11＋Windows Helloで、診断・保管・専用入力・重要操作の確認・Cloudflare / Vercel / GitHubへの配置を利用できます。</p>
+              <p>Windows 11＋Windows Helloで、診断・保管・専用入力・重要操作の確認・Cloudflare / Vercel / GitHubへの配置と、承認したNode.js / Pythonアプリの起動を利用できます。</p>
             </article>
             <article class="os-pricing-item">
               <h4>macOS — 協力検証版</h4>
@@ -1153,9 +1146,9 @@
             <p class="price">¥0</p>
             <p class="price-note">保存・登録状況の確認・Agentによる案内まで。</p>
             <ul class="feature-list">
-              <li><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m4 10 3.4 3.4L16 5.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>プロジェクトの点検と、必要なSecretの洗い出し</li>
-              <li><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m4 10 3.4 3.4L16 5.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>OS標準の保管庫への保存・確認・一覧・削除</li>
-              <li><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m4 10 3.4 3.4L16 5.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Agentからの状況確認（値は返しません）</li>
+              <li>プロジェクトの点検と、必要なSecretの洗い出し</li>
+              <li>OS標準の保管庫への保存・確認・一覧・削除</li>
+              <li>Agentからの状況確認（値は返しません）</li>
             </ul>
             <div class="plan-action">
               <a class="button button--quiet" href="#setup">無料セットアップへ <span aria-hidden="true">↑</span></a>
@@ -1165,12 +1158,12 @@
           <article class="price-card price-card--pro" id="purchase">
             <p class="plan-label">Pro · Buy once</p>
             <p class="price">¥2,980<small>買い切り</small></p>
-            <p class="price-note">保存済みの値を、各サービスへ配置するところまで任せられます。</p>
+            <p class="price-note">登録したキーを、対応サービスや承認した開発アプリで使えます。</p>
             <ul class="feature-list">
-              <li><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m4 10 3.4 3.4L16 5.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Freeのすべて</li>
-              <li><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m4 10 3.4 3.4L16 5.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>対応済みの外部配置先: Cloudflare / Vercel / GitHub</li>
-              <li><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m4 10 3.4 3.4L16 5.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Pro v1（1.x系）のアップデートを含む</li>
-              <li><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m4 10 3.4 3.4L16 5.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>購入から14日間の返金保証</li>
+              <li>Freeのすべて</li>
+              <li>Cloudflare / Vercel / GitHubへの配置と、開発アプリの起動</li>
+              <li>Pro v1（1.x系）のアップデートを含む</li>
+              <li>購入から14日間の返金保証</li>
             </ul>
             <div class="plan-action">
               <p class="pro-eligibility">通常対応の配置は Windows 11 Build 22000以降＋Windows Hello が条件です。購入前に無料診断で利用条件をご確認ください。</p>
@@ -1200,9 +1193,9 @@
                 data-prompt-status="cta-status-final-agent"
                 data-lp-action="setup-prompt"
                 data-lp-location="final"
-                data-prompt-done="コピーしました。Claude Code / Codex / Cursor などのCoding Agentに貼り付けてください。"
+                data-prompt-done="コピーしました。いつものAIエージェントに貼り付けてください。"
                 aria-describedby="cta-micro-final-agent cta-status-final-agent">セットアップ用プロンプトをコピー</button>
-              <p class="cta-micro" id="cta-micro-final-agent">Claude Code / Codex / Cursor に貼るだけ</p>
+              <p class="cta-micro" id="cta-micro-final-agent">いつものAIエージェントに貼るだけ<br>（Claude Code / Codex / Cursorなど）</p>
               <p class="cta-status" id="cta-status-final-agent" role="status" aria-live="polite"></p>
             </div>
 

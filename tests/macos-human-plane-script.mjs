@@ -40,6 +40,12 @@ function frameworkDouble(options = {}) {
     NSAlertSecondButtonReturn: 1001,
     NSUTF8StringEncoding: 4,
     NSMakeRect: (...args) => args,
+    NSMakeRange: (...args) => args,
+    NSLinkAttributeName: "link",
+    NSURL: { URLWithString: value => value },
+    NSView: { alloc: { initWithFrame() { return {children: [], addSubview(view) {this.children.push(view);} }; } } },
+    NSTextField: { alloc: { initWithFrame() {return {}; } } },
+    NSMutableAttributedString: { alloc: { initWithString(value) { return {value,addAttributeValueRange() {}}; } } },
     kSecClass: "class", kSecClassGenericPassword: "generic-password",
     kSecAttrService: "service", kSecAttrAccount: "account", kSecValueData: "data",
     errSecSuccess: 0, errSecItemNotFound: -25300,
@@ -70,6 +76,7 @@ function frameworkDouble(options = {}) {
     const field = {
       get stringValue() { state.valueReads++; return value; },
       set stringValue(next) { value = next; },
+      setFrame() {},
       isEmpty: () => value === ""
     };
     state.fields.push(field);
@@ -81,7 +88,8 @@ function frameworkDouble(options = {}) {
       window: {}, buttons: { objectAtIndex: (index) => buttons[index] },
       addButtonWithTitle(title) { buttons.push({ title }); },
       get runModal() {
-        if (this.accessoryView) this.accessoryView.stringValue = input;
+        if (this.accessoryView?.children) this.accessoryView.children.at(-1).stringValue = input;
+        else if (this.accessoryView) this.accessoryView.stringValue = input;
         state.buttons = buttons;
         if (options.dialogThrows) throw new Error("synthetic dialog failure");
         return Object.hasOwn(options, "response") ? options.response : 1000;
@@ -118,6 +126,7 @@ async function exercise(method, plan, options) {
 
 export async function runMacOSHumanPlaneScriptTests() {
   for (const scopeRef of [
+    {...ref,name:"RESEND_API_KEY",service:"resend",environment:"preview",acquisition:{sendingDomain:"mail.example.com",destination:"vercel"}},
     ref,
     { name: ref.name, scope: "user", projectId: null, projectDir: null }
   ]) {

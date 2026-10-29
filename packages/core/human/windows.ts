@@ -1,13 +1,32 @@
+import { buildWindowsAcquisitionLayout } from "./windows-acquisition.js";
+import { buildGenericInputLayout } from "./windows-generic-layout.js";
+import { buildWindowsBindingScript, buildWindowsManagementScript } from "./windows-binding.js";
+import type { BindingPlan, BindingIO } from "../vnext/binding.js";
+import type { TargetPlan, TargetIO } from "../vnext/target.js";
+import type { UsePlan } from "../vnext/use.js";
+import { buildWindowsTargetScript, buildWindowsVNextUseScript } from "./windows-target.js";
+import { buildWindowsLaunchReview } from "./windows-launch.js";
+import type { LaunchPlan, ProfilePlan } from "../vnext/launch.js";
+import { buildWindowsHostedTargetScript, buildWindowsHostedUseScript } from "./windows-hosted.js";
+import type { HostedTargetPlan } from "../vnext/hosted-target.js";
+import type { HostedUsePlan } from "../vnext/hosted-use.js";
+import type { ManagePlan } from "../vnext/manage.js";
+import { catalogSchema, operationSchema, locatorAccount, validate, VNextError, type Catalog, type Operation } from "../vnext/model.js";
+import { catalogFingerprint } from "../vnext/registration.js";
+import type { Locator } from "../vnext/model.js";
+import { buildCredentialAcquisitionPanel, STRIPE_TEST_INPUT_ERROR } from "./acquisition.js";
 import { spawn } from "node:child_process";
+import { gzipSync } from "node:zlib";
 import { mkdtempSync, realpathSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, win32 as pathWin32 } from "node:path";
 import { resolveTrustedHomeDirectory } from "../deploy/which.js";
 import { assertValidSecretName } from "../vault/types.js";
 import { toAccount } from "../vault/naming.js";
-import type { ApprovalPlan, ApprovalTrustState } from "../deploy/types.js";
+import { approvalSourceLabel, assertApprovalConnectionSource, type ApprovalPlan, type ApprovalTrustState } from "../deploy/types.js";
 import type {
   HumanApprovalStatus,
+  LocalApplicationApproval,
   HumanPlane,
   HumanSecretInputStatus,
   RemovalPlan,
@@ -101,6 +120,33 @@ export const WINDOWS_CREDENTIAL_BLOB_MAX_BYTES = 5 * 512;
 // not use this gate; it keeps the existing Credential Manager boundary.
 export const WINDOWS_USER_VERIFICATION_MIN_BUILD = 22_000;
 
+// Reserve room below CreateProcessW's command-line limit for the executable
+// and flags. Generated code contains display metadata, never an entered value.
+export const WINDOWS_HELPER_COMMAND_MAX_CHARS = 30_000;
+
+export function encodeWindowsHelperCommand(script: string): string {
+  const direct = Buffer.from(script, "utf16le").toString("base64");
+  if (direct.length < WINDOWS_HELPER_COMMAND_MAX_CHARS - 1_000) return direct;
+  // Keep the existing ignored stdio and avoid a new script file or pipe. Only
+  // fixed builder output is compressed; the Secret still enters inside the UI.
+  const compressed = gzipSync(Buffer.from(script, "utf8")).toString("base64");
+  const bootstrap = [
+    "$ErrorActionPreference = 'Stop'",
+    "try {",
+    `  $akcBytes = [Convert]::FromBase64String('${compressed}')`,
+    "  $akcStream = New-Object System.IO.MemoryStream(,$akcBytes)",
+    "  $akcGzip = New-Object System.IO.Compression.GZipStream($akcStream, [System.IO.Compression.CompressionMode]::Decompress)",
+    "  $akcReader = New-Object System.IO.StreamReader($akcGzip, [System.Text.Encoding]::UTF8)",
+    "  try { $akcSource = $akcReader.ReadToEnd() } finally { $akcReader.Dispose(); $akcStream.Dispose() }",
+    "  & ([ScriptBlock]::Create($akcSource))",
+    "} catch { exit 10 }",
+    // A builder must finish with its own explicit status. Returning or failing
+    // before that point never becomes approval through PowerShell's default 0.
+    "exit 10"
+  ].join("\n");
+  return Buffer.from(bootstrap, "utf16le").toString("base64");
+}
+
 export interface HumanPlaneHelperRequest {
   executable: string;
   args: string[];
@@ -137,6 +183,46 @@ export class WindowsHumanPlane implements HumanPlane {
     return "unavailable";
   }
 
+  /** Separate v3 input path. It cannot accept a value or an arbitrary OS account. */
+  async askVNextSecret(plan: { operation: Operation; catalog: Catalog }): Promise<HumanSecretInputStatus> {
+    // Native primitive, also used by independent synthetic acceptance. The CLI
+    // source-gates this route until that exact acceptance has passed.
+    if (!this.helperPath) return "unavailable";
+    const exitCode = await this.run(buildWindowsVNextSecretInputScript(plan));
+    return exitCode === 0 ? "saved" : exitCode === 2 ? "cancelled" : "unavailable";
+  }
+
+  async probeVNextPresence(locator: Locator): Promise<"present" | "absent" | "unavailable"> {
+    if (!this.helperPath) return "unavailable";
+    const exitCode = await this.run(buildWindowsVNextPresenceScript(locator));
+    return exitCode === 0 ? "present" : exitCode === 2 ? "absent" : "unavailable";
+  }
+
+  /** Closed presence bits only; no OS-store enumeration or value decoding. */
+  async probeVNextPresenceBatch(locators: Locator[]): Promise<("present" | "absent" | "unavailable")[]> {
+    const states: ("present" | "absent" | "unavailable")[] = [];
+    for (let offset = 0; offset < locators.length; offset += 20) {
+      const chunk = locators.slice(offset, offset + 20);
+      const code = this.helperPath ? await this.run(buildWindowsVNextPresenceBatchScript(chunk)) : null;
+      if (code === null || code < 0 || code >= 2 ** chunk.length) states.push(...chunk.map(() => "unavailable" as const));
+      else states.push(...chunk.map((_, i) => (code & (1 << i)) !== 0 ? "present" as const : "absent" as const));
+    }
+    return states;
+  }
+
+  async chooseVNextBinding(plan: BindingPlan): ReturnType<BindingIO["human"]["choose"]> {
+    if (!this.helperPath) return { status: "unavailable" };
+    const code = await this.run(buildWindowsBindingScript(plan));
+    return code !== null && code >= 100 && code < 100 + plan.candidates.length ? { status: "confirmed", index: code - 100 } :
+      { status: code === 2 ? "cancelled" : "unavailable" };
+  }
+
+  async confirmVNextManagement(plan: ManagePlan): Promise<"confirmed" | "cancelled" | "unavailable"> {
+    if (!this.helperPath) return "unavailable";
+    const code = await this.run(buildWindowsManagementScript(plan));
+    return code === 0 ? "confirmed" : code === 2 ? "cancelled" : "unavailable";
+  }
+
   async askApproval(plan: ApprovalPlan): Promise<HumanApprovalStatus> {
     if (!this.helperPath) return "unavailable";
     validateApprovalPlan(plan);
@@ -147,6 +233,43 @@ export class WindowsHumanPlane implements HumanPlane {
     return "unavailable";
   }
 
+  async chooseVNextTarget(plan: TargetPlan): ReturnType<TargetIO["human"]["choose"]> {
+    if (!this.helperPath) return { status: "unavailable" };
+    const code = await this.run(buildWindowsTargetScript(plan));
+    return code !== null && code >= 100 && code < 100 + plan.candidates.length ? { status: "confirmed", index: code - 100 } :
+      { status: code === 2 ? "cancelled" : "unavailable" };
+  }
+
+  async approveVNextUse(plan: UsePlan, cliPath: string): Promise<HumanApprovalStatus> {
+    if (!this.helperPath) return "unavailable";
+    const code = await this.run(buildWindowsVNextUseScript(plan, cliPath));
+    return code === 0 ? "approved" : code === 2 ? "declined" : "unavailable";
+  }
+
+  async confirmVNextProfile(plan: ProfilePlan): Promise<HumanApprovalStatus> {
+    if (!this.helperPath) return "unavailable";
+    const code = await this.run(buildWindowsLaunchReview(plan, false));
+    return code === 100 ? "approved" : code === 2 ? "declined" : "unavailable";
+  }
+
+  async confirmVNextHostedTarget(plan: HostedTargetPlan): Promise<HumanApprovalStatus> {
+    if (!this.helperPath) return "unavailable";
+    const code = await this.run(buildWindowsHostedTargetScript(plan));
+    return code === 100 ? "approved" : code === 2 ? "declined" : "unavailable";
+  }
+
+  async approveVNextHostedUse(plan: HostedUsePlan, cliPath: string): Promise<HumanApprovalStatus> {
+    if (!this.helperPath) return "unavailable";
+    const code = await this.run(buildWindowsHostedUseScript(plan, cliPath));
+    return code === 0 ? "approved" : code === 2 ? "declined" : "unavailable";
+  }
+
+  async approveVNextLaunch(plan: LaunchPlan): Promise<HumanApprovalStatus> {
+    if (!this.helperPath) return "unavailable";
+    const code = await this.run(buildWindowsLaunchReview(plan, true));
+    return code === 0 ? "approved" : code === 2 ? "declined" : "unavailable";
+  }
+
   async askRemoval(plan: RemovalPlan): Promise<HumanApprovalStatus> {
     if (!this.helperPath) return "unavailable";
     validateRemovalPlan(plan);
@@ -155,6 +278,14 @@ export class WindowsHumanPlane implements HumanPlane {
     if (exitCode === 0) return "approved";
     if (exitCode === 2) return "declined";
     return "unavailable";
+  }
+
+  async askLocalApplication(plan: LocalApplicationApproval): Promise<HumanApprovalStatus> {
+    if (!this.helperPath) return "unavailable";
+    try {
+      const exitCode = await this.run(buildWindowsLocalApplicationScript(plan));
+      return exitCode === 0 ? "approved" : exitCode === 2 ? "declined" : "unavailable";
+    } catch { return "unavailable"; }
   }
 
   // Runs one helper inside a private scratch directory that exists only for
@@ -172,7 +303,8 @@ export class WindowsHumanPlane implements HumanPlane {
     }
 
     try {
-      return await this.launch(this.createRequest(script, scratch, trusted.home));
+      const request = this.createRequest(script, scratch, trusted.home);
+      return request ? await this.launch(request) : null;
     } finally {
       try {
         rmSync(scratch, { recursive: true, force: true });
@@ -187,21 +319,16 @@ export class WindowsHumanPlane implements HumanPlane {
     script: string,
     scratch: string,
     home: string
-  ): HumanPlaneHelperRequest {
+  ): HumanPlaneHelperRequest | null {
     if (!this.helperPath) {
       throw new Error("Human Plane helper is unavailable.");
     }
 
+    const args = ["-NoLogo", "-NoProfile", "-NonInteractive", "-STA", "-EncodedCommand", encodeWindowsHelperCommand(script)];
+    if (this.helperPath.length + 2 + args.reduce((size, arg) => size + arg.length + 1, 0) >= WINDOWS_HELPER_COMMAND_MAX_CHARS) return null;
     return {
       executable: this.helperPath,
-      args: [
-        "-NoLogo",
-        "-NoProfile",
-        "-NonInteractive",
-        "-STA",
-        "-EncodedCommand",
-        Buffer.from(script, "utf16le").toString("base64")
-      ],
+      args,
       // Do not let an Agent-controlled repository become the helper's DLL or
       // script resolution directory.
       cwd: pathWin32.dirname(this.helperPath),
@@ -294,8 +421,44 @@ export function resolveWindowsPowerShell(): string | null {
 
 export function buildWindowsSecretInputScript(request: SecretInputRequest): string {
   validateSecretInputRequest(request);
-  const name = psLiteral(request.name);
-  const account = psLiteral(toAccount(request));
+  return buildWindowsInputBody(request);
+}
+
+type GenericInput = { name: string; scope: "user"; projectId: null; projectDir: null;
+  generic: { operation: Operation; catalog: Catalog } };
+export function buildWindowsVNextPresenceScript(locator: Locator): string {
+  const account = psTextLiteral(locatorAccount(locator) + ".api-key-case");
+  return ["$ErrorActionPreference='Stop'", "try {", "Add-Type -TypeDefinition @'",
+    "using System; using System.Runtime.InteropServices;",
+    "public static class AkcVNextPresence {",
+    "[DllImport(\"Advapi32.dll\", EntryPoint=\"CredReadW\", CharSet=CharSet.Unicode, SetLastError=true)] private static extern bool Read(string target, UInt32 type, UInt32 flags, out IntPtr pointer);",
+    "[DllImport(\"Advapi32.dll\")] private static extern void CredFree(IntPtr pointer);",
+    "public static int Status(string target) { IntPtr p; if(Read(target,1,0,out p)){CredFree(p);return 0;} return Marshal.GetLastWin32Error()==1168 ? 2 : 10; }", "}", "'@",
+    `exit ([AkcVNextPresence]::Status(${account}))`, "} catch { exit 10 }", "exit 10"].join("\n");
+}
+export function buildWindowsVNextPresenceBatchScript(locators: Locator[]): string {
+  if (!locators.length || locators.length > 20) throw new VNextError("invalid-data");
+  return ["$ErrorActionPreference='Stop'", "try {", "Add-Type -TypeDefinition @'",
+    "using System; using System.Runtime.InteropServices; public static class AkcPresenceBits {",
+    "[DllImport(\"Advapi32.dll\", EntryPoint=\"CredReadW\", CharSet=CharSet.Unicode, SetLastError=true)] private static extern bool Read(string target, UInt32 type, UInt32 flags, out IntPtr pointer);",
+    "[DllImport(\"Advapi32.dll\")] private static extern void CredFree(IntPtr pointer);",
+    "public static int Status(string target) {IntPtr p; if(Read(target,1,0,out p)){CredFree(p);return 1;} return Marshal.GetLastWin32Error()==1168?0:-1;}", "}", "'@", "$mask=0",
+    ...locators.flatMap((l, i) => [`$s=[AkcPresenceBits]::Status(${psTextLiteral(locatorAccount(l) + ".api-key-case")})`,
+      "if($s -lt 0){exit 1073741824}", `if($s -eq 1){$mask=$mask -bor ${2 ** i}}`]), "exit $mask", "} catch {exit 1073741824}", "exit 1073741824"].join("\n");
+}
+export function buildWindowsVNextSecretInputScript(input: { operation: Operation; catalog: Catalog }): string {
+  const operation = validate(operationSchema, input.operation), catalog = validate(catalogSchema, input.catalog);
+  const candidate = operation.boundBasis.candidateCredential;
+  if (operation.kind !== "registration" || operation.state !== "prepared" || !candidate ||
+    catalog.revision !== operation.expectedCatalogRevision || catalogFingerprint(catalog) !== operation.boundBasis.fingerprint) throw new VNextError("conflict");
+  return buildWindowsInputBody({ name: candidate.label, scope: "user", projectId: null, projectDir: null, generic: { operation, catalog } });
+}
+
+function buildWindowsInputBody(request: SecretInputRequest | GenericInput): string {
+  const generic = "generic" in request ? request.generic : null;
+  const candidate = generic?.operation.boundBasis.candidateCredential;
+  const name = generic ? psTextLiteral(request.name) : psLiteral(request.name);
+  const account = psLiteral(candidate ? locatorAccount(candidate.locator) : toAccount(request));
   const destinationLabel = request.scope === "project"
     ? {
         en: "Registration destination: This project",
@@ -305,15 +468,29 @@ export function buildWindowsSecretInputScript(request: SecretInputRequest): stri
         en: "Registration destination: Current user (shared across projects)",
         ja: "登録先：現在のユーザー共通"
       };
-  const destinationText = request.scope === "project"
+  const connectionDetails: readonly LocalizedText[] = "environment" in request
+    ? [
+        { en: `Service: ${request.service}`, ja: `サービス: ${request.service}` },
+        { en: `Environment: ${request.environment}`, ja: `環境: ${request.environment}` },
+        { en: `Project ID: ${request.projectId}`, ja: `プロジェクト ID: ${request.projectId}` }
+      ]
+    : [];
+  const acquisition = generic ? null : buildCredentialAcquisitionPanel(request);
+  const dpi = Boolean(acquisition || generic);
+  const stripeTest = "environment" in request && request.service === "stripe-test";
+  const extraHeight = (connectionDetails.length > 0 ? 60 : 0);
+  const baseDestinationText = request.scope === "project"
     ? `(${psText(destinationLabel)} + [Environment]::NewLine + ${psTextLiteral(request.projectDir ?? "")})`
     : psText(destinationLabel);
+  const destinationText = connectionDetails.length > 0
+    ? `(${psText(destinationLabel)} + [Environment]::NewLine + ${connectionDetails.map(psText).join(" + [Environment]::NewLine + ")} + [Environment]::NewLine + ${psTextLiteral(request.projectDir ?? "")})`
+    : baseDestinationText;
 
   return [
     "$ErrorActionPreference = 'Stop'",
     "Add-Type -AssemblyName System.Windows.Forms",
     "Add-Type -AssemblyName System.Drawing",
-    ...LANGUAGE_PREAMBLE,
+    ...LANGUAGE_PREAMBLE.filter(line => !dpi || !line.includes("EnableVisualStyles")),
     "Add-Type -TypeDefinition @'",
     "using System;",
     "using System.Runtime.InteropServices;",
@@ -336,6 +513,20 @@ export function buildWindowsSecretInputScript(request: SecretInputRequest): stri
     "  public static class Native {",
     "    [DllImport(\"Advapi32.dll\", EntryPoint = \"CredWriteW\", CharSet = CharSet.Unicode, SetLastError = true)]",
     "    public static extern bool CredWrite(ref Credential credential, UInt32 flags);",
+    "    [DllImport(\"user32.dll\")]",
+    "    public static extern bool ShowWindow(IntPtr window, int command);",
+    ...(generic ? [
+      "    [DllImport(\"Advapi32.dll\", EntryPoint = \"CredReadW\", CharSet = CharSet.Unicode, SetLastError = true)]",
+      "    private static extern bool CredRead(string target, UInt32 type, UInt32 flags, out IntPtr credential);",
+      "    [DllImport(\"Advapi32.dll\")] private static extern void CredFree(IntPtr credential);",
+      "    public static bool Exists(string target) { IntPtr p; if (CredRead(target, 1, 0, out p)) { CredFree(p); return true; } if (Marshal.GetLastWin32Error() == 1168) return false; throw new InvalidOperationException(); }"
+    ] : []),
+    ...(dpi ? [
+      "    [DllImport(\"user32.dll\", SetLastError = true)]",
+      "    public static extern IntPtr SetThreadDpiAwarenessContext(IntPtr context);",
+      "    [DllImport(\"user32.dll\")]",
+      "    public static extern UInt32 GetDpiForWindow(IntPtr window);"
+    ] : []),
     "  }",
     "}",
     "'@",
@@ -343,6 +534,16 @@ export function buildWindowsSecretInputScript(request: SecretInputRequest): stri
     `$account = ${account}`,
     "$script:account = $account",
     "$script:resultCode = 2",
+    ...(generic ? ["try { if ([ApiKeyCaseHumanPlane.Native]::Exists($account + '.api-key-case')) { exit 10 } } catch { exit 10 }"] : []),
+    ...(dpi ? [
+      "try { if ([ApiKeyCaseHumanPlane.Native]::SetThreadDpiAwarenessContext([IntPtr](-4)) -eq [IntPtr]::Zero) { exit 10 } } catch { exit 10 }",
+      "[System.Windows.Forms.Application]::EnableVisualStyles()"
+    ] : []),
+    ...(generic && candidate ? buildGenericInputLayout(candidate, generic.catalog.bindings.filter(b => b.credentialId === candidate.id).map(b => {
+      const project = generic.catalog.projects.find(p => p.id === b.projectId)!;
+      const environment = generic.catalog.environments.find(e => e.id === b.environmentId)!;
+      return { projectPath: project.canonicalPath, environment: environment.label, risk: environment.risk, variable: b.variableName };
+    }), generic.catalog.credentials.find(c => c.id === candidate.id)) : acquisition ? buildWindowsAcquisitionLayout(acquisition, request) : [
     "$form = New-Object System.Windows.Forms.Form",
     "$script:form = $form",
     `$form.Text = ${psText(WINDOWS_DIALOG_TEXT.secretInputCaption)}`,
@@ -353,7 +554,7 @@ export function buildWindowsSecretInputScript(request: SecretInputRequest): stri
     "$form.MinimizeBox = $false",
     "$form.ShowInTaskbar = $true",
     "$form.TopMost = $true",
-    "$form.ClientSize = New-Object System.Drawing.Size(480, 282)",
+    `$form.ClientSize = New-Object System.Drawing.Size(480, ${282 + extraHeight})`,
     "$label = New-Object System.Windows.Forms.Label",
     "$label.AutoSize = $true",
     "$label.MaximumSize = New-Object System.Drawing.Size(444, 0)",
@@ -364,7 +565,10 @@ export function buildWindowsSecretInputScript(request: SecretInputRequest): stri
     "$form.Controls.Add($label)",
     "$destination = New-Object System.Windows.Forms.TextBox",
     "$destination.Location = New-Object System.Drawing.Point(18, 50)",
-    "$destination.Size = New-Object System.Drawing.Size(444, 56)",
+    `$destination.Size = New-Object System.Drawing.Size(444, ${56 + extraHeight})`,
+    ...(connectionDetails.length > 0
+      ? ["$destination.ScrollBars = [System.Windows.Forms.ScrollBars]::Vertical"]
+      : []),
     "$destination.Multiline = $true",
     "$destination.ReadOnly = $true",
     "$destination.BorderStyle = [System.Windows.Forms.BorderStyle]::None",
@@ -375,7 +579,7 @@ export function buildWindowsSecretInputScript(request: SecretInputRequest): stri
     "$detail = New-Object System.Windows.Forms.Label",
     "$detail.AutoSize = $true",
     "$detail.MaximumSize = New-Object System.Drawing.Size(444, 0)",
-    "$detail.Location = New-Object System.Drawing.Point(18, 114)",
+    `$detail.Location = New-Object System.Drawing.Point(18, ${114 + extraHeight})`,
     `$detail.Text = ${psText({
       en: "It will be stored directly in Windows Credential Manager.",
       ja: "この値は Windows 資格情報マネージャーへ直接保存されます。"
@@ -383,7 +587,7 @@ export function buildWindowsSecretInputScript(request: SecretInputRequest): stri
     "$form.Controls.Add($detail)",
     "$input = New-Object System.Windows.Forms.TextBox",
     "$script:input = $input",
-    "$input.Location = New-Object System.Drawing.Point(20, 150)",
+    `$input.Location = New-Object System.Drawing.Point(20, ${150 + extraHeight})`,
     "$input.Size = New-Object System.Drawing.Size(440, 26)",
     "$input.UseSystemPasswordChar = $true",
     // Zero disables the WinForms character cap. Oversized values are rejected
@@ -395,18 +599,19 @@ export function buildWindowsSecretInputScript(request: SecretInputRequest): stri
     "$errorLabel.AutoSize = $true",
     "$errorLabel.MaximumSize = New-Object System.Drawing.Size(444, 0)",
     "$errorLabel.ForeColor = [System.Drawing.Color]::Firebrick",
-    "$errorLabel.Location = New-Object System.Drawing.Point(18, 184)",
+    `$errorLabel.Location = New-Object System.Drawing.Point(18, ${184 + extraHeight})`,
     "$form.Controls.Add($errorLabel)",
     "$saveButton = New-Object System.Windows.Forms.Button",
     `$saveButton.Text = ${psText(WINDOWS_DIALOG_TEXT.saveButton)}`,
-    "$saveButton.Location = New-Object System.Drawing.Point(272, 230)",
+    `$saveButton.Location = New-Object System.Drawing.Point(272, ${230 + extraHeight})`,
     "$saveButton.Size = New-Object System.Drawing.Size(88, 30)",
     "$form.Controls.Add($saveButton)",
     "$cancelButton = New-Object System.Windows.Forms.Button",
     `$cancelButton.Text = ${psText(WINDOWS_DIALOG_TEXT.cancelButton)}`,
-    "$cancelButton.Location = New-Object System.Drawing.Point(372, 230)",
+    `$cancelButton.Location = New-Object System.Drawing.Point(372, ${230 + extraHeight})`,
     "$cancelButton.Size = New-Object System.Drawing.Size(88, 30)",
     "$form.Controls.Add($cancelButton)",
+    ]),
     "$form.AcceptButton = $saveButton",
     "$form.CancelButton = $cancelButton",
     "$cancelButton.Add_Click({",
@@ -424,6 +629,17 @@ export function buildWindowsSecretInputScript(request: SecretInputRequest): stri
     "    $script:input.Focus()",
     "    return",
     "  }",
+    ...(stripeTest ? [
+      // The value never reaches Node. Refuse other key kinds before encoding or writing.
+      "  if (-not $value.StartsWith('sk_test_', [StringComparison]::Ordinal) -or $value.Length -le 8 -or [Text.RegularExpressions.Regex]::IsMatch($value, '\\s')) {",
+      `    $script:errorLabel.Text = ${psText(STRIPE_TEST_INPUT_ERROR)}`,
+      "    $script:input.Clear()",
+      "    $value = $null",
+      "    Remove-Variable value -ErrorAction SilentlyContinue",
+      "    $script:input.Focus()",
+      "    return",
+      "  }"
+    ] : []),
     "  $blobSize = [Text.Encoding]::Unicode.GetByteCount($value)",
     `  if ($blobSize -gt ${WINDOWS_CREDENTIAL_BLOB_MAX_BYTES}) {`,
     "    $script:resultCode = 10",
@@ -439,6 +655,7 @@ export function buildWindowsSecretInputScript(request: SecretInputRequest): stri
     "  }",
     "  $blob = [IntPtr]::Zero",
     "  try {",
+    ...(generic ? ["    $saveButton.Enabled = $false", "    if ([ApiKeyCaseHumanPlane.Native]::Exists($script:account + '.api-key-case')) { throw 'Candidate already exists.' }"] : []),
     "    $blob = [Runtime.InteropServices.Marshal]::StringToCoTaskMemUni($value)",
     "    $credential = New-Object ApiKeyCaseHumanPlane.Credential",
     "    $credential.Flags = 0",
@@ -473,7 +690,7 @@ export function buildWindowsSecretInputScript(request: SecretInputRequest): stri
     "  }",
     "  $script:form.Close()",
     "})",
-    "$form.Add_Shown({ $script:input.Focus() })",
+    "$form.Add_Shown({ [void][ApiKeyCaseHumanPlane.Native]::ShowWindow($script:form.Handle, 5); $script:input.Focus() })",
     "$form.Add_FormClosing({ $script:input.Clear() })",
     "$form.ShowDialog() | Out-Null",
     "$form.Dispose()",
@@ -500,8 +717,8 @@ export function buildWindowsApprovalScript(plan: ApprovalPlan): string {
   const preCommands = plan.preCommands.map(psTextLiteral);
   const preCommandArray = preCommands.length > 0 ? `@(${preCommands.join(", ")})` : "@()";
   const verificationMessage = psText({
-    en: `Confirm API Key Case deploy: ${plan.name} (${plan.scope} scope) to ${plan.target} (${plan.env}).`,
-    ja: `API Key Case の配置を承認します: ${plan.name}（${plan.scope} スコープ）→ ${plan.target}（${plan.env}）。`
+    en: `Confirm API Key Case ${plan.connectionSource?.service === "clerk" ? "Worker version creation" : "deploy"}: ${plan.name} (${plan.scope} scope)${plan.connectionSource ? `; v2 ${approvalSourceLabel(plan.connectionSource.service)} source ${plan.connectionSource.environment}` : ""} to ${plan.target} (${plan.env}).`,
+    ja: `API Key Case の${plan.connectionSource?.service === "clerk" ? "Workerバージョン作成" : "配置"}を承認します: ${plan.name}（${plan.scope} スコープ）${plan.connectionSource ? `; v2 ${approvalSourceLabel(plan.connectionSource.service)} 保存元 ${plan.connectionSource.environment}` : ""}→ ${plan.target}（${plan.env}）。`
   });
 
   return [
@@ -552,7 +769,18 @@ export function buildWindowsApprovalScript(plan: ApprovalPlan): string {
     "$details.ScrollBars = [System.Windows.Forms.ScrollBars]::Vertical",
     "$details.TabStop = $false",
     `$details.Text = (${[
+      ...(plan.target === "cloudflare" && plan.connectionSource?.operation !== "cloudflare-version-preparation" ? [
+        [psText({en:"This secret put creates a Worker version and deploys it immediately.",ja:"このキー設定はWorkerの新しいバージョンを作り、直ちに配備します。"}), "''"]
+      ] : []),
+      ...(plan.connectionSource?.service === "clerk" ? [
+        [psText({en:"Creates a Worker version using latest remote code, which may change before execution.",ja:"最新のWorkerコードへキーを設定します。実行前にコードが変わる場合があります。"}), "''"],
+        [psText({en:"Existing Version URLs may expose this version; it can use existing resources.",ja:"既存のVersion URLから呼べる場合があり、既存リソースを利用できます。"}), "''"],
+        [psText({en:"This invocation does not activate production traffic.",ja:"この操作では本番バージョンを切り替えません。"}), "''"]
+      ] : []),
       [psText({ en: "Secret name: ", ja: "シークレット名: " }), "$secretName"],
+      ...(plan.connectionSource ? [[psText({ en: "Source: ", ja: "保存元: " }),
+        psTextLiteral(`v2 ${approvalSourceLabel(plan.connectionSource.service)} / ${plan.connectionSource.environment}`)],
+        [psText({ en: "Registration revision: ", ja: "登録リビジョン: " }), psTextLiteral(plan.connectionSource.credentialRevision)]] : []),
       [psText({ en: "Scope: ", ja: "スコープ: " }), "$scope"],
       [psText({ en: "Target: ", ja: "配置先サービス: " }), "$target"],
       [psText({ en: "Destination: ", ja: "配置先: " }), "$destination"],
@@ -621,6 +849,56 @@ export function buildWindowsApprovalScript(plan: ApprovalPlan): string {
   ].join("\n");
 }
 
+/** Closed local profile, freshly verified for each foreground session. */
+export function buildWindowsLocalApplicationScript(plan: LocalApplicationApproval): string {
+  if (!plan || Object.keys(plan).sort().join(",") !== "artifactPath,credentialRevision,environment,interpreterPath,maxDurationMs,projectDir,service" ||
+      plan.service !== "resend" || plan.environment !== "development" ||
+      !Number.isInteger(plan.maxDurationMs) || plan.maxDurationMs < 1000 || plan.maxDurationMs > 1800000 ||
+      !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(plan.credentialRevision)) throw new Error("Invalid local application approval.");
+  for (const value of [plan.projectDir, plan.artifactPath, plan.interpreterPath]) {
+    if (typeof value !== "string" || !pathWin32.isAbsolute(value) || value.length > 1024 || /[\x00-\x1f\x7f\u202a-\u202e\u2066-\u2069]/u.test(value)) throw new Error("Invalid local application approval.");
+  }
+  const rows = [
+    psText({ en: "Project: ", ja: "プロジェクト: " }) + " + " + psTextLiteral(plan.projectDir),
+    psText({ en: "Application: ", ja: "アプリ: " }) + " + " + psTextLiteral(plan.artifactPath),
+    psText({ en: "Node: ", ja: "Node: " }) + " + " + psTextLiteral(plan.interpreterPath),
+    psText({ en: "Credential: project / Resend / development / RESEND_API_KEY (v2)", ja: "キー: project / Resend / development / RESEND_API_KEY（v2）" }),
+    psText({ en: "Registration revision: ", ja: "登録リビジョン: " }) + " + " + psTextLiteral(plan.credentialRevision),
+    psText({ en: `Maximum duration: ${plan.maxDurationMs / 1000} seconds. One session only.`, ja: `最長 ${plan.maxDurationMs / 1000} 秒。この1回だけ実行します。` }),
+    psText({ en: "The app and its dependencies can read the key. Trust them and this OS account. Stopping cannot revoke a copied key.", ja: "アプリと依存コードはキーを読めます。このコードとOSユーザーを信頼する場合だけ承認してください。停止してもコピー済みのキーは失効しません。" }),
+    psText({ en: "No build, install, restart, app output, or readiness check. Declared inputs are monitored; arbitrary imports are not covered.", ja: "ビルド・インストール・再起動・アプリ出力の転送・動作確認は行いません。宣言済み入力の変更を検知しますが、任意の読み込み先までは確認しません。" })
+  ];
+  return [
+    "$ErrorActionPreference = 'Stop'",
+    "Add-Type -AssemblyName System.Windows.Forms", "Add-Type -AssemblyName System.Drawing",
+    ...LANGUAGE_PREAMBLE, ...buildWindowsUserVerificationScript(),
+    "$script:resultCode = 2", "$form = New-Object System.Windows.Forms.Form", "$script:form = $form",
+    `$form.Text = ${psText({ en: "API Key Case - Run local application", ja: "API Key Case - ローカルアプリの実行" })}`,
+    "$form.Font = New-Object System.Drawing.Font('Yu Gothic UI', 9)",
+    "$form.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Dpi",
+    "$form.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterScreen",
+    "$form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog",
+    "$form.MaximizeBox = $false", "$form.MinimizeBox = $false", "$form.ShowInTaskbar = $true", "$form.TopMost = $true",
+    "$form.ClientSize = New-Object System.Drawing.Size(720, 440)",
+    "$details = New-Object System.Windows.Forms.TextBox", "$details.Location = New-Object System.Drawing.Point(18, 18)",
+    "$details.Size = New-Object System.Drawing.Size(684, 350)", "$details.Multiline = $true", "$details.ReadOnly = $true",
+    "$details.ScrollBars = [System.Windows.Forms.ScrollBars]::Vertical", "$details.TabStop = $false",
+    `$details.Text = (${rows.join(" + [Environment]::NewLine + [Environment]::NewLine + ")})`, "$form.Controls.Add($details)",
+    "$yesButton = New-Object System.Windows.Forms.Button", `$yesButton.Text = ${psText({ en: "Run once", ja: "1回実行" })}`,
+    "$yesButton.Location = New-Object System.Drawing.Point(496, 388)", "$yesButton.Size = New-Object System.Drawing.Size(96, 32)",
+    "$form.Controls.Add($yesButton)", "$noButton = New-Object System.Windows.Forms.Button",
+    `$noButton.Text = ${psText(WINDOWS_DIALOG_TEXT.cancelButton)}`, "$noButton.Location = New-Object System.Drawing.Point(606, 388)",
+    "$noButton.Size = New-Object System.Drawing.Size(96, 32)", "$form.Controls.Add($noButton)",
+    "$noButton.Add_Click({ $script:resultCode = 2; $script:form.Close() })", "$yesButton.Add_Click({",
+    "  $script:resultCode = 10", "  $yesButton.Enabled = $false", "  $noButton.Enabled = $false", "  try {",
+    `    $verified = Invoke-ApiKeyCaseUserVerification $script:form.Handle ${psText({ en: "Approve one Resend development session for the displayed local application.", ja: "表示されたローカルアプリへResend開発キーを渡し、1回の実行を承認します。" })}`,
+    "    if ($verified -eq 0) { $script:resultCode = 0 } elseif ($verified -eq 6) { $script:resultCode = 2 }",
+    "  } catch { $script:resultCode = 10 } finally { $script:form.Close() }", "})",
+    "$form.AcceptButton = $noButton", "$form.CancelButton = $noButton", "$form.Add_Shown({ $noButton.Focus() })",
+    "$form.ShowDialog() | Out-Null", "$form.Dispose()", "[Environment]::Exit($script:resultCode)"
+  ].join("\n");
+}
+
 // The Phase E lifecycle dialog. Like the approval dialog it is one-shot: it
 // returns an exit status to the single call that opened it and never emits a
 // token, a Secret value, or a reusable permission. Deny is the default on
@@ -657,6 +935,11 @@ export function buildWindowsRemovalScript(plan: RemovalPlan): string {
       ? [
           { en: `Secret name: ${plan.name}`, ja: `シークレット名: ${plan.name}` },
           { en: `Scope: ${plan.scope}`, ja: `スコープ: ${plan.scope}` },
+          ...("environment" in plan ? [
+            { en: `Service: ${plan.service}`, ja: `サービス: ${plan.service}` },
+            { en: `Environment: ${plan.environment}`, ja: `環境: ${plan.environment}` },
+            { en: `Project ID: ${plan.projectId}`, ja: `プロジェクト ID: ${plan.projectId}` }
+          ] : []),
           {
             en: `Project: ${plan.projectDir ?? "(user scope: every project on this machine)"}`,
             ja: `プロジェクト: ${plan.projectDir ?? "（ユーザースコープ: このPCのすべてのプロジェクト）"}`
@@ -677,8 +960,8 @@ export function buildWindowsRemovalScript(plan: RemovalPlan): string {
   const verificationMessage = psText(
     plan.kind === "secret"
       ? {
-          en: `Confirm API Key Case deletion: ${plan.name} (${plan.scope} scope).`,
-          ja: `API Key Case の削除を承認します: ${plan.name}（${plan.scope} スコープ）。`
+          en: `Confirm API Key Case deletion: ${plan.name} (${plan.scope} scope)${"environment" in plan ? `; ${plan.service}, ${plan.environment}, project ${plan.projectId}` : ""}.`,
+          ja: `API Key Case の削除を承認します: ${plan.name}（${plan.scope} スコープ）${"environment" in plan ? `; ${plan.service}, ${plan.environment}, プロジェクト ${plan.projectId}` : ""}。`
         }
       : {
           en: `Confirm API Key Case trust removal: ${plan.target} (${plan.env}).`,
@@ -771,7 +1054,7 @@ export function buildWindowsRemovalScript(plan: RemovalPlan): string {
   ].join("\n");
 }
 
-function buildWindowsUserVerificationScript(): string[] {
+export function buildWindowsUserVerificationScript(): string[] {
   return [
     "Add-Type -TypeDefinition @'",
     "using System;",
@@ -914,6 +1197,7 @@ function validateRemovalPlan(plan: RemovalPlan): void {
         (!/^[0-9a-f]{16}$/.test(plan.projectId ?? "") || !plan.projectDir)) {
       throw new Error("Invalid project-scoped removal plan.");
     }
+    psLiteral(toAccount(plan));
     if (plan.projectDir !== null) psTextLiteral(plan.projectDir);
     return;
   }
@@ -950,6 +1234,7 @@ function validateSecretInputRequest(request: SecretInputRequest): void {
   ) {
     throw new Error("Invalid project-scoped Secret reference.");
   }
+  psLiteral(toAccount(request));
   if (request.projectDir !== null) psTextLiteral(request.projectDir);
 }
 
@@ -974,6 +1259,7 @@ function psText(text: LocalizedText): string {
 }
 
 function validateApprovalPlan(plan: ApprovalPlan): void {
+  assertApprovalConnectionSource(plan);
   assertValidSecretName(plan.name);
   if (plan.scope !== "user" && plan.scope !== "project") {
     throw new Error("Invalid approval scope.");

@@ -1,28 +1,74 @@
 # Value-free deployment history
 
-Status: implemented in the unreleased 0.9.1 candidate. This is a small local
+> **適用範囲:** 以下は既存schema 1–4の履歴互換・Advisory意味の正本。2026-10-21以降のvNextでは値なしOperation journalを別namespaceに持ち、[開発候補の操作契約](../releases/windows-vnext-candidate.md)に従ってoperationIdで登録/配送の中断復旧を照会する。旧履歴を移行/削除/書換せず、過去の成功を新方式の現在状態・権限・自動再配置の証拠にしない。
+
+Status: legacy receipts remain supported; environment-scoped v2 receipts are
+implemented in the private Resend connection flow, with distinct schema3 Clerk
+Worker-version preparation and schema4 registered Cloudflare destination records.
+This is a small local
 resumption aid, not a remote-state service or a new publication prerequisite.
 Existing release acceptance remains in [RELEASING](../RELEASING.md).
 
 ## Meaning of the report
 
-`api-key-case history --json [path]` is Free. On a new chat or resumed deployment
-task, the exact-version Agent protocol asks for this report alongside `next`.
+`api-key-case history --json [--offline] [path]` is Free. The private development
+CLI adds `--offline` for the first inspection on a new chat or resumed deployment
+task. Published 0.9.2 does not include this option; use the verified built checkout
+and do not substitute a public npx version. Existing invocation without the flag
+retains destination identity probing for compatibility.
 The Agent explains what was observed for each requested name/scope and
 target/environment. There is no inferred project-wide deployment completion,
 batch manifest, automatic retry, or command to replay history.
 
-History report schema 2 has `authority: advisory-local-history` and always reports
-`currentRemoteState: not-inspected`. `next` remains schema 2 with
-`setup.deploymentState: not-inspected`. These are separate contracts. Report
-schema 2 adds closed diagnostics and untested write access; the on-disk journal
-remains schema 1, so existing receipts need no migration or reset.
+History report schemas 2, 3 and 4 have `authority: advisory-local-history` and always report
+`currentRemoteState: not-inspected`. `next` retains
+`setup.deploymentState: not-inspected` (schema 5 in the current private candidate,
+schema 2 in released 0.9.2). These are separate contracts. Report
+schemas 2/3/4 include closed diagnostics and untested write access, with an optional
+closed `connection` identity on v2 deployment entries. The on-disk journal
+version is separate: schemas 1–4 are readable. A first Resend v2 start upgrades
+schema1 to2; a first Clerk preparation start upgrades to3; a first registered
+Cloudflare target start upgrades to4, preserving retained entries. Reports use
+schema4 for registered targets, schema3 for other preparation entries, and
+schema2 for older operations.
+
+### Offline recovery inspection
+
+The private [explicit Cloudflare config route](cloudflare-config-destinations.md)
+adds journal/report schema 4 and an optional closed nonsecret `cloudflareTarget`
+on connection receipts. It records catalog ID, account, Worker, config,
+source/deployment environment, Wrangler section and allowed services. It never
+records Secret content, CLI captures, approval tokens or application results.
+Schemas 1–3 remain readable and retained entries survive an upgrade. Schema 4 is
+never downgraded on disk; older readers refuse it. Config receipts remain
+`currentDestination: unresolved` instead of comparing against a root config.
+
+`--offline` reads the existing local journal and registration metadata only. It
+never accesses an adapter or calls a destination resolver, launches an official
+CLI, refreshes provider authentication, reads a credential value, writes/probes
+metadata, clears a lock or retries placement. It works without provider login or
+provider CLI availability. Existing journal/metadata path and schema guards remain.
+
+The additive report field `destinationInspection` is `skipped-offline` in this mode
+and `requested` otherwise. All offline entries have `currentDestination: unresolved`;
+this is intentionally uninspected, not evidence of a missing/changed destination.
+The selected mode is not proof that a probe succeeded. `currentRemoteState` remains
+`not-inspected` in both modes. Local revision comparisons still use the exact v2
+service/environment/project; another environment or legacy v1 key is never reused.
+Past completed/incomplete/unknown outcomes retain their meaning and do not authorize
+another operation. Review an interrupted or partially completed placement with the
+human before any fresh request. Reading history cannot settle uncertain effects.
+
+If a fresh destination-selection comparison is actually wanted, the existing
+`history --json` mode is available. Official identity probes may refresh auth or
+write provider logs/metrics, so that mode must not be described as globally
+side-effect-free. Neither mode reads remote key values or proves application success.
 
 | Past operation outcome | Meaning | What the Agent may explain |
 | --- | --- | --- |
-| `completed` | The official CLI returned exit 0, without timeout, after all pre-steps | This operation reported success at the recorded time |
-| `incomplete` | The CLI returned a nonzero code or the bound operation changed during handoff | This operation did not finish successfully; remote changes may already exist |
-| `unknown` | A start has no saved result, an exception occurred, or the child timed out/exited without a code | The result is unknown; agree remaining work with the human |
+| `completed` | A deployment CLI returned exit0 without timeout after all pre-steps; a schema3 preparation additionally has exactly one validated created-version UUID and a current basis | This operation reported success; a Worker preparation is version creation, not production activation |
+| `incomplete` | The CLI returned a nonzero code, or a legacy bound operation changed during handoff | This operation did not finish successfully; remote changes may already exist |
+| `unknown` | A start has no saved result, an exception occurred, the child timed out/exited without a code, or the v2 connection basis changed | The result is unknown; agree remaining work with the human |
 
 `incomplete` never means “nothing changed.” For example, Vercel `--force` may
 remove an old variable before adding its replacement fails. This minimal
@@ -43,12 +89,30 @@ receipt as the result of a later request with no receipt.
 
 ## Key replacement and destination changes
 
-No value revision or value-bearing vault API is added. Each start records the
-existing registry's `updatedAt` when safely available. Inspection compares it
-with current registration metadata in the same scope:
+No value revision or value-bearing vault API is added. A legacy start records
+only the existing v1 registry's `updatedAt` when safely available. A Resend v2 start
+records the approved exact v2 ref's `credentialRevision` and intent fingerprint,
+with `registrationUpdatedAt: null`. Its identity includes `credentialVersion: 2`,
+`service: resend`, environment and project ID; name/scope remain fixed to
+`RESEND_API_KEY` / `project`. The receipt cannot be confused with a legacy
+registration of the same name or with another environment/project.
+A Clerk preparation instead has `service: clerk`, fixed `CLERK_SECRET_KEY` / `project`,
+the same exact environment/revision fields, and its distinct schema3 `preparation` shape.
+
+Inspection compares each v2 receipt only with
+`ConnectionStateStore.credentialRevision` for that exact ref. It never reads the
+v1 index for a v2 comparison, copies a legacy registration, or treats a missing,
+locked or unsettled v2 revision as the legacy value. The canonical
+`realpathSync` spelling is retained for project/ref and connection-metadata
+identity; native path resolution is not substituted into those identities.
+The captured intent fingerprint identifies past selection only and does not
+establish that the current intent or app is ready.
+
+The comparison remains advisory:
 
 - `localRegistration: update-recorded` means the metadata timestamp differs.
-  A user-scoped update is visible in each project's own history.
+  A legacy user-scoped update is visible in each project's own history. A v2
+  update applies only to the recorded service/environment/project slot.
 - `unverified` means no update can be established from those timestamps. It
   **does not mean unchanged**. Out-of-tool edits, delete/re-create, concurrent
   save, equal timestamps, index write failure, missing/invalid metadata and
@@ -58,10 +122,11 @@ with current registration metadata in the same scope:
 
 The existing destination-only fingerprint binds project realpath, provider,
 environment, destination configuration projection and non-credential provider
-identity. It contains no Secret-derived material. History reuses that identity
-without creating or reading destination trust. A read-only provider identity
-probe is performed only for recorded target/environment pairs, through the
-existing trusted CLI/context; changes during inspection produce `unresolved`.
+identity. It contains no Secret-derived material. Non-offline history reuses that
+identity without creating or reading destination trust. An official provider
+identity probe is performed only for recorded target/environment pairs, through
+the existing trusted CLI/context; it may refresh auth or write provider logs.
+Changes during inspection produce `unresolved`. Offline history skips this probe.
 
 `currentDestination` is `selection-matches`, `selection-changed` or `unresolved`.
 Matching compares destination selection only. An account/config change cannot
@@ -72,7 +137,8 @@ unresolved. No remote Secret is read or queried.
 ## Persistence and failure order
 
 1. Existing entitlement, project/scope, allowlist, CLI, destination and human
-   approval checks run unchanged. History is never an input to these checks.
+   approval checks run unchanged. History never grants entitlement, approval or trust; the new v2
+   execution route additionally requires its exact pending receipt to remain readable before each handoff boundary.
 2. Immediately before the handoff (including any destructive pre-step), an
    `unknown` start must be persisted. Failure returns `history-unavailable`
    (CLI exit 5) before any provider write or retained value read. A new call
@@ -161,21 +227,51 @@ for each consuming project. Project/account names and raw paths are not stored.
 
 The closed receipt contains a random operation UUID, Secret name and scope,
 allowlisted target/environment, destination-only fingerprint, force flag,
-start/finish timestamps, optional registration metadata timestamp, and outcome.
-It contains no value, partial value, value hash/length, provider output,
+start/finish timestamps, optional legacy registration metadata timestamp, and
+outcome. A v2 receipt additionally contains the closed `connection` identity
+listed above, its registration metadata revision and intent fingerprint.
+Resend v2 deployment receipts support Vercel, Cloudflare and named GitHub Environments. Clerk v2 receipts require Cloudflare and a closed `preparation` object with `kind: cloudflare-worker-version`. Its `versionId` is null for pending/unknown results and a UUID only for completed preparation. Existing Version URLs may expose the created version; the receipt only says this invocation did not activate production. Legacy receipts retain their meaning.
+New Clerk preparation entries also retain optional closed `preparation.destination: {accountId, worker}` from the
+existing validated local selection. Environment remains the receipt's exact `env`; destination fingerprint and v2
+registration/intent identity are unchanged. Begin and completion preserve this subject for offline inspection even
+when the outcome is unknown. Older entries without it stay readable and unmodified, but cannot support a new named
+Worker/version app observation by inferring their target from today's config. Strict older readers refuse the added
+shape; use the current private CLI. There is no new history file, lock or schema number, no remote destination match,
+activation or key-validity claim. See the [managed observation contract](connection-plan-observation.md#clerkcloudflare-prepared-version-observations-private-next-schema-12).
+It contains no value, partial value, value hash/length, raw provider output,
 arbitrary error, argv, credential, license, approval or trust token. An explicit
-field projection on write and strict validation on read reject extra fields.
+field projection on write excludes caller extras; strict validation on read
+rejects extra fields, malformed or cross-project v2 identities, inconsistent
+environments, and v2 receipts disguised as schema 1.
 The module has no Vault or Human Plane dependency and never receives a handoff
 result object. Size and symlink/special-file checks bound metadata reads.
 
 Each project retains its last 200 started attempts; a new start evicts the
 oldest, even if its result is unknown. There is no expiry timer: retained
 records stay until displaced or explicitly removed. A project journal is
-bounded to 256 KiB on read. A short exclusive directory lock serializes
+bounded to 256 KiB on both read and serialized write. Legacy and v2 entries
+share the same 200-attempt limit. A short exclusive directory lock serializes
 read/modify/write, a private temporary file is flushed, and rename replaces the
 journal atomically. Concurrent lock contention fails the metadata operation
 without overwriting another writer. This is ordinary editable local storage,
 not a tamper-proof audit trail or a guarantee against power loss/backups.
+
+### Journal compatibility
+
+- A missing journal starts at schema 1 for legacy `begin` calls. Legacy-only
+  writes preserve their original shape and version.
+- `beginConnection` projects the exact v2 identity and approved metadata basis.
+  Its first durable `unknown` start atomically upgrades a supported schema-1
+  journal to schema 2, preserving retained legacy receipts unchanged. No
+  credential or Secret-store migration is performed.
+- Schema 2 permits a strictly validated mixture of legacy and v2 receipts.
+  Later legacy writes remain supported. Eviction of all v2 receipts does not
+  downgrade the journal.
+- `beginClerkPreparation` writes an unknown receipt before the value-bearing call and upgrades the journal to schema3. It preserves existing entries. `finishClerkPreparation` only accepts a UUID for completed preparation; unknown/incomplete carry null. Readers supporting only schema1/2 must reject schema3, not relabel preparation as deployment completion. New writers never downgrade schema3 after eviction.
+- Inspection does not migrate the file. Unknown schema versions, malformed
+  records and cross-project v2 identities are unavailable; neither legacy nor
+  v2 writers overwrite them. An older package that supports only schema 1 must
+  refuse a schema-2 journal rather than resetting it; use a compatible version.
 
 Reading does not create, prune or repair files. Corruption and existing
 writer locks are reported as unavailable; a lock alone does not establish an
@@ -195,13 +291,31 @@ The [Privacy Policy](../../privacy.html) describes these product facts.
 
 ## Scope and evidence
 
-No key revision migration, remote readback, team storage, automatic recovery,
+No legacy-to-v2 credential conversion, remote readback, team storage, automatic recovery,
 new MCP history tool, generalized event database or publishing gate is added.
 The existing `deploy_secret` uses the common engine; the CLI remains the
 history inspection entry. The Free/Pro contract, OS-store-only value boundary,
 high-risk approval and three-provider allowlist remain in force.
 
 Portable tests: `node tests/deployment-history.mjs` after build, also included
-in `npm test`. Real-store handoff assertions are in the existing isolated
+in `npm test`. V2 coverage uses synthetic value-free metadata only, including
+mixed-schema compatibility, exact-slot revision comparisons, corruption and
+unknown-schema preservation, durable interruption/results, and bounded retention.
+It does not use a real OS store, provider or network. Real-store handoff assertions are in the existing isolated
 Linux-store lane and use synthetic values and a provider fixture. Observed
 runs and their limits are recorded in [VERIFICATION](../VERIFICATION.md).
+
+## Offline recovery verification (2026-10-03)
+
+The history suite exercises offline CLI parsing, rejects duplicate/off-command flags,
+uses a throwing adapter proxy/resolver to prove no provider capability is touched,
+retains journal bytes/outcomes, and checks exact v2 revision comparisons without
+legacy/other-environment fallback. The default mode still resolves a recorded
+provider/environment once, preserving its existing behavior. Build and focused
+history/Agent suites passed (7.3/3.3 seconds). Final isolated mock-keyring aggregate
+passed in 184.4 seconds with candidate byte equality; offline installed-package
+smoke passed in 20.4 seconds (159 allowlisted files; native loading blocked).
+No real provider/native/key operation was used. Repository preflight remains
+unavailable in the gitless materialization; remote tree verification is separate,
+not a claimed preflight pass. This change does not alter placement/approval,
+GitHub environment mapping, runtime handoff or roadmap state.

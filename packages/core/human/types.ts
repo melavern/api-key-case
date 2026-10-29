@@ -1,4 +1,4 @@
-import type { SecretRef, SecretScope } from "../vault/types.js";
+import type { StoredSecretRef } from "../vault/types.js";
 import type { ApprovalPlan, DeployEnv, TargetId } from "../deploy/types.js";
 
 export type HumanSecretInputStatus = "saved" | "cancelled" | "unavailable";
@@ -7,13 +7,20 @@ export type HumanPlaneCapability = "os-dialog" | "handoff-only";
 
 /**
  * Closed display data for the Secret-input Human Plane. It deliberately adds
- * only the resolved project path needed to distinguish storage destinations;
- * no Secret value, provider, or deploy environment can enter this request.
+ * the resolved project path needed to distinguish storage destinations.
+ * Connection credentials also identify their closed service/environment slot;
+ * no Secret value can enter this request.
  */
-export type SecretInputRequest = SecretRef & {
+export type SecretInputRequest = StoredSecretRef & {
   /** null only for `user` scope, which is shared by the current OS user. */
   readonly projectDir: string | null;
+  /** Display only; supplied from the matching validated managed connection. */
+  readonly acquisition?: { readonly sendingDomain: string | null; readonly destination: "local" | "vercel" | "cloudflare" | "github" };
+  /** Closed, advisory project purpose; never a permission/account assertion. */
+  readonly purpose?: CredentialPurpose;
 };
+
+export type CredentialPurpose = "email-sending" | "text-generation" | "embeddings" | "image-generation" | "test-payments";
 
 /**
  * A Phase E lifecycle deletion presented to a human (v2.1 §11).
@@ -25,14 +32,11 @@ export type SecretInputRequest = SecretRef & {
  * the answer.
  */
 export type RemovalPlan =
-  | {
+  | (StoredSecretRef & {
       readonly kind: "secret";
-      readonly name: string;
-      readonly scope: SecretScope;
-      readonly projectId: string | null;
       /** null only for `user` scope, which is not tied to one project. */
       readonly projectDir: string | null;
-    }
+    })
   | {
       readonly kind: "destination-trust";
       readonly target: TargetId;
@@ -51,4 +55,17 @@ export interface HumanPlane {
   // Same one-shot contract as askApproval: the answer is consumed by the
   // single lifecycle call that asked for it and is never persisted.
   askRemoval(plan: RemovalPlan): Promise<HumanApprovalStatus>;
+  // Optional only so existing platforms/implementations fail closed.
+  askLocalApplication?(plan: LocalApplicationApproval): Promise<HumanApprovalStatus>;
+}
+
+/** Fresh, one-session Windows verification; no grant or reusable token. */
+export interface LocalApplicationApproval {
+  readonly projectDir: string;
+  readonly artifactPath: string;
+  readonly interpreterPath: string;
+  readonly service: "resend";
+  readonly environment: "development";
+  readonly credentialRevision: string;
+  readonly maxDurationMs: number;
 }
