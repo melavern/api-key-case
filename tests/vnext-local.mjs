@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { randomUUID, generateKeyPairSync, sign } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { cpSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { cpSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -23,7 +23,7 @@ if (!process.env.AKC_DISPOSABLE_LOCAL_TEST) {
     assert.equal(capabilities("win32", "unavailable", 22000).localUse.state, "unavailable");
   });
   test("isolated local profile and approval state machine", () => {
-    const repo = fileURLToPath(new URL("..", import.meta.url)), root = mkdtempSync(join(tmpdir(), "akc-profile-tests-"));
+    const repo = fileURLToPath(new URL("..", import.meta.url)), root = realpathSync.native(mkdtempSync(join(tmpdir(), "akc-profile-tests-")));
     try {
       cpSync(join(repo, "dist"), join(root, "dist"), { recursive: true }); mkdirSync(join(root, "tests")); mkdirSync(join(root, "node_modules"));
       cpSync(fileURLToPath(import.meta.url), join(root, "tests/vnext-local.mjs")); writeFileSync(join(root, "package.json"), JSON.stringify({ type: "module", private: true }));
@@ -51,7 +51,7 @@ if (!process.env.AKC_DISPOSABLE_LOCAL_TEST) {
   const keys = generateKeyPairSync("ed25519"), payload = Buffer.from(JSON.stringify({ v: 1, plan: "pro", id: "synthetic-local", issuedAt: "2026-10-21" })).toString("base64url"), signed = `AKC1.${payload}`;
   const license = `${signed}.${sign(null, Buffer.from(signed), keys.privateKey).toString("base64url")}`;
   function fixture(realRuntime = false) {
-    const root = mkdtempSync(join(tmpdir(), "akc-profile-state-")), app = join(root, "app"), home = join(root, "home"), runtime = realRuntime ? process.execPath : join(root, process.platform === "win32" ? "node.exe" : "node");
+    const root = realpathSync.native(mkdtempSync(join(tmpdir(), "akc-profile-state-"))), app = join(root, "app"), home = join(root, "home"), runtime = realRuntime ? process.execPath : join(root, process.platform === "win32" ? "node.exe" : "node");
     mkdirSync(app); mkdirSync(home); if (!realRuntime) writeFileSync(runtime, "synthetic non-executed runtime"); writeFileSync(join(app, "main.cjs"), "// editable source");
     let catalog = emptyCatalog(), snapshot, approved = "approved", profileDecision = "approved", locked = false, presence = "present", handoffs = 0, approvals = 0;
     const operations = new Map(), projectId = randomUUID(), environmentId = randomUUID(), now = new Date().toISOString();

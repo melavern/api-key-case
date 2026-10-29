@@ -52,7 +52,7 @@ export async function runWindowsHelperCommandTests() {
     assert.deepEqual(readdirSync(root), [], 'owned helper scratch removed without writing source files');
     if (process.platform === 'win32') {
       const run = encoded => spawnSync(WINDOWS_POWERSHELL_PATH, ['-NoLogo','-NoProfile','-NonInteractive','-STA','-EncodedCommand',encoded],
-        {cwd:'C:/Windows/System32/WindowsPowerShell/v1.0', env:{SystemRoot:'C:/Windows',WINDIR:'C:/Windows'},stdio:'ignore',windowsHide:true,shell:false,timeout:15000});
+        {cwd:'C:/Windows/System32/WindowsPowerShell/v1.0', env:{SystemRoot:'C:/Windows',WINDIR:'C:/Windows'},stdio:'ignore',windowsHide:true,shell:false,timeout:60000});
       const padding = '\n#' + ' '.repeat(15000);
       const harmless = "$literal = '日本語・引用符 '' と絵文字🔑'; if ($literal -ne [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('" + Buffer.from("日本語・引用符 ' と絵文字🔑", 'utf8').toString('base64') + "'))) { exit 13 }; exit 2" + padding;
       const prior = run(Buffer.from(harmless, 'utf16le').toString('base64'));

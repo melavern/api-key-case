@@ -1,9 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { randomUUID } from "node:crypto";
-import { spawnSync } from "node:child_process";
-import { chmodSync, linkSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { chmodSync, linkSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { catalogSchema, credentialSchema, emptyCatalog, locatorAccount, locatorSchema, operationSchema, validate } from "../dist/core/vnext/model.js";
 import { cancelBeforeSave, commitRegistration, prepareRegistration, reconcileRegistration, useAttemptAction } from "../dist/core/vnext/registration.js";
@@ -15,20 +13,11 @@ import { physicalIdentity } from "../dist/core/vnext/identity.js";
 import { capabilities, discover, discoverySchema } from "../dist/core/vnext/status.js";
 import { VNEXT_WINDOWS_REGISTRATION_ACCEPTED, VNEXT_WINDOWS_CLOUDFLARE_ACCEPTED, VNEXT_WINDOWS_LOCAL_ACCEPTED, VNEXT_WINDOWS_VERCEL_ACCEPTED, VNEXT_WINDOWS_GITHUB_ACCEPTED } from "../dist/core/vnext/gates.js";
 import { toAccount, toDestinationAccount } from "../dist/core/vault/naming.js";
+import { privateHomeFixture } from "./helpers/private-home-fixture.mjs";
 
 const now = "2026-10-21T00:00:00.000Z", later = "2026-10-21T00:00:01.000Z";
 const hash = "a".repeat(64);
-function privateFixture(prefix) {
-  const home = mkdtempSync(join(tmpdir(), prefix));
-  if (process.platform === "win32") {
-    const script = `$ErrorActionPreference='Stop'; $p=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${Buffer.from(home).toString("base64")}'));
-      $me=[Security.Principal.WindowsIdentity]::GetCurrent().User; $a=Get-Acl -LiteralPath $p; $a.SetAccessRuleProtection($true,$false);
-      foreach($sid in @($me.Value,'S-1-5-18','S-1-5-32-544')) { $r=New-Object Security.AccessControl.FileSystemAccessRule([Security.Principal.SecurityIdentifier]::new($sid),'FullControl','ContainerInherit,ObjectInherit','None','Allow'); $a.AddAccessRule($r) }; Set-Acl -LiteralPath $p -AclObject $a`;
-    const result = spawnSync(String.raw`C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe`, ["-NoProfile", "-NonInteractive", "-EncodedCommand", Buffer.from(script, "utf16le").toString("base64")], { windowsHide: true, encoding: "utf8" });
-    assert.equal(result.status, 0, "disposable fixture ACL setup");
-  }
-  return home;
-}
+const privateFixture = privateHomeFixture;
 function credential() {
   const id = randomUUID();
   return { id, label: "Arbitrary issuer key", locator: { kind: "v3", id, generationId: randomUUID() }, generation: 1,
@@ -271,7 +260,7 @@ test("read-only legacy index preserves exact bytes for absent, invalid, locked a
 });
 
 test("wrong POSIX owner/permissions and symlinked metadata fail closed", { skip: process.platform === "win32" ? "POSIX ownership fixture; Windows DACL checked by native read" : false }, () => {
-  const home = mkdtempSync(join(tmpdir(), "akc-vnext-unsafe-"));
+  const home = privateHomeFixture("akc-vnext-unsafe-");
   try {
     const store = new CatalogStore(home); store.compareAndSwap(null, emptyCatalog());
     const root = join(home, ".api-key-case", "vnext"), path = join(root, "catalog.json");

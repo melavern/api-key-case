@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, readFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { rmSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 import { CatalogStore } from "../dist/core/vnext/files.js";
 import { launchOperationStatus } from "../dist/core/vnext/launch.js";
+import { privateHomeFixture } from "./helpers/private-home-fixture.mjs";
 
 if (process.argv[2] === "--child") {
   const store = new CatalogStore(process.argv[3]), profileId = randomUUID(), operationId = randomUUID(), time = new Date().toISOString();
@@ -23,7 +23,7 @@ if (process.argv[2] === "--child") {
   });
 } else {
   for (const phase of ["consent-needed", "running"]) test(`local journal survives actual process death at ${phase}; no replay or expired-lock cleanup`, async () => {
-    const root = mkdtempSync(join(tmpdir(), "akc-launch-death-"));
+    const root = privateHomeFixture("akc-launch-death-");
     try {
       const child = spawnSync(process.execPath, [fileURLToPath(import.meta.url), "--child", root, phase], { encoding: "utf8", timeout: 120000 });
       assert.equal(child.status, 73, child.stderr); const { profileId, operationId } = JSON.parse(child.stdout);

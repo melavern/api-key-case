@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, readFileSync, renameSync, mkdirSync, existsSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { rmSync, readFileSync, renameSync, mkdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 import { CatalogStore } from "../dist/core/vnext/files.js";
 import { useOperationStatus } from "../dist/core/vnext/use.js";
+import { privateHomeFixture } from "./helpers/private-home-fixture.mjs";
 
 if (process.argv[2] === "--child") {
   const store = new CatalogStore(process.argv[3]), bindingId = randomUUID(), targetId = randomUUID(), operationId = randomUUID(), time = new Date().toISOString();
@@ -21,7 +21,7 @@ if (process.argv[2] === "--child") {
   });
 } else {
   test("replaced async use lock is detected and a foreign replacement is never removed", async () => {
-    const root = mkdtempSync(join(tmpdir(), "akc-use-owner-")), bindingId = randomUUID(), targetId = randomUUID(), store = new CatalogStore(root);
+    const root = privateHomeFixture("akc-use-owner-"), bindingId = randomUUID(), targetId = randomUUID(), store = new CatalogStore(root);
     try {
       const lock = join(root, ".api-key-case/vnext/use-locks", `${bindingId}-${targetId}`), moved = `${lock}-preserved`;
       await store.withUseLock(bindingId, targetId, async owns => {
@@ -31,7 +31,7 @@ if (process.argv[2] === "--child") {
     } finally { rmSync(root, { recursive: true, force: true }); }
   });
   for (const [kind, phase] of [["cloudflare-use", "consent-needed"], ["cloudflare-use", "executing"], ["vercel-use", "executing"], ["github-use", "executing"]]) test(`${kind} actual process death at ${phase}: status-only observer retains lock and forbids a second execution`, async () => {
-    const root = mkdtempSync(join(tmpdir(), "akc-use-death-"));
+    const root = privateHomeFixture("akc-use-death-");
     try {
       const child = spawnSync(process.execPath, [fileURLToPath(import.meta.url), "--child", root, phase, kind], { encoding: "utf8", timeout: 120_000 });
       assert.equal(child.status, 73, child.stderr); const { bindingId, targetId, operationId } = JSON.parse(child.stdout);

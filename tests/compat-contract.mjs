@@ -235,7 +235,7 @@ test("history remains advisory and value-free across the documented schemas", as
     assert.equal(report.authority, "advisory-local-history");
     assert.equal(report.currentRemoteState, "not-inspected");
     assert.equal(JSON.stringify(report).includes(canary), false);
-    const journalDir = join(root, ".api-key-case", "deployment-history", createHash("sha256").update(realpathSync(project)).digest("hex"));
+    const journalDir = join(root, ".api-key-case", "deployment-history", createHash("sha256").update(realpathSync.native(project)).digest("hex"));
     assert.equal(readFileSync(join(journalDir, "history.json"), "utf8").includes(canary), false);
   } finally {
     rmSync(root, { recursive: true, force: true });
