@@ -9,7 +9,7 @@ import { GitHubEnvironmentAdapter } from '../dist/adapters/github-environment.js
 import { resolveConnectionGitHubRepository } from '../dist/core/deploy/snapshot.js';
 
 export async function runGitHubEnvironmentTests() {
-  const root = mkdtempSync(join(tmpdir(), 'akc-github-environment-'));
+  const root = fs.realpathSync.native(mkdtempSync(join(tmpdir(), 'akc-github-environment-')));
   let checks = 0;
   try {
     mkdirSync(join(root, '.git'));
@@ -42,7 +42,7 @@ export async function runGitHubEnvironmentTests() {
       try {
         fs.openSync=function(...args){if(trigger&&args[0]===config){trigger=false;rmSync(config);fs.symlinkSync(other,config);}return originalOpen.apply(this,args);};
         fs.readSync=function(...args){reads++;return originalRead.apply(this,args);};syncBuiltinESMExports();
-        assert.equal(resolveConnectionGitHubRepository(root),null);assert.equal(reads,0);checks++;
+        assert.equal(resolveConnectionGitHubRepository(root),null);assert.equal(trigger,false,'fault injection targets the canonical config');assert.equal(reads,0);checks++;
       } finally {fs.openSync=originalOpen;fs.readSync=originalRead;syncBuiltinESMExports();rmSync(config);writeFileSync(config,ordinary);}
     }
     for (const environment of ['development', 'preview', 'production']) {

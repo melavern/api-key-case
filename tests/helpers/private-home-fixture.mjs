@@ -18,7 +18,11 @@ export function privateHomeFixture(prefix) {
     } catch { [Console]::Error.Write($_.Exception.Message); exit 1 }`;
     const result = spawnSync(String.raw`C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe`,
       ["-NoLogo", "-NoProfile", "-NonInteractive", "-EncodedCommand", Buffer.from(script, "utf16le").toString("base64")],
-      { windowsHide: true, encoding: "utf8", timeout: 60_000 });
+      { windowsHide: true, encoding: "utf8", timeout: 60_000,
+        cwd: String.raw`C:\Windows\System32`,
+        // A pwsh parent can supply its PS7 module path to Windows PowerShell 5.
+        // Match the product's fixed native environment instead of importing it.
+        env: { SystemRoot: String.raw`C:\Windows`, WINDIR: String.raw`C:\Windows`, PATH: String.raw`C:\Windows\System32` } });
     assert.equal(result.status, 0, `disposable fixture ACL setup: ${result.error?.code ?? result.stderr}`);
   }
   return home;
