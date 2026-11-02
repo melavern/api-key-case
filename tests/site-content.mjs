@@ -21,7 +21,7 @@ const readmeJa = readFileSync(resolve(repoDir, "README.ja.md"), "utf8");
 const changelog = readFileSync(resolve(repoDir, "CHANGELOG.md"), "utf8");
 const unreleasedCandidate = changelog.includes(`## [${manifest.version}] - Unreleased`);
 const publishedVersion = unreleasedCandidate
-  ? readme.match(/This README describes the v(\d+\.\d+\.\d+) pre-stable/)?.[1]
+  ? readme.match(/This README describes the v(\d+\.\d+\.\d+)/)?.[1]
   : manifest.version;
 assert.ok(publishedVersion, "an unreleased candidate must retain the documented published version");
 // Editorial source documents are deliberately withheld from the Public export.
@@ -450,7 +450,7 @@ for (const forbidden of ["実機の録画です", "本当に進みます", "初�
 assert.match(readFileSync(resolve(repoDir, "launch-ja-lp-vertical.vtt"), "utf8"), /^WEBVTT\r?\n/, "the committed captions must be WebVTT");
 
 // PAGE_SPEC §8 publish gate. The page no longer protects itself by being a
-// separate file, so the gate lives in the publish script. The 0.10.0 candidate
+// separate file, so the gate lives in the publish script. The 1.0.0 candidate
 // deliberately closes it until package/source acceptance. Check both the page
 // and robots behavior of the declared state; never infer publication from copy.
 assert.doesNotThrow(() => checkLandingPage(landing), "the landing page must pass its publish checks");

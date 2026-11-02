@@ -8,9 +8,9 @@
 
 日本語版のREADMEは **[README.ja.md](https://github.com/melavern/api-key-case/blob/main/README.ja.md)** にあります。
 
-> **Instructions for v0.10.0 (pre-stable).** Start with the [generic Windows workflow](#generic-windows-workflow). Check [npm](https://www.npmjs.com/package/api-key-case) for published versions.
+> **Instructions for v1.0.0.** Start with the [generic Windows workflow](#generic-windows-workflow). Check [npm](https://www.npmjs.com/package/api-key-case) for published versions.
 >
-> This pre-stable tool reduces accidental exposure risk. It does not guarantee complete secret protection. Always review generated files before sharing them.
+> This tool reduces accidental exposure risk. It does not guarantee complete secret protection. Always review generated files before sharing them.
 >
 > 完全な安全は保証しない。事故確率を下げるツールです。生成物はAIや外部サービスへ渡す前に必ずご自身で確認してください。
 
@@ -39,7 +39,7 @@ selection and login/reboot persistence remain environment-dependent.
 
 ## Generic Windows workflow
 
-In v0.10.0, a supported Windows session can:
+In v1.0.0, a supported Windows session can:
 
 - Reuse a registered key in another project or development environment selected by its owner.
 - Start an approved Node.js / Python development app with registered keys.
@@ -456,7 +456,7 @@ The test Worker is `api-key-case-license-exchange-test`; live is `api-key-case-l
 
 ## Status and roadmap
 
-Current source candidate: **v0.10.0 (pre-stable)**. The preceding v0.9.1 release was published on npm on 2026-09-14 (JST). Security fixes are provided for the latest published pre-stable release only. Code completion and portable tests do not establish acceptance on real Agent hosts, Windows/macOS dialogs or provider accounts. See the [release checklist](docs/RELEASING.md), [verification record](docs/VERIFICATION.md) and [changelog](CHANGELOG.md). Version 1.0 remains reserved until external users have validated real projects.
+Current source candidate: **v1.0.0** (prepared as 0.10.0 and renumbered before publication). The preceding v0.9.2 release was published on npm on 2026-09-30 (JST). Security fixes are provided for the latest published release only. Code completion and portable tests do not establish acceptance on real Agent hosts, Windows/macOS dialogs or provider accounts. See the [release checklist](docs/RELEASING.md), [verification record](docs/VERIFICATION.md) and [changelog](CHANGELOG.md).
 
 - Phase 1: local scanning and safe file generation
 - Phase 2: OS secret store save / check / list / remove (`user` / `project` scope)

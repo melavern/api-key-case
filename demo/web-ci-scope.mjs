@@ -30,8 +30,12 @@ const PORTABLE = [
   { os: 'macos-latest', 'node-version': 24 },
   { os: 'windows-latest', 'node-version': 24 },
 ];
+// Automatic Public runs use the Linux Node range only. The macOS/Windows portable
+// suite is record-only under docs/RELEASING.md "Standing publication policy" and runs only on a manual
+// `windows`/`macos`/`full` dispatch, at most once per release candidate; it never starts on an ordinary push.
+const AUTOMATIC = PORTABLE.filter(entry => entry.os === 'ubuntu-latest');
 const KEYRING_OS = ['ubuntu-latest', 'macos-latest', 'windows-latest'];
-export const BREADTHS = ['representative', 'keyring', 'full'];
+export const BREADTHS = ['representative', 'windows', 'macos', 'keyring', 'full'];
 
 /**
  * Plan for one CI run. Manual dispatch always means product evidence was requested, so
@@ -42,14 +46,15 @@ export function ciPlan({ eventName, product, breadth }) {
   if (eventName === 'workflow_dispatch') {
     const chosen = breadth || 'representative';
     if (!BREADTHS.includes(chosen)) throw new Error(`unknown breadth: ${chosen}`);
+    const singleOS = chosen === 'windows' || chosen === 'macos';
     return {
       product: true,
-      test: chosen === 'full' ? PORTABLE : REPRESENTATIVE,
-      keyring: chosen === 'representative' ? [] : KEYRING_OS,
-      package: true,
+      test: singleOS ? [{ os: `${chosen}-latest`, 'node-version': 24 }] : chosen === 'full' ? PORTABLE : REPRESENTATIVE,
+      keyring: chosen === 'keyring' || chosen === 'full' ? KEYRING_OS : [],
+      package: !singleOS,
     };
   }
-  return { product, test: product ? PORTABLE : [], keyring: product ? KEYRING_OS : [], package: product };
+  return { product, test: product ? AUTOMATIC : [], keyring: product ? KEYRING_OS : [], package: product };
 }
 
 export function planOutputs(plan) {

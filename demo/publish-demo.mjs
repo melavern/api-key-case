@@ -26,7 +26,7 @@ const SITE_DIR = join(BUILD_DIR, "site");
 // Opened on 2026-09-14 for 0.9.1: AC-1..AC-4 were accepted on the Windows
 // 11 + Hello host, and the exact-version package plus its public source were
 // verified from an external path before this flag changed (PAGE_SPEC §9).
-// The prepared 0.10.0 page describes new routes and pins an unpublished package.
+// The prepared 1.0.0 page (prepared as 0.10.0) describes new routes and pins an unpublished package.
 // Re-open only after its release acceptance and external package/source checks.
 // The existing production deployment is unchanged by this local guard.
 export const LANDING_PAGE_PUBLISH_GATE_MET = false;

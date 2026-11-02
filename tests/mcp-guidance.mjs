@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';import test from 'node:test';
-import {mkdtempSync,writeFileSync,readdirSync,rmSync,mkdirSync,symlinkSync,unlinkSync} from 'node:fs';
+import {mkdtempSync,realpathSync,writeFileSync,readdirSync,rmSync,mkdirSync,symlinkSync,unlinkSync} from 'node:fs';
 import {tmpdir} from 'node:os';import {join,resolve} from 'node:path';import {spawn} from 'node:child_process';
 import {buildGuidanceHandler,registerGuidanceTools} from '../dist/mcp/guidance.js';
-const root=mkdtempSync(join(tmpdir(),'keycase-guidance-'));test.after(()=>rmSync(root,{recursive:true,force:true}));
+const root=realpathSync.native(mkdtempSync(join(tmpdir(),'keycase-guidance-')));test.after(()=>rmSync(root,{recursive:true,force:true}));
 const fixture=()=>({requiredSecrets:['OPENAI_API_KEY','RESEND_API_KEY','SYNTHETIC_PRIVATE_NAME'],secretFindings:[{preview:'SYNTHETIC_PRIVATE_VALUE',file:'private-path',line:1}],targetDir:'private-path',warnings:['SYNTHETIC_PRIVATE_VALUE']});
 test('projection omits names, paths, values and preserves uninspected credentials',async()=>{
  let options;const handler=buildGuidanceHandler({projectDir:root,scan:o=>{options=o;return fixture();}});const r=await handler({}),s=r.structuredContent;
@@ -21,7 +21,9 @@ test('one read-only argument-free tool',()=>{
  const registered=[];registerGuidanceTools({registerTool:(...args)=>registered.push(args)},root);assert.equal(registered.length,1);assert.equal(registered[0][0],'inspect_setup_requirements');assert.deepEqual(registered[0][1].inputSchema,{});assert.equal(registered[0][1].annotations.readOnlyHint,true);
 });
 test('fixed project alias replacement is rejected',async()=>{
- const a=join(root,'one'),b=join(root,'two'),link=join(root,'bound');mkdirSync(a);mkdirSync(b);const type=process.platform==='win32'?'junction':'dir';symlinkSync(a,link,type);let scanned=0;const h=buildGuidanceHandler({projectDir:link,scan:()=>{scanned++;return fixture();}});unlinkSync(link);symlinkSync(b,link,type);assert.equal((await h({})).isError,true);assert.equal(scanned,0);
+ const a=join(root,'one'),b=join(root,'two'),link=join(root,'bound');mkdirSync(a);mkdirSync(b);const type=process.platform==='win32'?'junction':'dir';symlinkSync(a,link,type);let scanned=0;const h=buildGuidanceHandler({projectDir:link,scan:options=>{assert.deepEqual(options,{targetDir:realpathSync.native(a),skipGitInspection:true});scanned++;return fixture();}});
+ assert.equal((await h({})).isError,undefined);assert.equal(scanned,1);
+ unlinkSync(link);symlinkSync(b,link,type);assert.equal((await h({})).isError,true);assert.equal(scanned,1);
 });
 function client(dir,guidance){
  const child=spawn(process.execPath,[resolve('dist/cli/index.js'),'mcp',dir,...(guidance?['--guidance-only']:[])],{stdio:['pipe','pipe','pipe']});let buffer='',raw='',err='',id=0;const pending=new Map();

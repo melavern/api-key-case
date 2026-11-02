@@ -274,16 +274,35 @@ This public checklist owns package and release behavior. Initial repository
 creation, visibility change, first CodeQL/security enablement and
 bootstrap-token setup are not repeated.
 
+## Standing publication policy
+
+Decided once by the owner on 2026-11-02 (`standing-publication-policy` in the
+private decision ledger). Do not ask the owner again whether these checks should
+block a release; only the irreversible operations (Public push, tag, npm
+publish, production Web apply) need per-release approval.
+
+| Blocks publication (any executor: local, self-hosted or hosted) | Recorded only (never reported as passed when it failed or did not run) |
+| --- | --- |
+| Export, identity and secret scans of the Public tree and the npm archive | Hosted runner results, including macOS/Windows process-death, lock-race and timing fixtures |
+| Full `npm test` on one Linux host and on the owner's Windows host | macOS checks (collaborative edition) and additional Node versions |
+| Strict real-store keyring on Linux Secret Service and Windows Credential Manager | CodeQL while Actions is unavailable |
+| Installed-package smoke and pack allowlist of the exact archive | Real provider writes, Hello-unconfigured accounts and other real-environment checks |
+| Windows owner-host acceptance for native surfaces changed since the last accepted candidate | |
+
+GitHub Actions is optional. When it is available, run the expensive hosted
+matrix at most once per release candidate. After a failure, reproduce and fix
+it locally or on a cheap lane, then re-run only the failed job. A failure shown
+to be a product defect is fixed as usual. If test-fixture-only failures block a
+candidate twice, stop fixture work and move that check to "recorded only" here
+instead of re-running.
+
 ## 1. Per-release candidate gate
 
-In the public repository, CI runs on PR updates and pushes to `main`; a newer
-run for the same PR or ref cancels the older read-only run. In the private
-development repository, pushes and PR updates are hand-offs and start no
-runner: candidates are verified locally at integration, and hosted CI runs only
-on explicit manual dispatch with a chosen breadth (`representative` = Ubuntu
-Node 22 plus the pack-list check, `keyring` = adds the strict real-store blocks
-on all three OSes, `full` = the five portable Node/OS combinations plus the
-three stores). Choose the narrowest breadth that answers the question.
+Candidate verification runs locally. Actions capacity is unavailable; enabling
+it or obtaining a hosted green run is not a prerequisite for these checks.
+Keep the existing repository-wide Actions disable setting. No workflow or
+security-check trigger is removed by this local verification path. The
+separately approved tag-only npm publisher is unchanged.
 
 Known prose/status and static Web changes run only the lightweight contract
 lane; executable examples, mixed code changes, unknown paths or unavailable
@@ -291,24 +310,40 @@ diffs retain the product checks. The strict keyring lane uses
 `node tests/run-tests.mjs --keyring-only` to run all three existing real-store
 blocks without repeating the portable suite. Packaging waits for the portable
 tests, builds its clean checkout and uses `npm pack --dry-run --ignore-scripts`
-on that tested SHA. Normal `prepack` and the release gates below remain intact.
-A pass on a private SHA is not inherited by the exported public tree: the
-release candidate is verified again where it is published.
+on that tested SHA when that optional executor is used. Normal `prepack` and
+the release gates below remain intact. A pass on a private SHA is not inherited
+by the exported public tree: verify that tree locally before publication too.
 
 Run these checks from a clean checkout and review their output:
 
+For OS-dependent publication failures, `npm run test:publication-fixtures`
+reproduces the native metadata preflight, MCP paths, compatibility, persistence
+and process-interruption tests before the longer suite. It is also the first
+part of `npm test`, so it need not be run separately when the full suite is
+already being run. A local pass does not establish another OS/runner's result.
+The focused command allows fixture diagnosis before a Public push.
+
+Use a disposable checkout/source copy of the fixed candidate with a fresh
+lockfile install. Keep its full source SHA, OS/Node versions, commands/results
+and artifact integrity together. Existing Windows native acceptance is reused
+only where the source and conditions match. A Windows pass is not a macOS or
+Linux pass; unavailable OS-specific coverage stays explicit. A failed hosted
+run stays historical failure evidence, not a requirement to consume Actions
+again. Human approval and the Public source/artifact boundaries still apply.
+
 ```sh
-npm test
+npm ci --ignore-scripts
+npm test                         # builds once and runs the full suite
 npm audit --omit=dev
-npm pack --dry-run
-npm pack --dry-run --json        # optional machine-readable file-list review
-npm run test:package             # installed artifact; explicit native-keyring mock
+npm exec --call "node tests/package-smoke.mjs"  # reuse that build; installed artifact + runtime audit
+npm pack --dry-run --ignore-scripts      # reuse those gates; do not repeat prepack
 ```
 
-On npm versions that prepend lifecycle stdout to `--json`, inspect the JSON
-array after the test output, or use `npm pack --dry-run --ignore-scripts --json`
-after the successful lifecycle run. Do not interpret the prepack messages as
-part of the file-list JSON or omit the test gate.
+Add `--json` to the last command for a machine-readable file inventory.
+`--ignore-scripts` here avoids running the already-passed full suite again via
+`prepack`; it is not permission to omit the preceding tests.
+`npm run test:package` remains the standalone build-and-package check when no matching
+build is available.
 
 On a Linux host with the Secret Service tools documented in README.md,
 `npm run test:keyring:linux` additionally runs the full suite with strict
@@ -335,8 +370,8 @@ Before the final review, also confirm:
   LP exact-version prompt, schema, public
   source links, setup instructions, support claims and legal product facts
   must describe the same release. Keep dated verification history intact.
-- `npm test` passes on the advertised Node.js/OS matrix, including the gated
-  keyring end-to-end checks when the CI runners provide the OS secret store.
+- The blocking checks in the [standing publication policy](#standing-publication-policy)
+  pass for the release commit; record-only results are written down as observed.
 - The purchase link compiled into the CLI/MCP resolves to the live site's
   purchase section, that section's checkout URL is the live Lemon Squeezy
   checkout, the live license-exchange Worker URL is real, and the test Worker

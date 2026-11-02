@@ -47,7 +47,7 @@ The CLI is expected to:
 - The automatic policy denies by default. `production`, `github` at any `--env`, Vercel `development`, `--force`, `--scope user`, any overwrite-capable or destructive step, an unconfirmed or changed destination, an ambiguous destination, a provider credential present in the environment, and anything outside the closed allowlist all require the Human Plane. The allowlist currently holds exactly one entry — Vercel `preview` in `project` scope without `--force` — because that call fails rather than overwriting and because the value cannot be read back afterwards. That second premise is this tool's own, not an inherited default: on Vercel, sensitivity is a per-variable setting independent of the environment (`--no-sensitive` exists, and the CLI's default has changed over time), so the adapter always plans `vercel env add … --sensitive` for `preview` and `production`. `preview` also plans `--yes`: the CLI asks which Git branch a Preview variable applies to, and a non-interactive child cannot answer, in which case `vercel` exits 0 without creating the variable (measured on 59.11.7, 2026-09-08). A test asserts that every environment on the automatic-safe allowlist still plans sensitive storage, so removing the flag cannot silently widen automatic execution. `development` never receives the flag, so its value stays readable back, which is why it is off the allowlist. Older Vercel releases also rejected the flag there; 59.11.7 accepts it, so this is now a deliberate choice by this tool rather than a provider restriction, and relaxing it would be a reviewed change to the allowlist premise rather than a flag edit. Cloudflare is excluded because `wrangler secret put` always overwrites.
 - The deploy target is a closed list (`cloudflare` | `vercel` | `github`) fixed in source; it cannot be extended or redirected by a config file or environment variable.
 
-### Generic Windows secret workflow (0.10.0)
+### Generic Windows secret workflow (1.0.0)
 
 Generic registration keeps values in the existing native input/OS-store path.
 Agents supply validated display metadata, never a value, approval or UI code.
@@ -193,7 +193,7 @@ Deleting a local file or rewriting Git history does not invalidate a leaked cred
 
 ## Supported versions
 
-Before the first stable release, security fixes are provided only for the latest published version.
+Security fixes are provided only for the latest published version.
 
 ## Explicit native-configuration inspection (private development)
 

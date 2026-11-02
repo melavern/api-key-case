@@ -24,7 +24,7 @@ function validateWorkflow(input) {
     ["workflow name remains CI", () => assert.match(normalized, /^name: CI$/m)],
     ["Public keeps main push and PR triggers; manual dispatch chooses a breadth", () => {
       assert.match(normalized, /^on:\n  push:\n    branches: \[main\]\n  pull_request:\n  workflow_dispatch:\n    inputs:\n      breadth:\n/m);
-      assert.match(normalized, /^        default: representative\n        options: \[representative, keyring, full\]$/m);
+      assert.match(normalized, /^        default: representative\n        options: \[representative, windows, macos, keyring, full\]$/m);
     }],
     ["one stable group per PR or ref cancels superseded read-only runs", () => {
       assert.ok(normalized.includes("group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}\n"));

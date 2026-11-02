@@ -12,9 +12,9 @@ The Agent reads a closed status report, explains it in the user's language, and
 coordinates the existing CLI operations. Secret input and approval remain in the
 existing Human Plane; a chat answer is never an approval credential.
 
-### Generic candidate entry (0.10.0 and later)
+### Generic candidate entry (1.0.0 and later)
 
-The unreleased 0.10.0 candidate's ordinary `agent-init` protocol starts with its
+The unreleased 1.0.0 candidate (prepared as 0.10.0)'s ordinary `agent-init` protocol starts with its
 exact-version `secret capabilities` and project-scoped `secret discover`, before
 legacy setup. Existing confirmed registrations do not require new input;
 selection-required uses the independent Human Plane. An unavailable native route

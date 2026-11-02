@@ -1,14 +1,14 @@
 # Changelog
 
-Notable user-facing changes to API Key Case are recorded here. The package
-remains pre-stable until 1.0; a listed version is not a promise of a future
-release date or support period.
+Notable user-facing changes to API Key Case are recorded here. A listed version is not a promise of a future release date or support period.
+Pro v1 purchase terms cover the 1.x line; see the Terms on the official site.
 
-## [0.10.0] - 2026-10-29
+## [1.0.0] - 2026-11-02
 
 Release preparation; publication is a separate maintainer-controlled step.
 
-The 0.10.0 source includes the changes below. A source tag or this changelog
+First stable release. It was prepared as 0.10.0 and renumbered before any tag
+or npm publication. The 1.0.0 source includes the changes below. A source tag or this changelog
 alone does not establish npm availability or a production-site update. Windows synthetic native acceptance does
 not establish real provider operation, Ubuntu support or cloud-chat connectivity.
 

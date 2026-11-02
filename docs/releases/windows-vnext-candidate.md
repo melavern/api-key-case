@@ -1,6 +1,7 @@
-# Windows 0.10.0 candidate scope
+# Windows 1.0.0 candidate scope
 
-Version 0.10.0 is prepared for release. Published api-key-case 0.9.2 remains
+Version 1.0.0 is prepared for release. It was prepared as 0.10.0 and renumbered
+before any tag or npm publication; the 0.10.0 records below describe the same candidate line. Published api-key-case 0.9.2 remains
 separate; this document does not announce npm availability.
 
 The candidate adds named key registrations, project bindings, guarded provider

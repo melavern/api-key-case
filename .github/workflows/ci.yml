@@ -11,10 +11,10 @@ on:
   workflow_dispatch:
     inputs:
       breadth:
-        description: representative = Ubuntu Node 22 + package; keyring = adds strict OS stores; full = 5 Node/OS + 3 OS stores
+        description: representative = Ubuntu + package; windows/macos = one OS portable suite; keyring = adds stores; full = all
         type: choice
         default: representative
-        options: [representative, keyring, full]
+        options: [representative, windows, macos, keyring, full]
 
 # One stable group per PR or ref: a newer read-only run replaces the older one.
 concurrency:
@@ -66,11 +66,12 @@ jobs:
   # ---------------------------------------------------------------------------
   # Portable suite: everything that does NOT need a real OS secret store.
   #
-  # The scope job supplies the include list (demo/web-ci-scope.mjs). Full
-  # shape: Node 20/22/24 on Linux (cheapest runner), one current Node on macOS
-  # and Windows - 5 jobs, not a 3 x 3 cross-product. macOS/Windows catch path,
-  # casing and shell-quoting regressions. A `representative` dispatch runs only
-  # Ubuntu Node 22; ask for `full` when an OS or Node difference is the question.
+  # The scope job supplies the include list (demo/web-ci-scope.mjs). Automatic
+  # Public runs: Node 20/22/24 on Linux. The macOS/Windows portable jobs run only
+  # on a manual dispatch (`windows`/`macos` isolate one OS without store or package
+  # jobs; `full` covers the entire Node/OS range and all three stores), at most once
+  # per release candidate, and are record-only (docs/RELEASING.md "Standing
+  # publication policy"). A `representative` dispatch runs only Ubuntu Node 22.
   # ---------------------------------------------------------------------------
   test:
     needs: scope
