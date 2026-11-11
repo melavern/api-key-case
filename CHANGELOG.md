@@ -3,6 +3,16 @@
 Notable user-facing changes to API Key Case are recorded here. A listed version is not a promise of a future release date or support period.
 Pro v1 purchase terms cover the 1.x line; see the Terms on the official site.
 
+## [1.0.1] - 2026-11-11
+
+### Fixed
+
+- Persist the generic Secret discovery and reuse instructions in all three
+  `agent-init` host formats. New chats now start with the same capabilities and
+  project discovery flow shown during setup, instead of returning to the legacy
+  fixed-provider workflow. Existing 0.9.2 and explicit local-CLI guidance remain
+  unchanged, as do native approval, Pro and Secret non-return boundaries.
+
 ## [1.0.0] - 2026-11-02
 
 Release preparation; publication is a separate maintainer-controlled step.

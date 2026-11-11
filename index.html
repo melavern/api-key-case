@@ -32,7 +32,7 @@
     "name": "API Key Case",
     "applicationCategory": "DeveloperApplication",
     "operatingSystem": "Windows 11 with Windows Hello; macOS collaborative verification; Linux diagnosis and manual storage",
-    "softwareVersion": "1.0.0",
+    "softwareVersion": "1.0.1",
     "description": "APIキーをAIに見せずに実装を進めるためのローカルCLI。",
     "url": "https://apikeycase.melavern.com/",
     "downloadUrl": "https://www.npmjs.com/package/api-key-case",
@@ -962,7 +962,7 @@
 - 本番環境（production）への配置やGitHubへの登録などの重要な操作はAPI Key Caseの確認画面で行わせてください。チャットでのYes / Noを承認の代わりに使ったり、画面を自動操作したりしないでください。
 
 進め方
-1. npx -y api-key-case@1.0.0 agent-init . を実行してください。新規プロジェクトで指示を残せない場合は、あなたが使用する指示形式に合わせて --host agents / --host claude / --host cursor のいずれかを明示してください。返された固定バージョンのprotocolに従ってください。
+1. npx -y api-key-case@1.0.1 agent-init . を実行してください。新規プロジェクトで指示を残せない場合は、あなたが使用する指示形式に合わせて --host agents / --host claude / --host cursor のいずれかを明示してください。返された固定バージョンのprotocolに従ってください。
 2. 返されたprotocolに従い、secret capabilities --json と secret discover --project . --json で利用条件と既存の登録を確認してください。旧方式の登録を使う場合は、そのprotocolに従って next --json の無料診断も使ってください。環境の問題とPro購入の必要性を分け、購入すれば対応外の環境でも使えるとは案内しないでください。
 3. 既存の登録を先に探し、本人の選択が必要な場合は専用画面で選ばせてください。不足分だけ、何のキーか分かる名前を付けて専用の入力画面を開いてください。既存の .env にあるキーも登録できますが、本文は読まず、私自身が値だけを専用画面へ入力します。登録だけで終了しても構いません。キーの発行・ログインなど私が行う準備は順に案内してください。
 4. 私が希望するサービスや開発アプリを確認し、この版のprotocolに従って進めてください。配置先・アプリ・実行内容を専用画面で確認し、必要なProと本人確認の条件を守ってください。キャンセル、失敗、結果不明があれば止めてください。結果不明の操作を自動で再実行しないでください。
@@ -1087,12 +1087,12 @@
               <summary>コピーされる内容を表示する</summary>
               <textarea class="prompt-text" id="prompt-review" rows="16" readonly aria-label="Security Review用プロンプトの本文">API Key Caseの公開資料を確認し、利用を判断するための材料を整理してください。開発者の説明だけを判断材料にしたくありません。
 
-対象: API Key Case 1.0.0
+対象: API Key Case 1.0.1
 - 公開リポジトリ: https://github.com/melavern/api-key-case
 - Security Model: https://github.com/melavern/api-key-case/blob/main/SECURITY.md
 - プライバシー: https://apikeycase.melavern.com/privacy
 
-最初に、1.0.0に対応する公開ソースが取得できるか確認し、確認したバージョンとコミットを明示してください。取得できない内容を推測で補わず、未確認としてください。公開資料だけを読み、私のプロジェクト・.env・秘密値は読み取らないでください。
+最初に、1.0.1に対応する公開ソースが取得できるか確認し、確認したバージョンとコミットを明示してください。取得できない内容を推測で補わず、未確認としてください。公開資料だけを読み、私のプロジェクト・.env・秘密値は読み取らないでください。
 
 確認してほしい点
 1. APIキーの値がどこを通るか。AIエージェント側へ値が渡る経路が本当に無いか。

@@ -8,7 +8,7 @@
 
 日本語版のREADMEは **[README.ja.md](https://github.com/melavern/api-key-case/blob/main/README.ja.md)** にあります。
 
-> **Instructions for v1.0.0.** Start with the [generic Windows workflow](#generic-windows-workflow). Check [npm](https://www.npmjs.com/package/api-key-case) for published versions.
+> **Instructions for v1.0.1.** Start with the [generic Windows workflow](#generic-windows-workflow). Check [npm](https://www.npmjs.com/package/api-key-case) for published versions.
 >
 > This tool reduces accidental exposure risk. It does not guarantee complete secret protection. Always review generated files before sharing them.
 >
@@ -39,13 +39,13 @@ selection and login/reboot persistence remain environment-dependent.
 
 ## Generic Windows workflow
 
-In v1.0.0, a supported Windows session can:
+In v1.0.1, a supported Windows session can:
 
 - Reuse a registered key in another project or development environment selected by its owner.
 - Start an approved Node.js / Python development app with registered keys.
 - Check interrupted registration, placement, and launch results before continuing.
 
-The new workflow targets Windows. Placement and app launch require Pro and fresh human identity verification. Approved apps and their dependencies can read their keys; review the app before approving it. Ask your usual agent to run `npx -y api-key-case@0.10.0 agent-init .` and follow the returned protocol. It checks capabilities and existing project registrations before requesting missing input. The common input window uses a task-specific key name; classification and context are under Details.
+The new workflow targets Windows. Placement and app launch require Pro and fresh human identity verification. Approved apps and their dependencies can read their keys; review the app before approving it. Ask your usual agent to run `npx -y api-key-case@1.0.1 agent-init .` and follow the returned protocol. It checks capabilities and existing project registrations before requesting missing input. The common input window uses a task-specific key name; classification and context are under Details.
 
 The published release's basic commands can be tried independently:
 
@@ -456,7 +456,7 @@ The test Worker is `api-key-case-license-exchange-test`; live is `api-key-case-l
 
 ## Status and roadmap
 
-Current source candidate: **v1.0.0** (prepared as 0.10.0 and renumbered before publication). The preceding v0.9.2 release was published on npm on 2026-09-30 (JST). Security fixes are provided for the latest published release only. Code completion and portable tests do not establish acceptance on real Agent hosts, Windows/macOS dialogs or provider accounts. See the [release checklist](docs/RELEASING.md), [verification record](docs/VERIFICATION.md) and [changelog](CHANGELOG.md).
+Current source version: **v1.0.1**, correcting the generic instructions saved by `agent-init` in the 1.0.0 source release. Check npm for distribution availability. Security fixes are provided for the latest published release only. Code completion and portable tests do not establish acceptance on real Agent hosts, Windows/macOS dialogs or provider accounts. See the [release checklist](docs/RELEASING.md), [verification record](docs/VERIFICATION.md) and [changelog](CHANGELOG.md).
 
 - Phase 1: local scanning and safe file generation
 - Phase 2: OS secret store save / check / list / remove (`user` / `project` scope)

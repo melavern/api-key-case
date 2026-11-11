@@ -1,8 +1,9 @@
-# Windows 1.0.0 candidate scope
+# Windows 1.0.1 scope
 
-Version 1.0.0 is prepared for release. It was prepared as 0.10.0 and renumbered
-before any tag or npm publication; the 0.10.0 records below describe the same candidate line. Published api-key-case 0.9.2 remains
-separate; this document does not announce npm availability.
+Version 1.0.1 corrects the generic instructions saved by `agent-init` in the
+1.0.0 source release. The 0.10.0 preparation records describe the same feature
+line before its renumbering. Check npm for distribution availability; this
+scope document alone does not establish publication.
 
 The candidate adds named key registrations, project bindings, guarded provider
 placement and approved local Node.js / Python application sessions. The ordinary

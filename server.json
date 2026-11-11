@@ -8,12 +8,12 @@
     "source": "github"
   },
   "websiteUrl": "https://apikeycase.melavern.com/",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "api-key-case",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "runtimeHint": "npx",
       "transport": {
         "type": "stdio"

@@ -117,7 +117,7 @@ export async function runAgentCurrentCliTests(){
   assert.equal(createHash('sha256').update(defaultProtocol).digest('hex'),'b3d2603376c9572f745bc125fafd9e6ac22333a6916c5a3dbf6fe9500f5782b0','schema-13 guidance includes the closed Resend native enrollment selection');
   for (const text of ['connection destinations --json', '--destination <catalog-id>', 'history schema 4', 'No arbitrary config path, command or --force',
     '--native-enrollment <resend-vercel-integration|resend-vercel-marketplace>', 'Existing Resend schema-1 choices are `unrecorded`']) assert.ok(defaultProtocol.includes(text));cases++;
-  for(const version of ['0.10.0-rc.1','0.10.0','1.0.0']){
+  for(const version of ['0.10.0-rc.1','0.10.0','1.0.0','1.0.1']){
    const protocol=renderAgentProtocol(version),first=protocol.split('\n').find(line=>line.startsWith('- For API key,'));
    assert.ok(first.includes(`api-key-case@${version} secret capabilities --json`));
    assert.ok(first.includes(`api-key-case@${version} secret discover --project . --json`));
@@ -125,6 +125,16 @@ export async function runAgentCurrentCliTests(){
    assert.match(protocol,/selection-required is not missing/);assert.match(protocol,/fresh native OS approval/);
    assert.match(protocol,/unknown provider\/app effects must not be automatically replayed/);
    assert.match(protocol,/never fall back to a legacy command/);cases++;
+   for(const [host,marker] of [['agents','AGENTS.md'],['claude','CLAUDE.md'],['cursor','.cursor/rules/api-key-case.mdc']]){
+    const persistedProject=join(root,`persisted-${version}-${host}`);mkdirSync(persistedProject);
+    initializeAgentInstructions({projectDir:persistedProject,packageVersion:version,host,check:false});
+    const persisted=readFileSync(join(persistedProject,marker),'utf8');
+    assert.ok(persisted.includes(first),'a new chat must receive the same generic first action as the initial response');
+    for(const guidance of ['selection-required is not missing','fresh native OS approval','unknown provider/app effects must not be automatically replayed','Never request, read, print, hash, measure, or persist'])assert.ok(persisted.includes(guidance));
+    initializeAgentInstructions({projectDir:persistedProject,packageVersion:version,host,check:false});
+    assert.equal(readFileSync(join(persistedProject,marker),'utf8'),persisted);
+    assert.ok(initializeAgentInstructions({projectDir:persistedProject,packageVersion:version,host,check:true}).files.every(file=>file.status==='current'));cases++;
+   }
   }
   const checkout=join(root,process.platform==='win32'?"日本 語 CLI ' $() `literal`":"日本 語 CLI ' $(echo injected) `echo injected` \"literal\""),home=join(root,'fixture-home'),project=join(root,'fresh-project');
   for(const p of [checkout,home,project])mkdirSync(p);

@@ -1,6 +1,6 @@
 {
   "name": "api-key-case",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "mcpName": "io.github.melavern/api-key-case",
   "description": "Keep API keys out of AI coding sessions with local scanning, OS secret storage, and guarded CLI deployment.",
   "type": "module",

@@ -454,6 +454,16 @@ function setupProtocol(packageVersion: string): string[] {
 }
 
 function managedBody(packageVersion: string, currentCli?: CurrentCliInvocation): string {
+  const [major, minor] = packageVersion.split(".").map(Number);
+  if (!currentCli && (major > 0 || minor >= 10)) {
+    return [
+      "## API Key Case (managed)",
+      "",
+      "- License for this API Key Case managed instruction block only: 0BSD (https://spdx.org/licenses/0BSD.html). This does not change the license of the surrounding repository.",
+      ...renderAgentProtocol(packageVersion).split("\n").slice(1),
+      "- Never request, read, print, hash, measure, or persist a Secret value or partial value."
+    ].join("\n");
+  }
   const text = [
     "## API Key Case (managed)",
     "",

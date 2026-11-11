@@ -220,6 +220,12 @@ try {
     }
     const instructionPath = join(project, marker);
     const original = readFileSync(instructionPath, "utf8");
+    if (major > 0 || minor >= 10) {
+      assert.ok(original.includes(`api-key-case@${manifest.version} secret capabilities --json`));
+      assert.ok(original.includes(`api-key-case@${manifest.version} secret discover --project . --json`));
+      assert.match(original, /selection-required is not missing/);
+      assert.match(original, /fresh native OS approval/);
+    }
     assert.match(original, /managed instruction block only: 0BSD/);
     assert.doesNotMatch(original, /SPDX-License-Identifier:/);
     cli(["agent-init", ".", "--host", host], project);
