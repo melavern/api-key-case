@@ -3,8 +3,29 @@
 This is the reviewed public projection of the candidate verification record.
 Private operator/CI references and cross-product research are excluded. Earlier
 published-release records remain available in this public repository's history.
-This file does not declare a release, prove a real provider write, or authorize
-publication. The candidate is separate from published api-key-case 0.9.2.
+This file does not prove a real provider write or authorize publication.
+
+## 1.0.1 instruction persistence — 2026-11-11
+
+Version 1.0.1 is published on npm and as an immutable GitHub tag/release.
+Anonymous npm and GitHub downloads match the archive below; npm latest and
+the active/latest MCP Registry card both resolve to 1.0.1. The production
+website references the same version with the existing price unchanged.
+
+The patch corrects the generic protocol saved by `agent-init` for AGENTS, Claude
+and Cursor. The owner-host Windows / Node 24.15.0 full suite and strict real
+Credential Manager checks passed. The exact Public candidate passed the
+[Linux Node 22 suite, strict OS stores and package checks](https://github.com/melavern/api-key-case/actions/runs/42997128179).
+The macOS store check is not native GUI or provider acceptance.
+
+Fresh installed verification covered 321 allowlisted files, saved generic
+guidance, idempotence, drift refusal and default/optional MCP contracts. Every
+installed application file remained byte-identical. The verified archive is
+558,083 bytes with SHA-256
+`2fe2c1f96b7d527b950066b351c8ec2b62f04879674e85f57554bd2aed092f52`.
+Native input, approval, storage and execution implementations were unchanged;
+their earlier acceptance below is reused only within its original limits.
+No new real-provider write or live purchase is claimed.
 
 ## Release preparation and compact input — 2026-10-29
 

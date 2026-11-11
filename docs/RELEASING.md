@@ -1,5 +1,7 @@
 # Release checklist
 
+> **Current release (2026-11-11):** 1.0.1 is available on npm, GitHub and the MCP Registry. The production LP uses the same release and the existing JPY 2,980 price. See the [1.0.1 verification](releases/windows-vnext-verification.md#101-instruction-persistence--2026-11-11). Older dated candidate and 0.9.2 entries below are historical and do not create new pending release work.
+
 > **vNext note (2026-10-21):** 新経路の対応範囲と未受入事項は[Windows開発候補](releases/windows-vnext-candidate.md)で区別する。Privateでの設計・実装は公開npm 0.9.2・LP・販売条件を変更しない。新機能が実装/OS実機受入を終えた段階でのみ本書の既存公開ゲートへ渡す。本書にある従来の公開記録をvNextの受入済み証拠としない。内部戦略・Human Roadmap・上流設計はPublic exportへ含めない。
 
 This checklist describes the human-controlled steps between the private
@@ -62,9 +64,9 @@ macOS, provider validity/execution or a public release.
 ## MCP Registry publication
 
 The official MCP Registry is in preview. `server.json`
-(`io.github.melavern/api-key-case` version `0.9.2`) was published to the
-Registry on 2026-09-30 and read back as the active latest version (see
-[VERIFICATION](VERIFICATION.md#mcp-registry-publication--2026-09-30)). It points at
+(`io.github.melavern/api-key-case` version `1.0.1`) was published to the
+Registry on 2026-11-11 and read back as active/latest. The earlier 0.9.2 record
+remains in [VERIFICATION](VERIFICATION.md#mcp-registry-publication--2026-09-30). It points at
 the existing public `api-key-case` npm package and its `mcp` stdio subcommand.
 The `melavern` namespace matches the public source repository and package
 publisher; the private development repository is not the Registry source.
@@ -75,11 +77,11 @@ against the card's `name`. Published `0.9.1` cannot acquire this marker after
 the fact. Do not publish the Registry card while it names an npm version that
 has not passed the normal release gates and become available on npm.
 
-After the reviewed `0.9.2` npm release is public:
+After the reviewed npm release is public (1.0.1 example):
 
-1. Verify `npm view api-key-case@0.9.2 name version mcpName --json` reports
+1. Verify `npm view api-key-case@1.0.1 name version mcpName --json` reports
    `mcpName: io.github.melavern/api-key-case`, and confirm the released artifact
-   still launches with `npx -y api-key-case@0.9.2 mcp` in a client.
+   still launches with `npx -y api-key-case@1.0.1 mcp` in a client.
 2. Install the current official `mcp-publisher` from the [Registry publishing
    guide](https://github.com/modelcontextprotocol/registry/blob/main/docs/modelcontextprotocol-io/quickstart.mdx).
    Run `mcp-publisher validate server.json` and resolve any current-schema
